@@ -432,6 +432,8 @@ namespace Game {
 
         public static bool SafeMode { get; set; }
 
+        public static bool ForceThirtyTwoBitsIndexFormat { get; set; }
+
         public static bool AdaptEdgeToEdgeDisplay { get; set; }
 
         public static event Action<string> SettingChanged;
@@ -646,6 +648,7 @@ namespace Game {
 #endif
                 FileAssociationEnabled = true;
                 SafeMode = false;
+                ForceThirtyTwoBitsIndexFormat = false;
                 AdaptEdgeToEdgeDisplay = Window.HasWideNotch;
                 LetRamdomStatic = false;
                 InitializeKeyboardMappingSettings();
@@ -654,6 +657,7 @@ namespace Game {
                 InitializeCameraManageSettings();
             }
             LoadSettings();
+            IndexBuffer.ForceThirtyTwoBits = ForceThirtyTwoBitsIndexFormat;
             TextBoxWidget.ShowCandidatesWindow = FullScreenMode;
             Window.Deactivated += delegate { SaveSettings(); };
         }
