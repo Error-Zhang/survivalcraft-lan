@@ -197,6 +197,7 @@ namespace Game {
                             return false;
                         }
                     );
+                    CommunityApp.OnScreenLeaved(m_animationData.OldScreen);
                     RootWidget.Children.Remove(m_animationData.OldScreen);
                 }
                 if (m_animationData.NewScreen != null) {
@@ -210,6 +211,7 @@ namespace Game {
                             return false;
                         }
                     );
+                    CommunityApp.OnScreenEntered(m_animationData.NewScreen, m_animationData.Parameters);
                     RootWidget.IsUpdateEnabled = true;
                 }
             }

@@ -180,6 +180,18 @@ public class GameLoadingScreen : Screen {
         }
         m_stateMachine.TransitionTo("WaitingForFadeIn");
         ProgressManager.UpdateProgress("Loading World", 0f);
+        OldCommunityContentScreen screen = ScreensManager.FindScreen<OldCommunityContentScreen>("CommunityContent");
+        if (screen != null) {
+            screen.m_treePanel.Clear();
+            screen.m_treePanel.ScrollPosition = 0f;
+            screen.m_contentExpiryTime = 0;
+        }
+        OriginalCommunityContentScreen originalCommunityContentScreen = ScreensManager.FindScreen<OriginalCommunityContentScreen>("OriginalCommunityContent");
+        if (originalCommunityContentScreen != null) {
+            originalCommunityContentScreen.m_listPanel.ClearItems();
+            originalCommunityContentScreen.m_listPanel.ScrollPosition = 0f;
+            originalCommunityContentScreen.m_itemsCacheExpiryTime = 0;
+        }
     }
 }
 

@@ -671,6 +671,7 @@ namespace Game {
                 }
             );
             AddLoadAction(KeyCompatibleGroupsManager.Initialize); // 初始化按键兼容组
+            AddLoadAction(delegate { CommunityApp.OnLoadingFinished(); });
             AddLoadAction(
                 delegate {
                     if (Program.IsDebugMultiplayerHost) {
