@@ -674,6 +674,7 @@ namespace Game {
             AddLoadAction(delegate { CommunityApp.OnLoadingFinished(); });
             AddLoadAction(
                 delegate {
+                    string restartReturnScreen = ScreensManager.ConsumeRestartReturnScreen();
                     if (Program.IsDebugMultiplayerHost) {
                         if (!Program.StartupParameters.TryGetValue("debug-world", out string worldDirectory)) {
                             throw new InvalidOperationException("Debug multiplayer host did not receive a world directory.");
@@ -710,6 +711,9 @@ namespace Game {
                     else if (Program.StartupParameters.TryGetValue("join", out string serverEndpoint)) {
                         ScreensManager.SwitchScreen("GameLoading", null, null, IPEndPoint.Parse(serverEndpoint), null);
                     }
+                    else if (restartReturnScreen != null) {
+                        ScreensManager.SwitchScreen(restartReturnScreen);
+                    }
                     else {
                         ScreensManager.SwitchScreen("MainMenu");
                     }
@@ -743,6 +747,8 @@ namespace Game {
             AddLoadAction(delegate { AddScreen("ExternalContent", new ExternalContentScreen()); });
             AddLoadAction(delegate { AddScreen("CommunityContent", new CommunityContentScreen()); });
             AddLoadAction(delegate { AddScreen("OriginalCommunityContent", new OriginalCommunityContentScreen()); });
+            AddLoadAction(delegate { AddScreen("ScbbsPlusCommunity", new CommunityScreen()); });
+            AddLoadAction(delegate { AddScreen("ScbbsPlusMore", new CommunityMoreScreen()); });
             AddLoadAction(delegate { AddScreen("Content", new ContentScreen()); });
             AddLoadAction(delegate { AddScreen("ManageContent", new ManageContentScreen()); });
             AddLoadAction(delegate { AddScreen("ModsManageContent", new ModsManageContentScreen()); });

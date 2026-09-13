@@ -492,6 +492,12 @@ namespace Game {
 
         public static bool LetRamdomStatic { get; set; }
 
+        /// <summary>
+        ///     重启直达目标屏名（ScreensManager.RestartGameToScreen 写入，
+        ///     LoadingScreen 完成加载时消费并清空）。瞬态值，正常驻留不超过一次重启。
+        /// </summary>
+        public static string RestartReturnScreen { get; set; } = string.Empty;
+
         static string m_databaseClassSubstitutes;
 
         public static string DatabaseClassSubstitutes {
@@ -639,6 +645,7 @@ namespace Game {
                 CommunityApplyDownloadSourceToUpdates = false;
                 CommunityShowImportFromWebLinkEntry = true;
                 CommunityPlayedTimeReportingEnabled = true;
+                RestartReturnScreen = string.Empty;
                 MultithreadedTerrainUpdate = true;
                 NewYearCelebrationLastYear = 2025;
                 ScreenLayout1 = ScreenLayout.Single;
