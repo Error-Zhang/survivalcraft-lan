@@ -16,14 +16,14 @@ public static class OriginalCommunityContentManager {
 
     public static void Initialize() {
         Load();
-        WorldsManager.WorldDeleted += delegate (string path) { m_idToAddressMap.Remove(MakeContentIdString(ExternalContentType.World, path)); };
-        BlocksTexturesManager.BlocksTextureDeleted += delegate (string path) {
+        WorldsManager.WorldDeleted += delegate(string path) { m_idToAddressMap.Remove(MakeContentIdString(ExternalContentType.World, path)); };
+        BlocksTexturesManager.BlocksTextureDeleted += delegate(string path) {
             m_idToAddressMap.Remove(MakeContentIdString(ExternalContentType.BlocksTexture, path));
         };
-        CharacterSkinsManager.CharacterSkinDeleted += delegate (string path) {
+        CharacterSkinsManager.CharacterSkinDeleted += delegate(string path) {
             m_idToAddressMap.Remove(MakeContentIdString(ExternalContentType.CharacterSkin, path));
         };
-        FurniturePacksManager.FurniturePackDeleted += delegate (string path) {
+        FurniturePacksManager.FurniturePackDeleted += delegate(string path) {
             m_idToAddressMap.Remove(MakeContentIdString(ExternalContentType.FurniturePack, path));
         };
         Window.Deactivated += delegate { Save(); };
@@ -71,7 +71,7 @@ public static class OriginalCommunityContentManager {
             null,
             WebManager.UrlParametersToStream(dictionary),
             progress,
-            delegate (byte[] result) {
+            delegate(byte[] result) {
                 try {
                     XElement xElement = XmlUtils.LoadXmlFromString(Encoding.UTF8.GetString(result, 0, result.Length), true);
                     string attributeValue = XmlUtils.GetAttributeValue<string>(xElement, "NextCursor");
@@ -101,7 +101,7 @@ public static class OriginalCommunityContentManager {
                     failure(obj);
                 }
             },
-            delegate (Exception error) { failure(error); }
+            delegate(Exception error) { failure(error); }
         );
     }
 
@@ -122,46 +122,45 @@ public static class OriginalCommunityContentManager {
             null,
             null,
             progress,
-            delegate (byte[] data) {
+            delegate(byte[] data) {
                 string hash = CalculateContentHashString(data);
-                ExternalContentManager.ImportExternalContent(
-                    new MemoryStream(data),
-                    type,
-                    name,
-                    delegate (string downloadedName) {
-                        m_idToAddressMap[MakeContentIdString(type, downloadedName)] = address;
-                        Feedback(
-                            address,
-                            "Success",
-                            null,
-                            hash,
-                            data.Length,
-                            userId,
-                            progress,
-                            delegate { },
-                            delegate { }
-                        );
-                        //AnalyticsManager.LogEvent("[OriginalCommunityContentManager] Download Success", new AnalyticsParameter("Name", name));
-                        success();
-                    },
-                    delegate (Exception error) {
-                        Feedback(
-                            address,
-                            "ImportFailure",
-                            null,
-                            hash,
-                            data.Length,
-                            userId,
-                            null,
-                            delegate { },
-                            delegate { }
-                        );
-                        //AnalyticsManager.LogEvent("[OriginalCommunityContentManager] Import Failure", new AnalyticsParameter("Name", name), new AnalyticsParameter("Error", error.Message.ToString()));
-                        failure(error);
-                    }
-                );
+                ExternalContentPreparation preparation;
+                try {
+                    preparation = ExternalContentManager.PrepareExternalContent(
+                        ModIdentity.PackageName,
+                        0,
+                        name,
+                        type,
+                        // publiclyVisible 让准备器 TryGetBuffer 零拷贝别名 data，免二次整包拷贝。
+                        new MemoryStream(data, 0, data.Length, writable: true, publiclyVisible: true));
+                }
+                catch (Exception error) {
+                    Feedback(address, "ImportFailure", null, hash, data.Length, userId, null, delegate { }, delegate { });
+                    failure(error);
+                    return;
+                }
+                if (preparation.RequiresOverwriteConfirmation) {
+                    DialogsManager.ShowDialog(
+                        null,
+                        new CommunityImportOverwriteDialog(
+                            preparation.GetOverwriteConfirmationMessage(),
+                            preparation.CanRenameOnOverwrite,
+                            delegate(ImportOverwriteAction action) {
+                                if (action == ImportOverwriteAction.Overwrite) {
+                                    ImportPrepared(address, hash, data.Length, userId, progress, preparation, overwriteExisting: true, success, failure);
+                                } else if (action == ImportOverwriteAction.Rename) {
+                                    ImportPrepared(address, hash, data.Length, userId, progress, preparation, overwriteExisting: false, success, failure);
+                                }
+                                // 取消：下载成功、导入被用户中止，不计 Success 也不计 ImportFailure。
+                            }
+                        )
+                    );
+                }
+                else {
+                    ImportPrepared(address, hash, data.Length, userId, progress, preparation, overwriteExisting: true, success, failure);
+                }
             },
-            delegate (Exception error) {
+            delegate(Exception error) {
                 Feedback(
                     address,
                     "DownloadFailure",
@@ -174,6 +173,31 @@ public static class OriginalCommunityContentManager {
                     delegate { }
                 );
                 //AnalyticsManager.LogEvent("[OriginalCommunityContentManager] Download Failure", new AnalyticsParameter("Name", name), new AnalyticsParameter("Error", error.Message.ToString()));
+                failure(error);
+            }
+        );
+    }
+
+    private static void ImportPrepared(string address,
+        string hash,
+        long size,
+        string userId,
+        CancellableProgress progress,
+        ExternalContentPreparation preparation,
+        bool overwriteExisting,
+        Action success,
+        Action<Exception> failure) {
+        ExternalContentManager.ImportPreparedExternalContentAsync(
+            ModIdentity.PackageName,
+            preparation,
+            overwriteExisting,
+            delegate(string downloadedName) {
+                m_idToAddressMap[MakeContentIdString(preparation.Type, downloadedName)] = address;
+                Feedback(address, "Success", null, hash, size, userId, progress, delegate { }, delegate { });
+                success();
+            },
+            delegate(Exception error) {
+                Feedback(address, "ImportFailure", null, hash, size, userId, null, delegate { }, delegate { });
                 failure(error);
             }
         );
@@ -200,7 +224,7 @@ public static class OriginalCommunityContentManager {
             name,
             type,
             progress,
-            delegate (byte[] data) {
+            delegate(byte[] data) {
                 string value = CalculateContentHashString(data);
                 WebManager.Post(
                     CommunityServerManager.CurrentOriginalInfo.ApiUrl,
@@ -224,7 +248,7 @@ public static class OriginalCommunityContentManager {
                         success();
                         //AnalyticsManager.LogEvent("[OriginalCommunityContentManager] Publish Success", new AnalyticsParameter("Name", name), new AnalyticsParameter("Type", type.ToString()), new AnalyticsParameter("Size", data.Length.ToString()), new AnalyticsParameter("User", userId));
                     },
-                    delegate (Exception error) {
+                    delegate(Exception error) {
                         failure(error);
                         //AnalyticsManager.LogEvent("[OriginalCommunityContentManager] Publish Failure", new AnalyticsParameter("Name", name), new AnalyticsParameter("Type", type.ToString()), new AnalyticsParameter("Size", data.Length.ToString()), new AnalyticsParameter("User", userId), new AnalyticsParameter("Error", error.Message.ToString()));
                     }
@@ -256,7 +280,7 @@ public static class OriginalCommunityContentManager {
                 success();
                 //AnalyticsManager.LogEvent("[OriginalCommunityContentManager] Delete Success", new AnalyticsParameter("Name", address), new AnalyticsParameter("User", userId));
             },
-            delegate (Exception error) {
+            delegate(Exception error) {
                 failure(error);
                 //AnalyticsManager.LogEvent("[OriginalCommunityContentManager] Delete Failure", new AnalyticsParameter("Name", address), new AnalyticsParameter("User", userId), new AnalyticsParameter("Error", error.Message.ToString()));
             }
@@ -318,7 +342,7 @@ public static class OriginalCommunityContentManager {
             CancellableProgress progress,
             Action<byte[]> success,
             Action<Exception> failure)
-    // ReSharper restore UnusedParameter.Local
+        // ReSharper restore UnusedParameter.Local
     {
         progress = progress ?? new CancellableProgress();
         WebManager.Get(
@@ -326,12 +350,12 @@ public static class OriginalCommunityContentManager {
             null,
             null,
             progress,
-            delegate (byte[] data) {
+            delegate(byte[] data) {
                 ExternalContentManager.ImportExternalContent(
                     new MemoryStream(data),
                     type,
                     "__Temp",
-                    delegate (string downloadedName) {
+                    delegate(string downloadedName) {
                         ExternalContentManager.DeleteExternalContent(type, downloadedName);
                         success(data);
                     },
@@ -391,7 +415,7 @@ public static class OriginalCommunityContentManager {
             WebManager.UrlParametersToStream(dictionary),
             progress,
             delegate { success(); },
-            delegate (Exception error) { failure(error); }
+            delegate(Exception error) { failure(error); }
         );
     }
 
