@@ -745,9 +745,8 @@ namespace Game {
             AddLoadAction(delegate { AddScreen("Game", new GameScreen()); });
             AddLoadAction(delegate { AddScreen("TrialEnded", new TrialEndedScreen()); });
             AddLoadAction(delegate { AddScreen("ExternalContent", new ExternalContentScreen()); });
-            AddLoadAction(delegate { AddScreen("CommunityContent", new CommunityContentScreen()); });
             AddLoadAction(delegate { AddScreen("OriginalCommunityContent", new OriginalCommunityContentScreen()); });
-            AddLoadAction(delegate { AddScreen("ScbbsPlusCommunity", new CommunityScreen()); });
+            AddLoadAction(delegate { AddScreen("CommunityContent", new CommunityScreen()); });
             AddLoadAction(delegate { AddScreen("ScbbsPlusMore", new CommunityMoreScreen()); });
             AddLoadAction(delegate { AddScreen("Content", new ContentScreen()); });
             AddLoadAction(delegate { AddScreen("ManageContent", new ManageContentScreen()); });
