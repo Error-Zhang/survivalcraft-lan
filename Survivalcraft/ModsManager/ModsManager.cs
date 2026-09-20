@@ -815,6 +815,8 @@ public static class ModsManager {
             using Stream stream = Storage.OpenFile(filePath, OpenFileMode.Read);
             Stream keepOpenStream = GetDecipherStream(stream);
             modEntity = new ModEntity(filePath, ZipArchive.Open(keepOpenStream, true), isSystemMod, constructAsPending);
+            // rescan 构造即待重启：磁盘有文件而本进程未加载，重启后生效（启动期构造恒为 false）
+            modEntity.IsPendingRestart = constructAsPending;
             if (modEntity.modInfo == null) {
                 LoadingScreen.Warning(
                     $"The modinfo.json is missing or broken from [{Storage.GetFileName(modEntity.ModFilePath)}], and this mod will be disabled."
