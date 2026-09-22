@@ -347,7 +347,20 @@ namespace Game {
                 DisableReason = ModDisableReason.InvalidPackageName;
                 return;
             }
-            ModEntity temp = ModsManager.ModListAll.FirstOrDefault(x => x.modInfo?.PackageName == modInfo.PackageName);
+            // 手动禁用检查必须先于包名查重：被禁用的模组"占名不占位"（不加载、不该连累别人）。
+            // 否则"禁用旧版 + 下载同包名新版"重启后，后构造方查重命中先构造方，
+            // 互标 Duplicated 把手动禁用升级成重复禁用，新版也被冤杀。
+            if (!IsSystemMod
+                && ModsManager.DisabledMods.TryGetValue(modInfo.PackageName, out HashSet<string> disabledVersions)
+                && disabledVersions.Contains(modInfo.Version)) {
+                IsDisabled = true;
+                DisableReason = ModDisableReason.Manually;
+                return;
+            }
+            // 查重跳过手动禁用的对手：同包名"禁用旧版 + 正常新版"是合法共存态。
+            // 不排除 Duplicated/依赖错误等已禁用对手——三副本场景靠链式互标保持全禁。
+            ModEntity temp = ModsManager.ModListAll.FirstOrDefault(x => x.modInfo?.PackageName == modInfo.PackageName
+                && !(x.IsDisabled && x.DisableReason == ModDisableReason.Manually));
             if (temp != null) {
                 if (temp.IsSystemMod) {
                     // InternalMods has priority over the user-writable Mods directory.
@@ -371,13 +384,6 @@ namespace Game {
                     temp.DisableReason = ModDisableReason.Duplicated;
                     return;
                 }
-            }
-            if (!IsSystemMod
-                && ModsManager.DisabledMods.TryGetValue(modInfo.PackageName, out HashSet<string> disabledVersions)
-                && disabledVersions.Contains(modInfo.Version)) {
-                IsDisabled = true;
-                DisableReason = ModDisableReason.Manually;
-                return;
             }
             if (m_constructAsPending) {
                 // 待重启实体尚未加载内容，不打"已加载"日志避免误导
