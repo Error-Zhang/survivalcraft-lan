@@ -2,7 +2,7 @@
 using Engine;
 using Game;
 
-public class ModsManageContentScreen : Screen {
+public partial class ModsManageContentScreen : Screen {
     public static string fName = "ModsManageContentScreen";
 
     public ListPanelWidget m_modsContentList;
@@ -140,6 +140,7 @@ public class ModsManageContentScreen : Screen {
             if (item is not ModEntity entity) {
                 return;
             }
+            m_selectedEntity = entity;
             if (ReferenceEquals(entity, m_modsContentList.SelectedItem)) {
                 DialogsManager.ShowDialog(null, new ModDetailsDialog(this, entity));
             }
@@ -172,6 +173,7 @@ public class ModsManageContentScreen : Screen {
         ModsManager.ModListRescanned += RefreshModList;
         _ = ModsManager.RescanModsAsync();
         RefreshModList();
+        LaunchAutoUpdateScanIfNeeded();
     }
 
     public override void Leave() {
@@ -180,15 +182,20 @@ public class ModsManageContentScreen : Screen {
         m_viewDetailButton.IsEnabled = false;
         m_triggerEnableButton.IsEnabled = false;
         m_openHomepageButton.IsEnabled = false;
+        // 社区更新检查链：取消在途网络任务并作废全部 TaskSlot 在途结果（spec §5.5）
+        m_localModNetworkManager.Cancel();
+        m_publishedCheckSlot.Invalidate();
     }
 
     private void RefreshModList() {
         m_modsContentList.ClearItems();
         m_modsContentList.AddItems(ModsManager.ModListAll.Where(entity => !entity.IsSystemMod).ToList());
+        RebuildLocalModItems();
     }
 
     public override void Update() {
         if (m_modsContentList.SelectedItem is ModEntity entity) {
+            m_selectedEntity = entity;
             if (m_viewDetailButton.IsClicked) {
                 DialogsManager.ShowDialog(null, new ModDetailsDialog(this, entity));
             }
@@ -248,6 +255,13 @@ public class ModsManageContentScreen : Screen {
                 ScreensManager.SwitchScreen("Content");
             }
         }
+        // 社区更新检查链六路 TaskSlot 消费（扫描/检查更新/版本列表/依赖/已发布检查/评分）
+        UpdateAutoUpdateScanTask();
+        UpdateUpdateCheckTask();
+        UpdateVersionsLoadTask();
+        UpdateDependencyLookupTask();
+        UpdatePublishedCheckTask();
+        UpdateModScoreTask();
     }
 
     public void TriggerEnable(ModEntity entity) {
@@ -321,6 +335,25 @@ public class ModsManageContentScreen : Screen {
             && versions2.Contains(entity.modInfo.Version)) {
             title = $"[{LanguageControl.Get(fName, "22")} {LanguageControl.Get(fName, "81")}] {title}";
             titleColor = Color.Yellow;
+            return true;
+        }
+        // spec §3.2：无任何加载状态标记时才显示更新标记（让位于禁用/待重启/文件已删除）
+        if (TryGetModUpdateTag(entity, out string updateTag)) {
+            title = $"[{updateTag}] {title}";
+            titleColor = new Color(245, 200, 120);
+        }
+        return false;
+    }
+
+    // 更新缓存键与 LocalResourceIdentity.MakeModReviewKey 同源：优先包名、退化文件路径，
+    // 仅依赖 ModEntity 自身字段，无需屏实例映射
+    private static bool TryGetModUpdateTag(ModEntity entity, out string tag) {
+        tag = null;
+        string key = !string.IsNullOrWhiteSpace(entity?.modInfo?.PackageName) ? entity.modInfo.PackageName : entity?.ModFilePath;
+        if (string.IsNullOrWhiteSpace(key)) return false;
+        if (LocalModStateStore.LocalModUpdateDetailsCache.TryGetValue(key, out LocalModUpdateCheckResult info)
+            && info?.HasUpdate == true && info.File != null) {
+            tag = LanguageControl.Get("ScbbsPlusLocalScreen", "Text", "HasUpdate");
             return true;
         }
         return false;
