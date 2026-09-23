@@ -323,8 +323,6 @@ namespace Game {
 
         public static bool CommunityApplyDownloadSourceToUpdates { get; set; }
 
-        public static bool CommunityShowImportFromWebLinkEntry { get; set; } = true;
-
         public static bool CommunityPlayedTimeReportingEnabled { get; set; } = true;
 
         public static bool MultithreadedTerrainUpdate { get; set; }
@@ -634,8 +632,8 @@ namespace Game {
                 HorizontalCreativeFlight = false;
                 DropboxAccessToken = string.Empty;
                 //ScpboxAccessToken = string.Empty;
-                MotdUpdateUrl = $"{CommunityServerManager.CurrentChineseInfo.ApiUrl}com/motd?v={0}&l={1}";
-                MotdUpdateCheckUrl = $"{CommunityServerManager.CurrentChineseInfo.ApiUrl}com/motd?v={0}&cmd=version_check&platform={1}&apiv={2}&l={3}";
+                MotdUpdateUrl = $"{CommunityServerManager.CurrentApiBaseUrl}/com/motd?v={0}&l={1}";
+                MotdUpdateCheckUrl = $"{CommunityServerManager.CurrentApiBaseUrl}/com/motd?v={0}&cmd=version_check&platform={1}&apiv={2}&l={3}";
                 MotdUpdatePeriodHours = 12.0;
                 MotdLastUpdateTime = DateTime.MinValue;
                 MotdLastDownloadedData = string.Empty;
@@ -648,7 +646,6 @@ namespace Game {
                 CommunityDownloadSourceSelectionMode = DownloadSourceSelectionMode.Default;
                 CommunityDefaultDownloadSource = DownloadSourceOption.DefaultCn;
                 CommunityApplyDownloadSourceToUpdates = false;
-                CommunityShowImportFromWebLinkEntry = true;
                 CommunityPlayedTimeReportingEnabled = true;
                 RestartReturnScreen = string.Empty;
                 MultithreadedTerrainUpdate = true;
