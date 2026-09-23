@@ -317,8 +317,6 @@ namespace Game {
 
         public static CommunityContentMode OriginalCommunityContentMode { get; set; }
 
-        public static string CommunityApiBaseUrl { get; set; } = ApiUrls.DefaultBaseUrl;
-
         public static DownloadSourceSelectionMode CommunityDownloadSourceSelectionMode { get; set; } = DownloadSourceSelectionMode.Default;
 
         public static DownloadSourceOption CommunityDefaultDownloadSource { get; set; } = DownloadSourceOption.DefaultCn;
@@ -647,7 +645,6 @@ namespace Game {
                 WillEnterServerPwd = string.Empty;
                 CommunityContentMode = CommunityContentMode.Normal;
                 OriginalCommunityContentMode = CommunityContentMode.Normal;
-                CommunityApiBaseUrl = ApiUrls.DefaultBaseUrl;
                 CommunityDownloadSourceSelectionMode = DownloadSourceSelectionMode.Default;
                 CommunityDefaultDownloadSource = DownloadSourceOption.DefaultCn;
                 CommunityApplyDownloadSourceToUpdates = false;
