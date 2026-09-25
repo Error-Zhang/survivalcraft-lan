@@ -63,6 +63,15 @@ namespace Game {
         }
 
         public virtual void StartMounting(ComponentMount componentMount) {
+            bool skipVanilla = false;
+            ModsManager.HookAction("OnStartMounting",
+                loader => {
+                    loader.OnStartMounting(this, componentMount, ref skipVanilla);
+                    return false;
+                }
+            );
+            if (skipVanilla)
+                return;
             StartMounting(componentMount, false);
         }
 
@@ -92,6 +101,15 @@ namespace Game {
         }
 
         public virtual void StartDismounting() {
+            bool skipVanilla = false;
+            ModsManager.HookAction("OnStartDismounting",
+                loader => {
+                    loader.OnStartDismounting(this, Mount, ref skipVanilla);
+                    return false;
+                }
+            );
+            if (skipVanilla)
+                return;
             StartDismounting(false);
         }
 

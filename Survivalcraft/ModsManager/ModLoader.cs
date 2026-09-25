@@ -2351,5 +2351,21 @@ namespace Game {
         public virtual void OnNetworkBodyUpdated(ComponentBody body, float dt) { }
 
         public virtual void OnNetworkEditableItemDataHarvested<T>(int id, T data) { }
+
+        /// <summary>
+        /// 当开始骑乘时执行
+        /// </summary>
+        /// <param name="componentRider">骑手</param>
+        /// <param name="componentMount">被骑乘的实体</param>
+        /// <param name="skipVanilla">是否跳过原版逻辑（ref，true 表示已接管）</param>
+        public virtual void OnStartMounting(ComponentRider componentRider, ComponentMount componentMount, ref bool skipVanilla) { }
+
+        /// <summary>
+        /// 当结束骑乘时执行
+        /// </summary>
+        /// <param name="componentRider">骑手</param>
+        /// <param name="componentMount">被骑乘的实体。注意：可能为null</param>
+        /// <param name="skipVanilla">是否跳过原版逻辑（ref，true 表示已接管）</param>
+        public virtual void OnStartDismounting(ComponentRider componentRider, ComponentMount componentMount, ref bool skipVanilla) { }
     }
 }
