@@ -4199,7 +4199,6 @@
       "ShareLink": "Share Link",
       "Details": "Details",
       "More": "...",
-      "LikeTheCommunityExpansionMod": "Like the community expansion mod?",
       "Disable": "Disable",
       "PendingRestartResources": "0 resources need to restart to load"
     },
@@ -5199,10 +5198,6 @@
     },
     "Auth": {
       "SelfReview": {
-        "ReviewThisMod": "Review This Mod",
-        "Useful": "Useful",
-        "ThanksForYourSupport": "Thanks for your support",
-        "LikeTheCommunityExpansionMod": "Like the community expansion mod?",
         "UnfinishedDownloadsBadge": "There are {0} unfinished downloads. Tap to view."
       },
       "Auth": {
