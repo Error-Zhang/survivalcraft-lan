@@ -325,6 +325,8 @@ namespace Game {
 
         public static bool CommunityPlayedTimeReportingEnabled { get; set; } = true;
 
+        public static bool CommunityPostDetailsAutoTranslateEnabled { get; set; }
+
         public static bool MultithreadedTerrainUpdate { get; set; }
 
         public static int IsolatedStorageMigrationCounter { get; set; }
@@ -647,6 +649,7 @@ namespace Game {
                 CommunityDefaultDownloadSource = CommunityDownloadSourceOption.DefaultCn;
                 CommunityApplyDownloadSourceToUpdates = false;
                 CommunityPlayedTimeReportingEnabled = true;
+                CommunityPostDetailsAutoTranslateEnabled = false;
                 RestartReturnScreen = string.Empty;
                 MultithreadedTerrainUpdate = true;
                 NewYearCelebrationLastYear = 2025;
