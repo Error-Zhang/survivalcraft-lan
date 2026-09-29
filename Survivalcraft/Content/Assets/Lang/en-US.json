@@ -5262,7 +5262,6 @@
       "NewActivity": "New Activity"
     },
     "CommunityDownloadSourceSelectionMode": {
-      "Default": "Default (Auto)",
       "ManualSelect": "Choose Manually Each Time",
       "CustomDefault": "Use the Default Download Source Below"
     },
@@ -5452,7 +5451,6 @@
     "Source4Global": "Backup Line 4 (Global)"
   },
   "CommunityDownloadSourceSelectionMode": {
-    "Default": "Default (Auto)",
     "ManualSelect": "Choose Manually Each Time",
     "CustomDefault": "Use the Default Download Source Below"
   },

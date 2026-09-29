@@ -317,7 +317,7 @@ namespace Game {
 
         public static CommunityContentMode OriginalCommunityContentMode { get; set; }
 
-        public static CommunityDownloadSourceSelectionMode CommunityDownloadSourceSelectionMode { get; set; } = CommunityDownloadSourceSelectionMode.Default;
+        public static CommunityDownloadSourceSelectionMode CommunityDownloadSourceSelectionMode { get; set; } = CommunityDownloadSourceSelectionMode.CustomDefault;
 
         // 用户自建下载源列表；须先于 CommunityDefaultDownloadSourceName 反序列化（默认源可能指向自建条目）
         public static string CommunityDownloadSourceUserInfos {
@@ -677,7 +677,7 @@ namespace Game {
                 WillEnterServerPwd = string.Empty;
                 CommunityContentMode = CommunityContentMode.Normal;
                 OriginalCommunityContentMode = CommunityContentMode.Normal;
-                CommunityDownloadSourceSelectionMode = CommunityDownloadSourceSelectionMode.Default;
+                CommunityDownloadSourceSelectionMode = CommunityDownloadSourceSelectionMode.CustomDefault;
                 CommunityDefaultDownloadSourceName = CommunityDownloadSourceManager.DefaultCnInfo.Name;
                 CommunityApplyDownloadSourceToUpdates = false;
                 CommunityPlayedTimeReportingEnabled = true;
