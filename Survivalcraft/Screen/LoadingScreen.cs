@@ -673,7 +673,37 @@ namespace Game {
             AddLoadAction(KeyCompatibleGroupsManager.Initialize); // 初始化按键兼容组
             AddLoadAction(
                 delegate {
-                    if (Program.StartupParameters.TryGetValue("play", out string worldDirectory)) {
+                    if (Program.IsDebugMultiplayerHost) {
+                        if (!Program.StartupParameters.TryGetValue("debug-world", out string worldDirectory)) {
+                            throw new InvalidOperationException("Debug multiplayer host did not receive a world directory.");
+                        }
+                        WorldInfo worldInfo = WorldsManager.GetWorldInfo(worldDirectory);
+                        if (worldInfo == null) {
+                            throw new InvalidOperationException($"Debug multiplayer world was not found: {worldDirectory}");
+                        }
+                        ScreensManager.SwitchScreen("GameLoading", worldInfo, null, false);
+                    }
+                    else if (Program.IsDebugMultiplayerClient) {
+                        WorldInfo worldInfo = WorldsManager.CreateWorld(
+                            new WorldSettings {
+                                Name = "Debug Multiplayer",
+                                OriginalSerializationVersion = VersionsManager.SerializationVersion,
+                                GameMode = GameMode.Creative
+                            }
+                        );
+                        Log.Information($"Created debug multiplayer world at {worldInfo.DirectoryName}.");
+                        Program.StartDebugMultiplayerHost(
+                            worldInfo.DirectoryName,
+                            () => ScreensManager.SwitchScreen(
+                                "GameLoading",
+                                null,
+                                null,
+                                new IPEndPoint(IPAddress.Loopback, SettingsManager.ServerPort),
+                                null
+                            )
+                        );
+                    }
+                    else if (Program.StartupParameters.TryGetValue("play", out string worldDirectory)) {
                         ScreensManager.SwitchScreen("Play", worldDirectory);
                     }
                     else if (Program.StartupParameters.TryGetValue("join", out string serverEndpoint)) {

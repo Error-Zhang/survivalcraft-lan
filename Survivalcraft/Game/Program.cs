@@ -24,7 +24,7 @@ using Silk.NET.OpenGLES;
 [assembly: SupportedOSPlatform("browser")]
 #endif
 namespace Game {
-    public static class Program {
+    public static partial class Program {
         public static double m_frameBeginTime;
         public static double m_cpuEndTime;
         public static List<Uri> m_urisToHandle = [];
@@ -85,6 +85,13 @@ namespace Game {
                 switch (args.Length) {
                     case 1: {
                         string path = args[0];
+                        if (path.StartsWith("-")) {
+                            string flagName = path.TrimStart('-');
+                            if (flagName.Length > 0) {
+                                StartupParameters.TryAdd(flagName, string.Empty);
+                            }
+                            break;
+                        }
                         ExternalContentType type = ExternalContentManager.ExtensionToType(Storage.GetExtension(path));
                         if (ExternalContentManager.IsEntryTypeDownloadSupported(type)
                             && File.Exists(path)) {
@@ -149,8 +156,12 @@ namespace Game {
                 byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(Assembly.GetEntryAssembly()?.Location ?? "SurvivalcraftApi"));
                 mutexName = $"Global\\{BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant()}";
             }
-            m_mutex = new Mutex(true, mutexName, out m_mutexHandled);
-            if (!m_mutexHandled) {
+            // The debug multiplayer host is deliberately a second instance of
+            // the game executable. It must not contend with the client's mutex.
+            if (!IsDebugMultiplayerHost) {
+                m_mutex = new Mutex(true, mutexName, out m_mutexHandled);
+            }
+            if (m_mutex != null && !m_mutexHandled) {
 
                 string str =
                     "This game is already running! If you cannot find the window, please stop it from the Task Manager, and check the log file in Bugs directory.\n游戏已经在运行！如果找不到游戏窗口，请从任务管理器终止它，并检查 Bugs 目录中的日志文件。";
@@ -163,12 +174,20 @@ namespace Game {
             Window.Created += () => {
                 InputMethod.Initialize(Process.GetCurrentProcess().MainWindowHandle);
                 InputMethod.Enabled = false;
+                if (IsDebugMultiplayerHost) {
+                    ShowWindow(Window.Handle, 0);
+                }
             };
+            if (IsDebugMultiplayerClient) {
+                Window.Closed += StopDebugMultiplayerHost;
+            }
 #endif
             EntryPoint();
 #if WINDOWS
-            m_mutex.ReleaseMutex();
-            m_mutex.Dispose();
+            if (m_mutex != null) {
+                m_mutex.ReleaseMutex();
+                m_mutex.Dispose();
+            }
 #endif
             /*AppDomain.CurrentDomain.AssemblyResolve += (_, e) => {
                 // 在程序目录下面寻找dll,解决部分设备找不到目录下程序集的问题

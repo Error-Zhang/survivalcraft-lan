@@ -7,7 +7,7 @@ namespace Game;
 /// Shared runtime for compatibility adapters.
 /// </summary>
 public static class CompatNetCore {
-    public const byte CurrentProtocolVersion = 2;
+    public const byte CurrentProtocolVersion = 3;
 
     private static bool s_networkReady;
 

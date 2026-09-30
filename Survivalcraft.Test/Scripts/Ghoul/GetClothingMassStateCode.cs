@@ -15,8 +15,4 @@ if (clothingMass == null) {
     return "no-clothing-mass-component";
 }
 
-return string.Join(";",
-    "armorProtection=" + clothingMass.ArmorProtection.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
-    "hasFullSet=" + clothingMass.HasFullSet,
-    "recoveryTo1Time=" + clothingMass.RecoveryTo1Time.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
-    "isAcArmorEquipped=" + clothingMass.IsAcArmorEquipped());
+return "armorProtection=" + clothingMass.ArmorProtection.ToString("R", System.Globalization.CultureInfo.InvariantCulture);

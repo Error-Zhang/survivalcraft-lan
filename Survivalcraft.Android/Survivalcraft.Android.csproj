@@ -6,8 +6,9 @@
         <AndroidUseLatestPlatformSdk>true</AndroidUseLatestPlatformSdk>
         <AndroidApplication>true</AndroidApplication>
         <ApplicationId>com.candy.SurvivalcraftAPI1_8</ApplicationId>
-        <AndroidStoreUncompressedFileExtensions>.dll</AndroidStoreUncompressedFileExtensions>
+        <AndroidStoreUncompressedFileExtensions>.dll;.so</AndroidStoreUncompressedFileExtensions>
         <AndroidPackageFormat>apk</AndroidPackageFormat>
+        <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
         <AndroidUseDesignerAssembly>true</AndroidUseDesignerAssembly>
         <!--签名-->
         <AndroidKeyStore>true</AndroidKeyStore>

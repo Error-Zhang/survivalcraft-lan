@@ -12,7 +12,7 @@ public sealed class CompatNetPacket : PlayerPacketBase {
     public override byte ID => (byte)PacketType.ModPacket;
 
     public byte ProtocolVersion = CompatNetCore.CurrentProtocolVersion;
-    public CompatNetPacketKind Kind;
+    public Game.CompatNetPacketKind Kind;
     public ushort AdapterId;
     public ushort Operation;
     public byte[] Payload = [];
@@ -35,7 +35,7 @@ public sealed class CompatNetPacket : PlayerPacketBase {
         ushort adapterId,
         ushort operation,
         byte[] payload,
-        CompatNetPacketKind kind) {
+        Game.CompatNetPacketKind kind) {
         Kind = kind;
         AdapterId = adapterId;
         Operation = operation;

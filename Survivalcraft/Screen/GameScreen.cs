@@ -17,9 +17,30 @@ namespace Game {
         public override void Enter(object[] parameters) {
             if (GameManager.Project != null) {
                 GameManager.Project.FindSubsystem<SubsystemAudio>(true).Unmute();
+                EnsureDebugMultiplayerPlayer();
             }
             MusicManager.StopMusic();
             MusicManager.CurrentMix = MusicManager.Mix.InGame;
+        }
+
+        private static void EnsureDebugMultiplayerPlayer() {
+            if (GameManager.Project == null) {
+                return;
+            }
+
+            SubsystemPlayers subsystemPlayers = GameManager.Project.FindSubsystem<SubsystemPlayers>();
+            if (subsystemPlayers == null || subsystemPlayers.PlayersData.Any(playerData => playerData.IsMainPlayer)) {
+                return;
+            }
+
+            if (Program.IsDebugMultiplayerClient
+                && NetworkManager.IsClientRunning
+                && Program.BeginDebugMultiplayerPlayerCreation()) {
+                // The server assigns the final PlayerIndex and broadcasts the
+                // resulting PlayerData back to this client.
+                PlayerData playerData = new PlayerData(GameManager.Project);
+                ModsManager.HookAction("OnNetworkPlayerCreate", loader => loader.OnNetworkPlayerCreate(playerData));
+            }
         }
 
         public override void Leave() {
@@ -46,6 +67,14 @@ namespace Game {
                     ScreensManager.SwitchScreen("TrialEnded");
                 }
                 GameManager.UpdateProject();
+                if (Program.IsDebugMultiplayerHost) {
+                    SubsystemPlayers subsystemPlayers = GameManager.Project.FindSubsystem<SubsystemPlayers>();
+                    if (subsystemPlayers?.MainPlayerData?.IsReadyForPlaying == true) {
+                        // The host is ready only after its local player has
+                        // spawned and entered the Playing state.
+                        Program.SignalDebugMultiplayerHostReady();
+                    }
+                }
             }
             ShowHideCursors(
                 GameManager.Project == null

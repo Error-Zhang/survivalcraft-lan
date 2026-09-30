@@ -921,7 +921,16 @@ namespace Survivalcraft.Multiplayer {
                 NetworkManager.Queue(new PlayerBodyUpdatePacket(player, session) { To = session });
             }
         }
-        if (isMainPlayer && Time.PeriodicEvent(0.2f, 0.0))
+        // A dedicated/listen host can also report PlayerIndex 0 as the main
+        // player even though it has no client transport.  In that process the
+        // server branch above already sends the host player's body to each
+        // observer.  Treating the host as a client here would enqueue a
+        // second snapshot stream, which makes remote interpolation alternate
+        // between duplicate body/rotation updates (especially visible with
+        // gun-mod aim updates).
+        if (NetworkManager.IsClientRunning
+            && isMainPlayer
+            && Time.PeriodicEvent(0.2f, 0.0))
             NetworkManager.Queue(new PlayerBodyUpdatePacket(player));
     }
 

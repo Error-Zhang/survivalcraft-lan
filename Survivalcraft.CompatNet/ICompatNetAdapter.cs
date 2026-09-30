@@ -64,7 +64,6 @@ public abstract class CompatNetAdapterLoader : ModLoader, ICompatNetAdapter {
 
     public override void __ModInitialize() {
         CompatNetAdapterRegistry.Register(this);
-        ModsManager.RegisterHook("OnProjectileAdded", this);
     }
 
     public override void OnPreloadAssemblies(IList<ModAssemblyImage> assemblies) {

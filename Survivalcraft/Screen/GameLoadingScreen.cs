@@ -69,7 +69,19 @@ public class GameLoadingScreen : Screen {
             else {
                 ContainerWidget gamesWidget = ScreensManager.FindScreen<GameScreen>("Game").Children.Find<ContainerWidget>("GamesWidget");
                 GameManager.LoadProject(m_worldInfo, gamesWidget);
+                if (Program.IsDebugMultiplayerHost) {
+                    SubsystemPlayers subsystemPlayers = GameManager.Project.FindSubsystem<SubsystemPlayers>(true);
+                    if (!subsystemPlayers.PlayersData.Any(playerData => playerData.IsMainPlayer)) {
+                        // Reserve index 0 before the listen socket is opened.
+                        // This makes the server authoritative even if a client
+                        // sends its create packet immediately after connecting.
+                        subsystemPlayers.AddPlayerData(new PlayerData(GameManager.Project));
+                    }
+                }
                 NetworkManager.StartServer();
+                if (Program.IsDebugMultiplayerHost && !NetworkManager.IsServerRunning) {
+                    throw new InvalidOperationException("The multiplayer network module is required for debug multiplayer mode.");
+                }
                 if (m_startRelayHostWithCenter) {
                     _ = NetworkManager.StartRelayHostAsync();
                 }
@@ -165,14 +177,6 @@ public class GameLoadingScreen : Screen {
             if (parameters[2] is RelayJoinInfo relayJoinInfo) m_relayJoinInfo = relayJoinInfo;
             else m_serverEndPoint = (IPEndPoint)parameters[2];
             if (parameters.Length == 4) m_password = (string)parameters[3];
-            // 网络客户端需要一个独立的临时世界来接收服务器下发的 Project。
-            if (Storage.DirectoryExists("TempNetworkWorld")) {
-                Storage.DeleteDirectory("TempNetworkWorld", true);
-            }
-            Storage.CreateDirectory("TempNetworkWorld");
-            m_worldInfo = new WorldInfo {
-                DirectoryName = "TempNetworkWorld"
-            };
         }
         m_stateMachine.TransitionTo("WaitingForFadeIn");
         ProgressManager.UpdateProgress("Loading World", 0f);

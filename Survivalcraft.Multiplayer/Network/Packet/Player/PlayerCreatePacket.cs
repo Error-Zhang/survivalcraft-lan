@@ -26,7 +26,7 @@ public class PlayerCreatePacket : Packet {
     }
 
     public override void Handle(bool isServer) {
-        if (!isServer) return;
+        if (!isServer || From == null || From.PlayerIndex >= 0) return;
         var subsystemPlayers = GameManager.Project.FindSubsystem<SubsystemPlayers>();
         var playerData = new PlayerData(GameManager.Project);
         playerData.Load(m_vd);

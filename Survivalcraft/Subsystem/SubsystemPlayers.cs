@@ -83,12 +83,18 @@ namespace Game {
 
         public void FindUnusedIndex(PlayerData playerData) {
             if (NetworkManager.IsClientRunning) {
+                if (playerData.PlayerIndex < 0) {
+                    return;
+                }
                 usedIndies[playerData.PlayerIndex] = playerData;
                 return;
             }
 
             for (int i = 0; i < int.MaxValue; i++) {
-                if (usedIndies.TryAdd(i, playerData)) {
+                bool isUsedByPlayer = m_playersData.Any(other => other != playerData && other.PlayerIndex == i);
+                bool isUsedByIndexMap = usedIndies.TryGetValue(i, out PlayerData indexedPlayer) && indexedPlayer != playerData;
+                if (!isUsedByPlayer && !isUsedByIndexMap) {
+                    usedIndies[i] = playerData;
                     playerData.PlayerIndex = i;
                     return;
                 }
@@ -146,7 +152,11 @@ namespace Game {
         }
 
         public virtual void Update(float dt) {
-            if (m_playersData.Count == 0 || m_playersData.All(p => !p.IsMainPlayer)) {
+            bool waitingForDebugMultiplayerPlayer = Program.IsDebugMultiplayerClient
+                && Program.DebugMultiplayerPlayerCreationStarted
+                && NetworkManager.IsClientRunning;
+            if (!waitingForDebugMultiplayerPlayer
+                && (m_playersData.Count == 0 || m_playersData.All(p => !p.IsMainPlayer))) {
                 ScreensManager.SwitchScreen("Player", PlayerScreen.Mode.Initial, Project);
             }
             foreach (PlayerData playersDatum in m_playersData) {

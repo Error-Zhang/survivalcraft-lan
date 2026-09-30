@@ -1,15 +1,10 @@
 using Engine;
+using Game.Network;
 using GameEntitySystem;
-using TemplatesDatabase;
 
 namespace Game;
 
 public sealed class CompatNetModLoader : ModLoader {
-    private static readonly GunCompatNetAdapter s_gunAdapter = new();
-    private static readonly CommandCompatNetAdapter s_commandAdapter = new();
-    private static readonly ElytronCompatNetAdapter s_elytronAdapter = new();
-    private static readonly EnchantmentCompatNetAdapter s_enchantmentAdapter = new();
-    private static readonly MCHszrCompatNetAdapter s_mchszrAdapter = new();
     private static readonly GhoulCompatNetAdapter s_ghoulAdapter = new();
     private static readonly object s_preloadSync = new();
 
@@ -19,24 +14,13 @@ public sealed class CompatNetModLoader : ModLoader {
 
     private static ICompatNetAdapter[] CreateBuiltInAdapters() {
         List<ICompatNetAdapter> adapters = [
-            s_gunAdapter,
-            s_commandAdapter,
-            s_elytronAdapter,
-            s_enchantmentAdapter,
-            s_mchszrAdapter,
             s_ghoulAdapter
         ];
-        adapters.AddRange(
-            ScopedUpdateGuardCompatNetAdapter.CreatePresets()
-                .Where(adapter => adapter.AdapterId != MCHszrCompatNetAdapter.StableAdapterId
-                    && adapter.AdapterId != EnchantmentCompatNetAdapter.StableAdapterId));
         return adapters.ToArray();
     }
 
     public override void __ModInitialize() {
         ModsManager.RegisterHook("OnLoadingFinished", this);
-        ModsManager.RegisterHook("OnProjectileAdded", this);
-        ModsManager.RegisterHook("OnNetworkPlayerStateChanged", this);
         ModsManager.RegisterHook("OnIUpdateableUpdate", this);
         ModsManager.RegisterHook("SubsystemUpdate", this);
         ModsManager.RegisterHook("OnShowDialog", this);
@@ -46,7 +30,7 @@ public sealed class CompatNetModLoader : ModLoader {
     }
 
     public override void OnShowDialog(ref ContainerWidget parentWidget, ref Dialog dialog) {
-        NeorxnaCompatNetRuntime.FixRecipeDialogParent(ref parentWidget, dialog);
+        NeorxnaCompatRuntime.FixRecipeDialogParent(ref parentWidget, dialog);
     }
 
     public override void OnPreloadAssemblies(IList<ModAssemblyImage> assemblies) {
@@ -56,7 +40,6 @@ public sealed class CompatNetModLoader : ModLoader {
             // included, while still keeping the built-in adapters available to
             // direct/unit-test callers.
             CompatNetCore.Reset();
-            CommandCompatNetRuntime.Reset();
             CompatNetAdapterRegistry.Reset();
             foreach (ICompatNetAdapter adapter in BuiltInAdapters) {
                 CompatNetAdapterRegistry.Register(adapter);
@@ -69,58 +52,17 @@ public sealed class CompatNetModLoader : ModLoader {
                 adapter.OnPreloadAssemblies(assemblies);
             }
 
-            foreach (ModAssemblyImage image in assemblies ?? Array.Empty<ModAssemblyImage>()) {
-                if (string.Equals(
-                        image?.Owner?.modInfo?.PackageName,
-                        "network",
-                        StringComparison.OrdinalIgnoreCase)) {
-                    try {
-                        if (SushiToolCompatNetPatcher.PatchNetworkMod(image)) {
-                            Log.Information(
-                                $"[Survivalcraft.CompatNet] Patched network inventory hooks in {image.FileName}.");
-                        }
-                    }
-                    catch (Exception e) {
-                        Log.Error(
-                            $"[Survivalcraft.CompatNet] Failed to patch network inventory hooks in {image.FileName}: {e}");
-                    }
-                }
-            }
         }
     }
 
     public override void OnLoadingFinished(List<Action> actions) {
         try {
-            CompatNetRuntime.InitializeNetwork();
+            CompatNetCore.InitializeNetwork();
             Log.Information("[Survivalcraft.CompatNet] Registered CompatNetPacket.");
         }
         catch (Exception e) {
             Log.Error($"[Survivalcraft.CompatNet] Failed to register network packet: {e}");
         }
-    }
-
-    public override void OnProjectileAdded(
-        SubsystemProjectiles subsystemProjectiles,
-        ref Projectile projectile,
-        ValuesDictionary loadValuesDictionary) {
-        s_gunAdapter.OnProjectileAdded(
-            subsystemProjectiles,
-            ref projectile,
-            loadValuesDictionary);
-    }
-
-    public override void OnNetworkPlayerStateChanged(NetworkState state) {
-        if (state != NetworkState.ProjectLoaded
-            || !NetworkManager.IsClientRunning
-            || NetworkManager.IsServerRunning) {
-            return;
-        }
-
-        CommandCompatNetRuntime.ResetPlayerStateSequences();
-        ComponentPlayer player = GameManager.Project?
-            .FindSubsystem<SubsystemPlayers>()?
-            .MainPlayer;
-        CommandCompatNetRuntime.RequestElectricSnapshot(player);
     }
 
     public override void OnIUpdateableUpdate(
@@ -141,8 +83,6 @@ public sealed class CompatNetModLoader : ModLoader {
         if (!NetworkManager.IsClientRunning) {
             return;
         }
-
-        MCHszrCompatNetRuntime.OnClientUpdate();
 
         foreach (ICompatNetAdapter adapter in CompatNetAdapterRegistry.Adapters) {
             if (adapter.ShouldSkipClientUpdate(updateable)) {

@@ -3,7 +3,7 @@
   "Version": "1.0.0",
   "ApiVersion": "1.9",
   "ScVersion": "2.4.0.0",
-  "Description": "Adds multiplayer compatibility adapters for selected community mods. 选定模组的联机模块适配器",
+  "Description": "Adds Ghoul multiplayer compatibility and Neorxna single-player UI compatibility. Ghoul 联机适配与 Neorxna 单机界面兼容",
   "Author": "_Tk34",
   "PackageName": "compatnet",
   "Preload": true,

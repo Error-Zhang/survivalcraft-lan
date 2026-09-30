@@ -15,9 +15,4 @@ if (sagPlayer == null) {
     return "no-sag-player-component";
 }
 
-return string.Join(";",
-    "soulsValue=" + sagPlayer.SoulsValue.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
-    "spawnCd=" + sagPlayer.SpawnCd.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
-    "healProhibitTime=" + sagPlayer.HealProhibitTime.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
-    "inAirTimeSum=" + sagPlayer.InAirTimeSum.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
-    "earthquakeDamage=" + sagPlayer.EarthquakeDamage.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+return "soulsValue=" + sagPlayer.SoulsValue.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
