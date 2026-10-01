@@ -137,6 +137,7 @@ namespace Game {
                 XmlUtils.SetAttributeValue(xElement, "Version", VersionsManager.SerializationVersion);
                 XmlUtils.SetAttributeValue(xElement, "APIVersion", ModsManager.APIVersionString);
                 Storage.CreateDirectory(directoryName);
+                PlayedTimeTracker.OnProjectXmlSaved();
                 ModsManager.HookAction(
                     "OnProjectXmlSaved",
                     loader => {
@@ -231,6 +232,7 @@ namespace Game {
                 m_subsystemUpdate = null;
                 m_worldInfo = null;
                 IsNetworkProject = false;
+                PlayedTimeTracker.StopProject();
                 ModsManager.HookAction(
                     "OnProjectDisposed",
                     loader => {
@@ -243,6 +245,7 @@ namespace Game {
 
         static void BindModProjectHooks() {
             Project.OnProjectLoad += delegate (Project project) {
+                PlayedTimeTracker.StartProject(project);
                 ModsManager.HookAction(
                     "OnProjectLoaded",
                     loader => {

@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Xml.Linq;
 using Engine;
@@ -30,7 +31,7 @@ namespace Game {
             m_upDirectoryButton = Children.Find<ButtonWidget>("UpDirectory");
             m_actionButton = Children.Find<ButtonWidget>("Action");
             m_copyLinkButton = Children.Find<ButtonWidget>("CopyLink");
-            m_directoryList.ItemWidgetFactory = delegate (object item) {
+            m_directoryList.ItemWidgetFactory = delegate(object item) {
                 ExternalContentEntry externalContentEntry2 = (ExternalContentEntry)item;
                 XElement node2 = ContentManager.Get<XElement>("Widgets/ExternalContentItem");
                 ContainerWidget containerWidget = (ContainerWidget)LoadWidget(this, node2, null);
@@ -45,7 +46,7 @@ namespace Game {
                 containerWidget.Children.Find<LabelWidget>("ExternalContentItem.Details").Text = text2;
                 return containerWidget;
             };
-            m_directoryList.ItemClicked += delegate (object item) {
+            m_directoryList.ItemClicked += delegate(object item) {
                 if (m_directoryList.SelectedItem == item) {
                     if (item is ExternalContentEntry externalContentEntry
                         && externalContentEntry.Type == ExternalContentType.Directory) {
@@ -99,13 +100,13 @@ namespace Game {
                 ? string.Format(LanguageControl.Get(fName, 3), m_path)
                 : LanguageControl.Get(fName, 4);
             m_providerNameLabel.Text = m_externalContentProvider.DisplayName;
-#if WINDOWS
+            #if WINDOWS
             m_upDirectoryButton.IsEnabled = m_externalContentProvider.IsLoggedIn && !(m_path.Length == 2 && m_path[1] == ':');
-#elif ANDROID
+            #elif ANDROID
             m_upDirectoryButton.IsEnabled = m_externalContentProvider.IsLoggedIn && m_path != "/storage/emulated/0";
-#else
+            #else
             m_upDirectoryButton.IsEnabled = m_externalContentProvider.IsLoggedIn && m_path != "/";
-#endif
+            #endif
             m_loginLogoutButton.Text = m_externalContentProvider.IsLoggedIn ? LanguageControl.Get(fName, 5) : LanguageControl.Get(fName, 6);
             m_loginLogoutButton.IsVisible = m_externalContentProvider.RequiresLogin;
             m_copyLinkButton.IsVisible = m_externalContentProvider.SupportsLinks;
@@ -117,7 +118,13 @@ namespace Game {
                     new SelectExternalContentProviderDialog(
                         LanguageControl.Get(fName, 7),
                         true,
-                        delegate (IExternalContentProvider provider) {
+                        delegate(IExternalContentProvider provider) {
+                            // 列举载体是专用屏的提供者（如中文社区）：跳转而非本屏承载，
+                            // 返回键经屏幕历史栈回到本屏。
+                            if (!string.IsNullOrEmpty(provider.ScreenNameForListing)) {
+                                ScreensManager.SwitchScreen(provider.ScreenNameForListing);
+                                return;
+                            }
                             m_externalContentProvider = provider;
                             m_listDirty = true;
                             SetPath(null);
@@ -146,11 +153,11 @@ namespace Game {
                 m_externalContentProvider.Link(
                     externalContentEntry.Path,
                     busyDialog.Progress,
-                    delegate (string link) {
+                    delegate(string link) {
                         DialogsManager.HideDialog(busyDialog);
                         DialogsManager.ShowDialog(null, new ExternalContentLinkDialog(link));
                     },
-                    delegate (Exception error) {
+                    delegate(Exception error) {
                         DialogsManager.HideDialog(busyDialog);
                         DialogsManager.ShowDialog(null, new MessageDialog(LanguageControl.Error, error.Message, LanguageControl.Ok, null, null));
                     }
@@ -230,7 +237,7 @@ namespace Game {
                 m_externalContentProvider.List(
                     m_path,
                     busyDialog.Progress,
-                    delegate (ExternalContentEntry entry) {
+                    delegate(ExternalContentEntry entry) {
                         DialogsManager.HideDialog(busyDialog);
                         List<ExternalContentEntry> list = new(entry.ChildEntries.Where(EntryFilter).Take(1000));
                         m_directoryList.ClearItems();
@@ -242,7 +249,7 @@ namespace Game {
                             m_directoryList.AddItem(item);
                         }
                     },
-                    delegate (Exception error) {
+                    delegate(Exception error) {
                         DialogsManager.HideDialog(busyDialog);
                         DialogsManager.ShowDialog(null, new MessageDialog(LanguageControl.Error, error.Message, LanguageControl.Ok, null, null));
                     }
@@ -256,36 +263,76 @@ namespace Game {
             m_externalContentProvider.Download(
                 entry.Path,
                 busyDialog.Progress,
-                delegate (Stream stream) {
+                delegate(Stream stream) {
                     busyDialog.LargeMessage = LanguageControl.Get(fName, 12);
-                    ExternalContentManager.ImportExternalContent(
-                        stream,
-                        entry.Type,
-                        Storage.GetFileName(entry.Path),
-                        delegate {
-                            stream.Dispose();
-                            DialogsManager.HideDialog(busyDialog);
-                            if (entry.Type != ExternalContentType.Mod) {
-                                DialogsManager.ShowDialog(
-                                    null,
-                                    new MessageDialog(
-                                        LanguageControl.Success,
-                                        string.Format(LanguageControl.Get("ContentScreen", "4"), Storage.GetFileName(entry.Path)),
-                                        LanguageControl.Ok,
-                                        null,
-                                        null
-                                    )
-                                );
-                            }
-                        },
-                        delegate (Exception error) {
-                            stream.Dispose();
-                            DialogsManager.HideDialog(busyDialog);
-                            DialogsManager.ShowDialog(null, new MessageDialog(LanguageControl.Error, error.Message, LanguageControl.Ok, null, null));
+                    try {
+                        // 统一走 PrepareExternalContent 冲突检测（Mod 按包名、家具/材质/皮肤按归一名），
+                        // 命中时弹与链接导入一致的覆盖确认框。
+                        ExternalContentPreparation preparation = ExternalContentManager.PrepareExternalContent(
+                            0,
+                            Storage.GetFileName(entry.Path),
+                            entry.Type,
+                            stream);
+                        // 准备结束即可关下载 busy；确认框或导入 busy 由后续分支接管，
+                        // 不关会让原 busy 的全屏 CoverWidget 残留锁死输入。
+                        DialogsManager.HideDialog(busyDialog);
+                        if (preparation.RequiresOverwriteConfirmation) {
+                            DialogsManager.ShowDialog(
+                                null,
+                                new CommunityImportOverwriteDialog(
+                                    preparation.GetOverwriteConfirmationMessage(),
+                                    preparation.CanRenameOnOverwrite,
+                                    delegate(ImportOverwriteAction action) {
+                                        if (action == ImportOverwriteAction.Overwrite) {
+                                            ImportPrepared(preparation, overwriteExisting: true);
+                                        } else if (action == ImportOverwriteAction.Rename) {
+                                            ImportPrepared(preparation, overwriteExisting: false);
+                                        }
+                                    }
+                                )
+                            );
                         }
-                    );
+                        else {
+                            ImportPrepared(preparation, overwriteExisting: true);
+                        }
+                    }
+                    catch (Exception error) {
+                        DialogsManager.HideDialog(busyDialog);
+                        DialogsManager.ShowDialog(null, new MessageDialog(LanguageControl.Error, error.Message, LanguageControl.Ok, null, null));
+                    }
                 },
-                delegate (Exception error) {
+                delegate(Exception error) {
+                    DialogsManager.HideDialog(busyDialog);
+                    DialogsManager.ShowDialog(null, new MessageDialog(LanguageControl.Error, error.Message, LanguageControl.Ok, null, null));
+                }
+            );
+        }
+
+        private static void ImportPrepared(ExternalContentPreparation preparation, bool overwriteExisting) {
+            CancellableBusyDialog busyDialog = new(LanguageControl.Get(fName, 12), false);
+            DialogsManager.ShowDialog(null, busyDialog);
+            ExternalContentManager.ImportPreparedExternalContentAsync(
+                preparation,
+                overwriteExisting,
+                delegate {
+                    DialogsManager.HideDialog(busyDialog);
+                    if (preparation.RequiresRestart) {
+                        RestartConfirmDialog.ShowModImportRestartConfirm(preparation.FileName, "cloud-import");
+                    }
+                    if (preparation.Type != ExternalContentType.Mod) {
+                        DialogsManager.ShowDialog(
+                            null,
+                            new MessageDialog(
+                                LanguageControl.Success,
+                                string.Format(LanguageControl.Get("ContentScreen", "4"), preparation.FileName),
+                                LanguageControl.Ok,
+                                null,
+                                null
+                            )
+                        );
+                    }
+                },
+                delegate(Exception error) {
                     DialogsManager.HideDialog(busyDialog);
                     DialogsManager.ShowDialog(null, new MessageDialog(LanguageControl.Error, error.Message, LanguageControl.Ok, null, null));
                 }
