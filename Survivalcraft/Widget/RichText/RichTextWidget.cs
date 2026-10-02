@@ -164,18 +164,7 @@ namespace Game {
             SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
             FontBatch2D fontBatch2D = dc.PrimitivesRenderer2D.FontBatch(Font, 1, DepthStencilState.None, null, null, samplerState);
             int batchStart = fontBatch2D.TriangleVertices.Count;
-            Color defaultColor = Color * GlobalColorTransform;
-            float totalHeight = 0f;
-            foreach (TextLine line in m_layout.Lines) {
-                totalHeight += line.Height;
-            }
-            float blockY = 0f;
-            if ((TextAnchor & TextAnchor.VerticalCenter) != 0) {
-                blockY = (ActualSize.Y - totalHeight) / 2f;
-            }
-            else if ((TextAnchor & TextAnchor.Bottom) != 0) {
-                blockY = ActualSize.Y - totalHeight;
-            }
+            float blockY = CalculateBlockY();
             foreach (TextLine line in m_layout.Lines) {
                 float lineX = 0f;
                 if ((TextAnchor & TextAnchor.HorizontalCenter) != 0) {
@@ -259,11 +248,30 @@ namespace Game {
             fontBatch2D.TransformTriangles(GlobalTransform, batchStart);
         }
 
-        // 局部坐标 quad（x,y 为左上，w/h 尺寸）经 GlobalTransform 变换后入 FlatBatch（同 RectangleWidget 手动变换做法）
+        // 局部坐标 quad（x,y 为左上，w/h 尺寸）四角各自经 GlobalTransform 变换后入 FlatBatch（同 RectangleWidget 做法，
+        // 只变换两对角点会在旋转/斜切变换下塌陷）
         void QueueTransformedQuad(FlatBatch2D batch, float x, float y, float width, float height, Color color) {
-            Vector2 p1 = Vector2.Transform(new Vector2(x, y), GlobalTransform);
-            Vector2 p2 = Vector2.Transform(new Vector2(x + width, y + height), GlobalTransform);
-            batch.QueueQuad(p1, p2, 0f, color);
+            Matrix m = GlobalTransform;
+            Vector2 p1 = Vector2.Transform(new Vector2(x, y), m);
+            Vector2 p2 = Vector2.Transform(new Vector2(x + width, y), m);
+            Vector2 p3 = Vector2.Transform(new Vector2(x + width, y + height), m);
+            Vector2 p4 = Vector2.Transform(new Vector2(x, y + height), m);
+            batch.QueueQuad(p1, p2, p3, p4, 0f, color);
+        }
+
+        // 文字块顶部相对 widget 的 y 偏移（垂直锚点）；绘制与命中测试必须共用同一计算
+        float CalculateBlockY() {
+            float totalHeight = 0f;
+            foreach (TextLine line in m_layout.Lines) {
+                totalHeight += line.Height;
+            }
+            if ((TextAnchor & TextAnchor.VerticalCenter) != 0) {
+                return (ActualSize.Y - totalHeight) / 2f;
+            }
+            if ((TextAnchor & TextAnchor.Bottom) != 0) {
+                return ActualSize.Y - totalHeight;
+            }
+            return 0f;
         }
 
         bool HasBackground {
@@ -314,11 +322,12 @@ namespace Game {
 
         float SpanScale(TextSpan span) => span.FontScale > 0f ? span.FontScale : FontScale;
 
-        // 命中测试：坐标为 widget 本地坐标；先按行 y 区间定位行，再按行内 run x 区间定位链接 run
+        // 命中测试：坐标为 widget 本地坐标；先按行 y 区间定位行（含垂直锚点偏移，与 Draw 一致），再按行内 run x 区间定位链接 run
         public TextRun FindLinkAtPoint(Vector2 point) {
+            float blockY = CalculateBlockY();
             foreach (TextLine line in m_layout.Lines) {
-                if (point.Y < line.Y
-                    || point.Y >= line.Y + line.Height) {
+                if (point.Y < blockY + line.Y
+                    || point.Y >= blockY + line.Y + line.Height) {
                     continue;
                 }
                 float lineX = 0f;

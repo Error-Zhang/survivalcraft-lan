@@ -24,13 +24,16 @@ namespace Game {
 
         public Vector2 MeasuredSize { get; private set; }
 
-        readonly struct Cell(char c, TextSpan span, int sequence) {
+        readonly struct Cell(char c, TextSpan span, int sequence, bool isTabSpace = false) {
             public readonly char C = c;
 
             public readonly TextSpan Span = span;
 
             // 同一 span 的连续源字符共享同一 sequence，kerning 只在同 sequence 相邻字符间生效（与 QueueLine 的 run 内 kerning 对齐）
             public readonly int Sequence = sequence;
+
+            // '\t' 展开出的空格：下一行行首去空白时保留，否则折行点上的 tab 缩进丢失
+            public readonly bool IsTabSpace = isTabSpace;
         }
 
         public float CalculateLineHeight(float fontScale) => (Font.GlyphHeight + Font.Spacing.Y + FontSpacing.Y) * fontScale * Font.Scale;
@@ -43,7 +46,8 @@ namespace Game {
                 || Spans.Count == 0) {
                 return;
             }
-            // 按 '\n' 拆段，段内贪心断行；'\t' 按字符列制展开为空格（每 4 列一个 stop）
+            // 按 '\n' 拆段，段内贪心断行；'\t' 按字符列制展开为空格（每 4 列一个 stop）。
+            // 列号按段内累计字符数计，word-wrap 折行后与显示行列号不对应——比例字体下像素对齐需等宽字体另配
             const int tabSize = 4;
             List<List<Cell>> paragraphs = [];
             List<Cell> current = [];
@@ -63,7 +67,7 @@ namespace Game {
                     if (raw == '\t') {
                         int spaces = tabSize - current.Count % tabSize;
                         for (int t = 0; t < spaces; t++) {
-                            current.Add(new Cell(' ', span, sequence));
+                            current.Add(new Cell(' ', span, sequence, true));
                         }
                         continue;
                     }
@@ -76,7 +80,6 @@ namespace Game {
             if (availableHeight < float.PositiveInfinity) {
                 maxLines = MathUtils.Min((int)MathF.Floor(availableHeight / CalculateLineHeight(DefaultFontScale)), maxLines);
             }
-            bool ellipsized = false;
             foreach (List<Cell> paragraph in paragraphs) {
                 if (Lines.Count >= maxLines) {
                     break;
@@ -90,47 +93,54 @@ namespace Game {
                     int end = paragraph.Count;
                     bool lineEllipsized = false;
                     if (WordWrap) {
-                        int fitCount = CountFittingCells(paragraph, start, end, availableWidth);
-                        if (fitCount < end - start) {
-                            int breakPosition = FontTextWidget.FindLineBreakPosition(BuildString(paragraph, start, end), MathUtils.Max(fitCount, 1));
-                            if (breakPosition <= 0) {
-                                breakPosition = 1;
+                        if (Ellipsis
+                            && Lines.Count + 1 >= maxLines) {
+                            // 末行直接按减省略号宽适配剩余内容，放不下才截断补 "..."（与 FontTextWidget flag 路径一致）：
+                            // 若先按全宽断行再收缩，断行点空隙≥省略号宽时会静默丢内容且无省略号
+                            int fitCount = CountFittingCells(paragraph, start, end, availableWidth, reserveEllipsis: true);
+                            if (fitCount < end - start) {
+                                end = start + fitCount;
+                                lineEllipsized = true;
                             }
-                            end = start + breakPosition;
+                        }
+                        else {
+                            int fitCount = CountFittingCells(paragraph, start, end, availableWidth, reserveEllipsis: false);
+                            if (fitCount < end - start) {
+                                int breakPosition = FontTextWidget.FindLineBreakPosition(BuildString(paragraph, start, end), MathUtils.Max(fitCount, 1));
+                                if (breakPosition <= 0) {
+                                    breakPosition = 1;
+                                }
+                                end = start + breakPosition;
+                            }
                         }
                     }
-                    if (Ellipsis
-                        && Lines.Count + 1 >= maxLines
-                        && end < paragraph.Count) {
-                        // 最后一行放不下剩余内容：截断并补省略号
-                        int fitCount = CountFittingCells(paragraph, start, end, MathUtils.Max(availableWidth - MeasureEllipsisWidth(DefaultFontScale), 0f));
+                    else if (Ellipsis) {
+                        // 非换行：段落超宽即截断补 "..."（与 FontTextWidget 非换行分支一致）
+                        int fitCount = CountFittingCells(paragraph, start, end, availableWidth, reserveEllipsis: true);
                         if (fitCount < end - start) {
-                            end = start + MathUtils.Max(fitCount, 1);
+                            end = start + fitCount;
                             lineEllipsized = true;
                         }
                     }
-                    // 行尾去空白、下一行首去空白（与 FontTextWidget.UpdateLines 一致）
+                    // 行尾去空白、下一行首去空白（与 FontTextWidget.UpdateLines 一致；tab 展开空格行首保留）
                     while (end > start
                         && char.IsWhiteSpace(paragraph[end - 1].C)) {
                         end--;
                     }
                     int nextStart = MathUtils.Min(end == start ? start + 1 : end, paragraph.Count);
                     while (nextStart < paragraph.Count
-                        && char.IsWhiteSpace(paragraph[nextStart].C)) {
+                        && char.IsWhiteSpace(paragraph[nextStart].C)
+                        && !paragraph[nextStart].IsTabSpace) {
                         nextStart++;
                     }
                     AddLine(paragraph.GetRange(start, end - start), lineEllipsized);
                     if (lineEllipsized) {
-                        ellipsized = true;
                         break;
                     }
                     start = nextStart;
                     if (Lines.Count >= maxLines) {
                         break;
                     }
-                }
-                if (ellipsized) {
-                    break;
                 }
             }
             // 累计行 y 与测量尺寸；测量时末行不含行尾间距（与 FontTextWidget 一致）
@@ -209,8 +219,9 @@ namespace Game {
             Lines.Add(line);
         }
 
-        // 返回 [start, end) 内总宽不超过 availableWidth 的最大字符数；超宽单字符由调用方强制推进
-        int CountFittingCells(List<Cell> cells, int start, int end, float availableWidth) {
+        // 返回 [start, end) 内总宽不超过 availableWidth 的最大字符数；超宽单字符由调用方强制推进。
+        // reserveEllipsis：预留省略号宽度（按当前 cell 的 span 字号度量，与截断后实际追加的省略号字号一致）
+        int CountFittingCells(List<Cell> cells, int start, int end, float availableWidth, bool reserveEllipsis) {
             float width = 0f;
             for (int i = start; i < end; i++) {
                 float scale = SpanScale(cells[i].Span);
@@ -219,7 +230,8 @@ namespace Game {
                     && cells[i + 1].Sequence == cells[i].Sequence) {
                     width -= Font.GetKerning(cells[i].C, cells[i + 1].C) * scale * Font.Scale;
                 }
-                if (width > availableWidth) {
+                float limit = reserveEllipsis ? availableWidth - MeasureEllipsisWidth(scale) : availableWidth;
+                if (width > limit) {
                     return i - start;
                 }
             }
