@@ -6,8 +6,11 @@ namespace Game {
 
         Bold,
 
-        // 预留：Pericles 无斜体变体，当前按 Normal 渲染，后续视需要实现切变变换
-        Italic
+        // 合成斜体：无斜体字体变体，Draw 对该 run 施加切变（伪斜体）
+        Italic,
+
+        // 粗斜体（markdown ***x*** / HTML b+i 嵌套）＝双绘粗体 + 切变
+        BoldItalic
     }
 
     public class TextSpan {
@@ -55,7 +58,9 @@ namespace Game {
             Href = href;
         }
 
-        public bool IsBold => Style == RichTextStyle.Bold;
+        public bool IsBold => Style is RichTextStyle.Bold or RichTextStyle.BoldItalic;
+
+        public bool IsItalic => Style is RichTextStyle.Italic or RichTextStyle.BoldItalic;
 
         public bool IsLink => !string.IsNullOrEmpty(Href);
     }

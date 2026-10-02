@@ -197,7 +197,10 @@ namespace Game {
                             );
                         }
                     }
+                    // 斜体＝run 顶点本地切变（伪斜体），末尾 GlobalTransform 整批变换后套，测量/命中不受影响
+                    bool italic = run.Span.IsItalic;
                     if (DropShadow) {
+                        int shadowStart = fontBatch2D.TriangleVertices.Count;
                         fontBatch2D.QueueText(
                             run.Text,
                             position + 1f * new Vector2(FontScale),
@@ -207,9 +210,13 @@ namespace Game {
                             scale,
                             FontSpacing
                         );
+                        if (italic) {
+                            fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), shadowStart);
+                        }
                     }
                     if (run.Span.IsBold) {
                         // 伪粗体：同串横偏 1×FontScale 双绘
+                        int boldStart = fontBatch2D.TriangleVertices.Count;
                         fontBatch2D.QueueText(
                             run.Text,
                             position + new Vector2(FontScale, 0f),
@@ -219,7 +226,11 @@ namespace Game {
                             scale,
                             FontSpacing
                         );
+                        if (italic) {
+                            fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), boldStart);
+                        }
                     }
+                    int runStart = fontBatch2D.TriangleVertices.Count;
                     fontBatch2D.QueueText(
                         run.Text,
                         position,
@@ -229,6 +240,9 @@ namespace Game {
                         scale,
                         FontSpacing
                     );
+                    if (italic) {
+                        fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), runStart);
+                    }
                     if (run.Span.Strikethrough) {
                         // 删除线＝em 中线（基准同下划线：GlyphHeight×span 字号×Font.Scale），厚度同下划线
                         float thickness = MathUtils.Max(FontScale * Font.Scale, 1f);
@@ -270,6 +284,16 @@ namespace Game {
             Vector2 p3 = Vector2.Transform(new Vector2(x + width, y + height), m);
             Vector2 p4 = Vector2.Transform(new Vector2(x, y + height), m);
             batch.QueueQuad(p1, p2, p3, p4, 0f, color);
+        }
+
+        // 斜体切变矩阵：x' = x − k·(y − em 中点)，k = tan(12°) ≈ 0.21，顶部右倾。
+        // 绕 em 中点而非基线（Pericles 基线未单独暴露）；emHeight = GlyphHeight×span 字号×Font.Scale
+        Matrix ItalicShearMatrix(float emHeight) {
+            const float k = 0.2126f;
+            Matrix m = Matrix.Identity;
+            m.M21 = -k;
+            m.M41 = k * emHeight * 0.5f;
+            return m;
         }
 
         // 文字块顶部相对 widget 的 y 偏移（垂直锚点）；绘制与命中测试必须共用同一计算

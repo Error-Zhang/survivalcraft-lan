@@ -125,7 +125,10 @@ namespace Game {
             if (string.IsNullOrEmpty(text)) {
                 return;
             }
-            RichTextStyle richStyle = style.Bold ? RichTextStyle.Bold : style.Italic ? RichTextStyle.Italic : RichTextStyle.Normal;
+            // 粗斜体并存时用 BoldItalic（原三目链 Bold 优先会丢斜体）
+            RichTextStyle richStyle = style.Bold
+                ? (style.Italic ? RichTextStyle.BoldItalic : RichTextStyle.Bold)
+                : style.Italic ? RichTextStyle.Italic : RichTextStyle.Normal;
             spans.Add(new TextSpan(text, style.Color ?? defaultColor, richStyle, style.Href) {
                 BackgroundColor = style.Background,
                 Strikethrough = style.Strikethrough
