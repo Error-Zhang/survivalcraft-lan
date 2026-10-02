@@ -29,11 +29,12 @@ namespace Game {
         // 调用方自定义载荷（如 markdown 源节点），排版层不解释
         public object Tag { get; set; }
 
-        public TextSpan() {
-            Text = string.Empty;
-            FontScale = 1f;
-            Style = RichTextStyle.Normal;
-        }
+    public TextSpan() {
+        Text = string.Empty;
+        // 0 = 继承 widget 的 FontScale（排版层 SpanScale 对 ≤0 回退），显式值优先
+        FontScale = 0f;
+        Style = RichTextStyle.Normal;
+    }
 
         public TextSpan(string text) : this() {
             Text = text ?? string.Empty;
