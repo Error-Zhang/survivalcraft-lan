@@ -352,6 +352,7 @@ CLAUDE.md
 .code-review-graph/
 docs/superpowers/
 .zcode/
+.zcodeignore
 temp/
 
 # macOS

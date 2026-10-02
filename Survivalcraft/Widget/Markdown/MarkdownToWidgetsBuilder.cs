@@ -47,20 +47,30 @@ namespace Game {
 
         const int ListIndentPerDepth = 22;
 
+        // 块级嵌套深度上限（引用/列表/HTML 互嵌递归）：防御不可信输入的深嵌套
+        const int MaxDepth = 64;
+
         public StackPanelWidget Build(string markdown) {
             MarkdownDocument document = Markdown.Parse(markdown ?? string.Empty, s_pipeline);
             StackPanelWidget panel = CreatePanel();
-            BuildBlocks(document, panel, 0, null);
+            BuildBlocks(document, panel, 0, null, 0);
             return panel;
         }
 
         public void BuildBlocks(IEnumerable<MdBlock> blocks, StackPanelWidget panel, int listDepth, Color? colorOverride) {
+            BuildBlocks(blocks, panel, listDepth, colorOverride, 0);
+        }
+
+        void BuildBlocks(IEnumerable<MdBlock> blocks, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth) {
+            if (depth > MaxDepth) {
+                return;
+            }
             foreach (MdBlock block in blocks) {
-                BuildBlock(block, panel, listDepth, colorOverride);
+                BuildBlock(block, panel, listDepth, colorOverride, depth);
             }
         }
 
-        void BuildBlock(MdBlock block, StackPanelWidget panel, int listDepth, Color? colorOverride) {
+        void BuildBlock(MdBlock block, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth) {
             switch (block) {
                 case HeadingBlock heading: {
                     RichTextWidget widget = CreateRichText(colorOverride);
@@ -82,10 +92,10 @@ namespace Game {
                     break;
                 }
                 case ListBlock list:
-                    BuildList(list, panel, listDepth, colorOverride);
+                    BuildList(list, panel, listDepth, colorOverride, depth);
                     break;
                 case QuoteBlock quote:
-                    panel.Children.Add(CreateQuote(quote, listDepth, colorOverride));
+                    panel.Children.Add(CreateQuote(quote, listDepth, colorOverride, depth));
                     break;
                 case FencedCodeBlock fencedCode:
                     panel.Children.Add(CreateCodeBlock(GetBlockLines(fencedCode.Lines.Lines, fencedCode.Lines.Count)));
@@ -104,7 +114,7 @@ namespace Game {
                     });
                     break;
                 case HtmlBlock htmlBlock:
-                    BuildHtml(GetBlockText(htmlBlock), panel, listDepth, colorOverride);
+                    BuildHtml(GetBlockText(htmlBlock), panel, listDepth, colorOverride, depth + 1);
                     break;
                 default: {
                     // 未知块（自定义扩展等）：取源文本按段落兜底，避免内容静默丢失
@@ -119,12 +129,13 @@ namespace Game {
             }
         }
 
-        void BuildList(ListBlock list, StackPanelWidget panel, int listDepth, Color? colorOverride) {
+        void BuildList(ListBlock list, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth) {
             StackPanelWidget listPanel = CreatePanel();
             listPanel.Margin = new Vector2(0f, 2f);
-            int number = 1;
+            // 有序列表起始编号：Markdig 只给 OrderedStart 原始串（"3." 的 "3"），自己转 int（失败回退 1）
+            int number = list.IsOrdered && int.TryParse(list.OrderedStart, out int orderedStart) ? orderedStart : 1;
             foreach (ListItemBlock item in list) {
-                listPanel.Children.Add(CreateListItem(list.IsOrdered, number, listDepth, item, colorOverride, markdigItem: true));
+                listPanel.Children.Add(CreateListItem(list.IsOrdered, number, listDepth, item, colorOverride, markdigItem: true, depth));
                 number++;
             }
             panel.Children.Add(listPanel);
@@ -132,7 +143,7 @@ namespace Game {
 
         // 项 = CanvasWidget 行：marker 列 + 内容列。CanvasWidget 会按 child 位置自动扣减测量可用宽，
         // 内容列换行宽 = 行宽 - 缩进；行内内容与嵌套块共用一个竖排 StackPanel
-        CanvasWidget CreateListItem(bool ordered, int number, int listDepth, IEnumerable<MdBlock> markdigBlocks, Color? colorOverride, bool markdigItem) {
+        CanvasWidget CreateListItem(bool ordered, int number, int listDepth, IEnumerable<MdBlock> markdigBlocks, Color? colorOverride, bool markdigItem, int depth) {
             CanvasWidget row = new() {
                 Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f)
             };
@@ -159,7 +170,7 @@ namespace Game {
                         contentPanel.Children.Add(widget);
                     }
                     else {
-                        BuildBlock(itemBlock, contentPanel, listDepth + 1, colorOverride);
+                        BuildBlock(itemBlock, contentPanel, listDepth + 1, colorOverride, depth + 1);
                     }
                     hasBlocks = true;
                 }
@@ -167,12 +178,11 @@ namespace Game {
             if (!hasBlocks) {
                 contentPanel.Children.Add(CreateRichText(colorOverride));
             }
-            row.Children.Add(contentPanel);
             return row;
         }
 
         // 引用块：左竖线（-1 高度随内容拉伸）+ 灰字 + 左缩进
-        CanvasWidget CreateQuote(ContainerBlock quote, int listDepth, Color? colorOverride) {
+        CanvasWidget CreateQuote(ContainerBlock quote, int listDepth, Color? colorOverride, int depth) {
             CanvasWidget outer = new() {
                 Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f),
                 Margin = new Vector2(0f, 4f)
@@ -187,7 +197,7 @@ namespace Game {
             outer.Children.Add(line);
             StackPanelWidget inner = CreatePanel();
             inner.Margin = new Vector2(0f, 2f);
-            BuildBlocks(quote, inner, listDepth, QuoteColor);
+            BuildBlocks(quote, inner, listDepth, QuoteColor, depth + 1);
             outer.Children.Add(inner);
             CanvasWidget.SetPosition(inner, new Vector2(10f, 0f));
             return outer;
@@ -195,13 +205,20 @@ namespace Game {
 
         // HtmlAgilityPack DOM 入口（HtmlBlock / 外部 HTML 片段）
         public void BuildHtml(string html, StackPanelWidget panel, int listDepth, Color? colorOverride) {
+            BuildHtml(html, panel, listDepth, colorOverride, 0);
+        }
+
+        void BuildHtml(string html, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth) {
             HtmlAgilityPack.HtmlDocument doc = new();
             doc.LoadHtml(html ?? string.Empty);
-            BuildHtmlNodes(doc.DocumentNode.ChildNodes, panel, listDepth, colorOverride);
+            BuildHtmlNodes(doc.DocumentNode.ChildNodes, panel, listDepth, colorOverride, depth);
         }
 
         // 块级 HTML 节点遍历：行内节点累积成段，遇块级标签先冲刷当前段
-        void BuildHtmlNodes(HtmlAgilityPack.HtmlNodeCollection nodes, StackPanelWidget panel, int listDepth, Color? colorOverride) {
+        void BuildHtmlNodes(HtmlAgilityPack.HtmlNodeCollection nodes, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth) {
+            if (depth > MaxDepth) {
+                return;
+            }
             List<TextSpan> pendingSpans = [];
             void Flush() {
                 if (pendingSpans.Count > 0) {
@@ -246,11 +263,11 @@ namespace Game {
                     case "ul":
                     case "ol":
                         Flush();
-                        BuildHtmlList(node, node.Name.Equals("ol", StringComparison.Ordinal), panel, listDepth, colorOverride);
+                        BuildHtmlList(node, node.Name.Equals("ol", StringComparison.Ordinal), panel, listDepth, colorOverride, depth);
                         break;
                     case "blockquote":
                         Flush();
-                        panel.Children.Add(CreateHtmlQuote(node, listDepth, colorOverride));
+                        panel.Children.Add(CreateHtmlQuote(node, listDepth, colorOverride, depth));
                         break;
                     case "pre": {
                         Flush();
@@ -262,7 +279,7 @@ namespace Game {
                         Flush();
                         panel.Children.Add(new RectangleWidget {
                             Size = new Vector2(1f, 1f),
-                        HorizontalAlignment = WidgetAlignment.Stretch,
+                            HorizontalAlignment = WidgetAlignment.Stretch,
                             FillColor = ThematicBreakColor,
                             OutlineColor = Color.Transparent,
                             OutlineThickness = 0f,
@@ -278,10 +295,14 @@ namespace Game {
             Flush();
         }
 
-        void BuildHtmlList(HtmlAgilityPack.HtmlNode listNode, bool ordered, StackPanelWidget panel, int listDepth, Color? colorOverride) {
+        void BuildHtmlList(HtmlAgilityPack.HtmlNode listNode, bool ordered, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth) {
+            if (depth > MaxDepth) {
+                return;
+            }
             StackPanelWidget listPanel = CreatePanel();
             listPanel.Margin = new Vector2(0f, 2f);
-            int number = 1;
+            // <ol start="4">：解析失败回退 1
+            int number = int.TryParse(listNode.GetAttributeValue("start", null), out int parsedStart) ? parsedStart : 1;
             foreach (HtmlAgilityPack.HtmlNode li in listNode.Elements("li")) {
                 CanvasWidget row = new() {
                     Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f)
@@ -312,10 +333,10 @@ namespace Game {
                         switch (child.Name.ToLowerInvariant()) {
                             case "ul":
                             case "ol":
-                                BuildHtmlList(child, child.Name.Equals("ol", StringComparison.Ordinal), contentPanel, listDepth + 1, colorOverride);
+                                BuildHtmlList(child, child.Name.Equals("ol", StringComparison.Ordinal), contentPanel, listDepth + 1, colorOverride, depth + 1);
                                 break;
                             case "blockquote":
-                                contentPanel.Children.Add(CreateHtmlQuote(child, listDepth + 1, colorOverride));
+                                contentPanel.Children.Add(CreateHtmlQuote(child, listDepth + 1, colorOverride, depth + 1));
                                 break;
                             case "pre": {
                                 HtmlAgilityPack.HtmlNode code = child.Element("code") ?? child;
@@ -339,14 +360,13 @@ namespace Game {
                     widget.Spans.AddRange(pendingSpans);
                     contentPanel.Children.Add(widget);
                 }
-                row.Children.Add(contentPanel);
                 listPanel.Children.Add(row);
                 number++;
             }
             panel.Children.Add(listPanel);
         }
 
-        CanvasWidget CreateHtmlQuote(HtmlAgilityPack.HtmlNode quoteNode, int listDepth, Color? colorOverride) {
+        CanvasWidget CreateHtmlQuote(HtmlAgilityPack.HtmlNode quoteNode, int listDepth, Color? colorOverride, int depth) {
             CanvasWidget outer = new() {
                 Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f),
                 Margin = new Vector2(0f, 4f)
@@ -361,7 +381,7 @@ namespace Game {
             outer.Children.Add(line);
             StackPanelWidget inner = CreatePanel();
             inner.Margin = new Vector2(0f, 2f);
-            BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor);
+            BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1);
             outer.Children.Add(inner);
             CanvasWidget.SetPosition(inner, new Vector2(10f, 0f));
             return outer;
@@ -440,13 +460,20 @@ namespace Game {
         }
 
         static string GetBlockText(MdBlock block) {
+            return GetBlockText(block, 0);
+        }
+
+        static string GetBlockText(MdBlock block, int depth) {
+            if (depth > MaxDepth) {
+                return string.Empty;
+            }
             if (block is LeafBlock leafBlock) {
                 return string.Join("\n", GetBlockLines(leafBlock.Lines.Lines, leafBlock.Lines.Count));
             }
             var builder = new System.Text.StringBuilder();
             if (block is ContainerBlock container) {
                 foreach (MdBlock child in container) {
-                    builder.AppendLine(GetBlockText(child));
+                    builder.AppendLine(GetBlockText(child, depth + 1));
                 }
             }
             return builder.ToString();
@@ -454,6 +481,13 @@ namespace Game {
 
         // pre/code 内的 <br> 当换行；其余取原始文本
         static string ReplaceBrWithNewline(HtmlAgilityPack.HtmlNode node) {
+            return ReplaceBrWithNewline(node, 0);
+        }
+
+        static string ReplaceBrWithNewline(HtmlAgilityPack.HtmlNode node, int depth) {
+            if (depth > MaxDepth) {
+                return string.Empty;
+            }
             var builder = new System.Text.StringBuilder();
             foreach (HtmlAgilityPack.HtmlNode child in node.ChildNodes) {
                 if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Text) {
@@ -464,7 +498,7 @@ namespace Game {
                     builder.Append('\n');
                 }
                 else {
-                    builder.Append(ReplaceBrWithNewline(child));
+                    builder.Append(ReplaceBrWithNewline(child, depth + 1));
                 }
             }
             return builder.ToString();

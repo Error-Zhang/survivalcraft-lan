@@ -54,7 +54,6 @@ namespace Game {
         }
 
         void Rebuild() {
-            m_needsBuild = false;
             Children.Clear();
             m_builder.CodeBlocks.Clear();
             m_builder.Font = Font ?? LabelWidget.BitmapFont ?? BitmapFont.DebugFont;
@@ -65,12 +64,26 @@ namespace Game {
             if (LinkClicked != null) {
                 m_builder.LinkClicked += href => LinkClicked(href);
             }
-            StackPanelWidget content = m_builder.Build(m_markdown);
-            // content 面板仅作构建容器，块级 widget 直接上提到本部件，减少一层嵌套
-            foreach (Widget block in content.Children.ToArray()) {
-                content.Children.Remove(block);
-                Children.Add(block);
+            try {
+                StackPanelWidget content = m_builder.Build(m_markdown);
+                // content 面板仅作构建容器，块级 widget 直接上提到本部件，减少一层嵌套
+                foreach (Widget block in content.Children.ToArray()) {
+                    content.Children.Remove(block);
+                    Children.Add(block);
+                }
             }
+            catch (Exception e) {
+                // 解析/构建失败不能留在半空状态：清残留 + 兜底错误段落。
+                // 同一输入结果确定，清脏防每帧 Measure 重试
+                m_builder.CodeBlocks.Clear();
+                Children.Add(new LabelWidget {
+                    Text = "(Markdown 渲染失败：" + e.Message + ")",
+                    Font = m_builder.Font,
+                    Color = DefaultColor,
+                    WordWrap = true
+                });
+            }
+            m_needsBuild = false;
         }
     }
 }
