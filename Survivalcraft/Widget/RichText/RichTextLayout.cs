@@ -43,7 +43,8 @@ namespace Game {
                 || Spans.Count == 0) {
                 return;
             }
-            // 按 '\n' 拆段，段内贪心断行
+            // 按 '\n' 拆段，段内贪心断行；'\t' 按字符列制展开为空格（每 4 列一个 stop）
+            const int tabSize = 4;
             List<List<Cell>> paragraphs = [];
             List<Cell> current = [];
             int sequence = 0;
@@ -57,6 +58,13 @@ namespace Game {
                     if (raw == '\n') {
                         paragraphs.Add(current);
                         current = [];
+                        continue;
+                    }
+                    if (raw == '\t') {
+                        int spaces = tabSize - current.Count % tabSize;
+                        for (int t = 0; t < spaces; t++) {
+                            current.Add(new Cell(' ', span, sequence));
+                        }
                         continue;
                     }
                     current.Add(new Cell(raw == '\u00a0' ? ' ' : raw, span, sequence));
@@ -185,6 +193,7 @@ namespace Game {
                 float sourceScale = source != null ? SpanScale(source) : DefaultFontScale;
                 TextSpan ellipsis = new("...") {
                     Color = source?.Color,
+                    BackgroundColor = source?.BackgroundColor,
                     FontScale = sourceScale,
                     Style = source?.Style ?? RichTextStyle.Normal
                 };

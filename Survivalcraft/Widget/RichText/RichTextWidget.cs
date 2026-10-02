@@ -157,6 +157,10 @@ namespace Game {
                 || Color.A == 0) {
                 return;
             }
+            // 背景/下划线用 layer=-1 的 FlatBatch：渲染器按 batch Layer 排序绘制，
+            // -1 排在文字批次（默认 0）之前，背景才压在文字下
+            bool needsFlatBatch = ShowLinkUnderline || HasBackground;
+            FlatBatch2D flatBatch2D = needsFlatBatch ? dc.PrimitivesRenderer2D.FlatBatch(-1, DepthStencilState.None) : null;
             SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
             FontBatch2D fontBatch2D = dc.PrimitivesRenderer2D.FontBatch(Font, 1, DepthStencilState.None, null, null, samplerState);
             int batchStart = fontBatch2D.TriangleVertices.Count;
@@ -172,7 +176,6 @@ namespace Game {
             else if ((TextAnchor & TextAnchor.Bottom) != 0) {
                 blockY = ActualSize.Y - totalHeight;
             }
-            FlatBatch2D flatBatch2D = null;
             foreach (TextLine line in m_layout.Lines) {
                 float lineX = 0f;
                 if ((TextAnchor & TextAnchor.HorizontalCenter) != 0) {
@@ -184,11 +187,27 @@ namespace Game {
                 foreach (TextRun run in line.Runs) {
                     Color color = (run.Span.Color ?? Color) * GlobalColorTransform;
                     if (color.A == 0
-                        && !run.Span.IsLink) {
+                        && !run.Span.IsLink
+                        && run.Span.BackgroundColor == null) {
                         continue;
                     }
                     Vector2 scale = new(SpanScale(run.Span));
                     Vector2 position = new(lineX + run.X, blockY + line.Y);
+                    if (flatBatch2D != null
+                        && run.Span.BackgroundColor is Color background) {
+                        // 背景＝run 自身字号的 em 高矩形（同下划线基准）
+                        Color backgroundColor = background * GlobalColorTransform;
+                        if (backgroundColor.A != 0) {
+                            QueueTransformedQuad(
+                                flatBatch2D,
+                                position.X,
+                                position.Y,
+                                run.Width,
+                                Font.GlyphHeight * scale.X * Font.Scale,
+                                backgroundColor
+                            );
+                        }
+                    }
                     if (DropShadow) {
                         fontBatch2D.QueueText(
                             run.Text,
@@ -223,18 +242,39 @@ namespace Game {
                     );
                     if (run.Span.IsLink
                         && ShowLinkUnderline) {
-                        // 下划线用 FlatBatch 独立合批，手动套 GlobalTransform（同 RectangleWidget 做法）
-                        flatBatch2D ??= dc.PrimitivesRenderer2D.FlatBatch(1, DepthStencilState.None);
                         // GlyphHeight 须乘 Font.Scale（与 CalculateLineHeight 一致），否则落在下一行
                         float underlineY = position.Y + Font.GlyphHeight * scale.X * Font.Scale + 1f;
                         float thickness = MathUtils.Max(FontScale * Font.Scale, 1f);
-                        Vector2 p1 = Vector2.Transform(new Vector2(position.X, underlineY), GlobalTransform);
-                        Vector2 p2 = Vector2.Transform(new Vector2(position.X + run.Width, underlineY + thickness), GlobalTransform);
-                        flatBatch2D.QueueQuad(p1, p2, 0f, color);
+                        QueueTransformedQuad(
+                            flatBatch2D,
+                            position.X,
+                            underlineY,
+                            run.Width,
+                            thickness,
+                            color
+                        );
                     }
                 }
             }
             fontBatch2D.TransformTriangles(GlobalTransform, batchStart);
+        }
+
+        // 局部坐标 quad（x,y 为左上，w/h 尺寸）经 GlobalTransform 变换后入 FlatBatch（同 RectangleWidget 手动变换做法）
+        void QueueTransformedQuad(FlatBatch2D batch, float x, float y, float width, float height, Color color) {
+            Vector2 p1 = Vector2.Transform(new Vector2(x, y), GlobalTransform);
+            Vector2 p2 = Vector2.Transform(new Vector2(x + width, y + height), GlobalTransform);
+            batch.QueueQuad(p1, p2, 0f, color);
+        }
+
+        bool HasBackground {
+            get {
+                foreach (TextSpan span in m_spans) {
+                    if (span.BackgroundColor != null) {
+                        return true;
+                    }
+                }
+                return false;
+            }
         }
 
         public override void MeasureOverride(Vector2 parentAvailableSize) {

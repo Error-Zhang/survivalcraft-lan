@@ -16,6 +16,9 @@ namespace Game {
         // null 时回退到 RichTextWidget.Color
         public Color? Color { get; set; }
 
+        // 行内背景色，null 时无背景
+        public Color? BackgroundColor { get; set; }
+
         public float FontScale { get; set; }
 
         public RichTextStyle Style { get; set; }
