@@ -19,6 +19,9 @@ namespace Game {
         // 行内背景色，null 时无背景
         public Color? BackgroundColor { get; set; }
 
+        // 删除线（markdown ~~x~~ / HTML del|s|strike），绘制于 em 中线
+        public bool Strikethrough { get; set; }
+
         public float FontScale { get; set; }
 
         public RichTextStyle Style { get; set; }

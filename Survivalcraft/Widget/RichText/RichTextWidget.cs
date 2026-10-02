@@ -157,9 +157,9 @@ namespace Game {
                 || Color.A == 0) {
                 return;
             }
-            // 背景/下划线用 layer=-1 的 FlatBatch：渲染器按 batch Layer 排序绘制，
+            // 背景/下划线/删除线用 layer=-1 的 FlatBatch：渲染器按 batch Layer 排序绘制，
             // -1 排在文字批次（默认 0）之前，背景才压在文字下
-            bool needsFlatBatch = ShowLinkUnderline || HasBackground;
+            bool needsFlatBatch = ShowLinkUnderline || HasBackground || HasStrikethrough;
             FlatBatch2D flatBatch2D = needsFlatBatch ? dc.PrimitivesRenderer2D.FlatBatch(-1, DepthStencilState.None) : null;
             SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
             FontBatch2D fontBatch2D = dc.PrimitivesRenderer2D.FontBatch(Font, 1, DepthStencilState.None, null, null, samplerState);
@@ -229,6 +229,19 @@ namespace Game {
                         scale,
                         FontSpacing
                     );
+                    if (run.Span.Strikethrough) {
+                        // 删除线＝em 中线（基准同下划线：GlyphHeight×span 字号×Font.Scale），厚度同下划线
+                        float thickness = MathUtils.Max(FontScale * Font.Scale, 1f);
+                        float strikeY = position.Y + Font.GlyphHeight * scale.X * Font.Scale * 0.5f - thickness * 0.5f;
+                        QueueTransformedQuad(
+                            flatBatch2D,
+                            position.X,
+                            strikeY,
+                            run.Width,
+                            thickness,
+                            color
+                        );
+                    }
                     if (run.Span.IsLink
                         && ShowLinkUnderline) {
                         // GlyphHeight 须乘 Font.Scale（与 CalculateLineHeight 一致），否则落在下一行
@@ -272,6 +285,17 @@ namespace Game {
                 return ActualSize.Y - totalHeight;
             }
             return 0f;
+        }
+
+        bool HasStrikethrough {
+            get {
+                foreach (TextSpan span in Spans) {
+                    if (span.Strikethrough) {
+                        return true;
+                    }
+                }
+                return false;
+            }
         }
 
         bool HasBackground {

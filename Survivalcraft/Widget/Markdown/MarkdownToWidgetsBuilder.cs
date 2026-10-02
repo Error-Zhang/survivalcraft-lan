@@ -1,6 +1,7 @@
 using Engine;
 using Engine.Media;
 using Markdig;
+using Markdig.Extensions.EmphasisExtras;
 using Markdig.Syntax;
 using MdBlock = Markdig.Syntax.Block;
 
@@ -26,7 +27,10 @@ namespace Game {
         // 代码块外层 Canvas，宽度需在 MarkdownWidget.MeasureOverride 按可用宽解析（构建时父宽未知）
         public readonly List<CanvasWidget> CodeBlocks = [];
 
-        static readonly MarkdownPipeline s_pipeline = new MarkdownPipelineBuilder().Build();
+        // Strikethrough 扩展：默认 pipeline 不解析 ~~x~~（会留在字面量）
+        static readonly MarkdownPipeline s_pipeline = new MarkdownPipelineBuilder()
+            .UseEmphasisExtras(EmphasisExtraOptions.Strikethrough)
+            .Build();
 
         // 标题字号/金色阶梯（PRD 6.3，与 PostDetailsContentBuilder 同源风格）
         static readonly float[] s_headingScales = [1.6f, 1.4f, 1.2f, 1.1f, 1f, 1f];

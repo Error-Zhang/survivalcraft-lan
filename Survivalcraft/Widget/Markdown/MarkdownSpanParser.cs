@@ -15,6 +15,8 @@ namespace Game {
         // 行内底色（标签栈路径由 AddText 直带；DOM 递归路径另有后刷机制，两处同值冗余无害）
         public Color? Background;
 
+        public bool Strikethrough;
+
         public string Href;
     }
 
@@ -54,13 +56,18 @@ namespace Game {
                     AddText(literal.Content.ToString(), spans, style, defaultColor);
                     break;
                 case EmphasisInline emphasis: {
-                    // DelimiterCount：1=斜体、2=粗体、3=粗斜体
+                    // DelimiterCount：1=斜体、2=粗体、3=粗斜体；'~' 为删除线（pipeline 开 Strikethrough 扩展才会产出）
                     MarkdownSpanStyle inner = style;
-                    if (emphasis.DelimiterCount >= 2) {
-                        inner.Bold = true;
+                    if (emphasis.DelimiterChar == '~') {
+                        inner.Strikethrough = true;
                     }
-                    if (emphasis.DelimiterCount == 1 || emphasis.DelimiterCount >= 3) {
-                        inner.Italic = true;
+                    else {
+                        if (emphasis.DelimiterCount >= 2) {
+                            inner.Bold = true;
+                        }
+                        if (emphasis.DelimiterCount == 1 || emphasis.DelimiterCount >= 3) {
+                            inner.Italic = true;
+                        }
                     }
                     if (inline is ContainerInline emphasisContainer) {
                         Parse(emphasisContainer, spans, inner, defaultColor, depth + 1);
@@ -120,7 +127,8 @@ namespace Game {
             }
             RichTextStyle richStyle = style.Bold ? RichTextStyle.Bold : style.Italic ? RichTextStyle.Italic : RichTextStyle.Normal;
             spans.Add(new TextSpan(text, style.Color ?? defaultColor, richStyle, style.Href) {
-                BackgroundColor = style.Background
+                BackgroundColor = style.Background,
+                Strikethrough = style.Strikethrough
             });
         }
 
@@ -199,6 +207,11 @@ namespace Game {
                 case "i":
                 case "em":
                     inner.Italic = true;
+                    break;
+                case "del":
+                case "s":
+                case "strike":
+                    inner.Strikethrough = true;
                     break;
                 case "a":
                     inner.Href = node.GetAttributeValue("href", null);
