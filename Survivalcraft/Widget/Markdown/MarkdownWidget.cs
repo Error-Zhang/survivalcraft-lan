@@ -79,6 +79,8 @@ namespace Game {
             // 内容变更：旧内容的图片纹理立即全量释放（loader 代际递增使旧下载晚到回调就地销毁），
             // 缓存一并清空——内容变了没有复用价值；同类内 Markdown 相同值不会走到这（setter 判等）
             m_imageLoader.ReleaseTextures();
+            // 缩进栈归零：构建中途异常留下的脏缩进不得传染下一次构建
+            m_builder.CurrentIndentX = 0;
             Children.Clear();
             m_builder.CodeBlocks.Clear();
             m_builder.ImageBlocks.Clear();

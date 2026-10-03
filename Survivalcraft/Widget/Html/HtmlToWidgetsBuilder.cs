@@ -61,10 +61,15 @@ namespace Game {
                         break;
                     }
                     case "p":
-                    case "div":
                         Flush();
                         HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
                         Flush();
+                        break;
+                    case "div":
+                        // 容器标签递归块级遍历（子级 p/pre/列表各归其位），不做 span 平铺——
+                        // 否则 div 内 pre 被当普通元素折叠，代码缩进/换行全毁
+                        Flush();
+                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1);
                         break;
                     case "ul":
                     case "ol":
@@ -91,8 +96,15 @@ namespace Game {
                         AddImageBlock(panel, node.GetAttributeValue("src", null), node.GetAttributeValue("alt", null));
                         break;
                     default:
-                        // 未知块级标签：透传子节点累积为段
-                        HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
+                        // 未知标签：子树含块级标签（section/article 包裹 pre/列表等）时递归块级遍历，
+                        // 否则透传子节点累积为段（b/i/span 等行内标签）
+                        if (ContainsBlockChild(node)) {
+                            Flush();
+                            BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1);
+                        }
+                        else {
+                            HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
+                        }
                         break;
                 }
             }
@@ -138,9 +150,10 @@ namespace Game {
                 StackPanelWidget contentPanel = CreatePanel();
                 row.Children.Add(contentPanel);
                 CanvasWidget.SetPosition(contentPanel, new Vector2(contentX, 0f));
-                // 嵌套上下文：li 内代码块/图片块宽度按文字列收窄
+                // 嵌套上下文：li 内代码块/图片块宽度按文字列收窄。contentX 相对本级行挂载点，
+                // 绝对缩进=父累计+本级（引用内列表、li 套 li 靠累加保持口径）
                 float prevIndent = CurrentIndentX;
-                CurrentIndentX = contentX;
+                CurrentIndentX += contentX;
                 // li 内行内内容累积成段；内嵌块级标签递归处理
                 List<TextSpan> pendingSpans = [];
                 foreach (HtmlAgilityPack.HtmlNode child in li.ChildNodes) {
@@ -201,6 +214,26 @@ namespace Game {
             BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1);
             CurrentIndentX = prevIndent;
             return outer;
+        }
+
+        // 子树（浅查 4 层够）是否含块级标签：决定未知容器标签走块级递归还是 span 透传
+        static bool ContainsBlockChild(HtmlAgilityPack.HtmlNode node, int depth = 0) {
+            if (depth > 4) {
+                return false;
+            }
+            foreach (HtmlAgilityPack.HtmlNode child in node.ChildNodes) {
+                if (child.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
+                    continue;
+                }
+                if (child.Name.ToLowerInvariant() is "pre" or "ul" or "ol" or "blockquote" or "p" or "div" or "hr" or "table"
+                    or "h1" or "h2" or "h3" or "h4" or "h5" or "h6") {
+                    return true;
+                }
+                if (ContainsBlockChild(child, depth + 1)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         // pre/code 内的 <br> 当换行；其余取原始文本

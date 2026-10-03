@@ -186,9 +186,10 @@ namespace Game {
             StackPanelWidget contentPanel = CreatePanel();
             row.Children.Add(contentPanel);
             CanvasWidget.SetPosition(contentPanel, new Vector2(contentX, 0f));
-            // 嵌套上下文：项内代码块/图片块宽度按文字列收窄
+            // 嵌套上下文：项内代码块/图片块宽度按文字列收窄。contentX 是相对本级行挂载点的
+            // 局部列偏移，绝对缩进=父累计+本级（引用内列表、li 套 li 时靠累加保持口径）
             float prevIndent = CurrentIndentX;
-            CurrentIndentX = contentX;
+            CurrentIndentX += contentX;
             bool hasBlocks = false;
             if (markdigItem) {
                 foreach (MdBlock itemBlock in markdigBlocks) {

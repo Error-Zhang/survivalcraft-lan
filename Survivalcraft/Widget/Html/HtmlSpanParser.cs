@@ -161,7 +161,7 @@ namespace Game {
             });
         }
 
-        static readonly Regex s_whitespaceRegex = new("\\s+", RegexOptions.Compiled);
+        static readonly Regex s_whitespaceRegex = new("[^\\S\u00A0]+", RegexOptions.Compiled);
 
         // DOM 文本节点空白规范化：连续空白（含换行/缩进）折叠为单空格。
         // 行首 \\n 不处理会让 RichTextLayout 整段 runs 清空（真实帖子 HTML 多行格式必踩）
@@ -169,18 +169,25 @@ namespace Game {
             return string.IsNullOrEmpty(text) ? text : s_whitespaceRegex.Replace(text, " ");
         }
 
-        // 段首空白清理：剥掉首个 span 的前导空白，纯空白 span 整个移除，直至遇到非空白开头。
+        // 段首空白清理：剥掉首个 span 的前导空白（&nbsp; 不算——排版意图，帖子常用它做首行缩进，
+        // 被 TrimStart 整体吃掉会丢），纯空白 span 整个移除，直至遇到非空白开头。
         // 块级 Flush 前调用——折叠后的元素间空白落在段首时不应渲染（会缩进首行）
         public static void TrimLeadingWhitespace(List<TextSpan> spans) {
             while (spans.Count > 0) {
                 TextSpan first = spans[0];
-                string trimmed = first.Text.TrimStart();
-                if (trimmed.Length == 0) {
+                string text = first.Text;
+                int i = 0;
+                while (i < text.Length
+                    && char.IsWhiteSpace(text[i])
+                    && text[i] != '\u00A0') {
+                    i++;
+                }
+                if (i >= text.Length) {
                     spans.RemoveAt(0);
                     continue;
                 }
-                if (trimmed.Length != first.Text.Length) {
-                    first.Text = trimmed;
+                if (i > 0) {
+                    first.Text = text[i..];
                 }
                 break;
             }
