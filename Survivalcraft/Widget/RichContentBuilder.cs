@@ -166,10 +166,11 @@ namespace Game {
             return outer;
         }
 
-        // 引用块外壳：左竖线（-1 高度随内容拉伸）+ 灰字缩进容器，inner 面板交调用方填内容
+        // 引用块外壳：宽随嵌套收窄（构建时 CurrentIndentX=父累计，未含本块 +10——inner 挂载点
+        // 扣减的 10 即本块缩进），左竖线（-1 高度随内容拉伸）+ 灰字缩进容器，inner 面板交调用方填内容
         protected CanvasWidget CreateQuoteFrame(out StackPanelWidget inner) {
             CanvasWidget outer = new() {
-                Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f),
+                Size = new Vector2(NestedContentWidth(), -1f),
                 Margin = new Vector2(0f, 4f)
             };
             RectangleWidget line = new() {

@@ -170,8 +170,10 @@ namespace Game {
             if (isTaskItem) {
                 contentX = MathUtils.Max(contentX, MarkerOffsetX + TaskCheckboxSize + MarkerTextGap);
             }
+            // 行框宽随嵌套收窄（构建时 CurrentIndentX=父累计，未含本档 contentX——文字列挂载点
+            // 扣减的 contentX 即本档缩进），li 套 li 时行框/文字列不溢出宿主右缘
             CanvasWidget row = new() {
-                Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f)
+                Size = new Vector2(NestedContentWidth(), -1f)
             };
             if (!isTaskItem) {
                 FontTextWidget markerLabel = new() {

@@ -136,8 +136,9 @@ namespace Game {
             }
             float contentX = MathUtils.Max(ListIndentPerDepth, MarkerOffsetX + maxMarkerWidth + MarkerTextGap);
             foreach (HtmlAgilityPack.HtmlNode li in items) {
+                // 行框宽随嵌套收窄（同 MarkdownToWidgetsBuilder.CreateListItem）
                 CanvasWidget row = new() {
-                    Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f)
+                    Size = new Vector2(NestedContentWidth(), -1f)
                 };
                 FontTextWidget markerLabel = new() {
                     Text = HtmlTextUtils.GetListMarker(ordered, number, listDepth + 1),
