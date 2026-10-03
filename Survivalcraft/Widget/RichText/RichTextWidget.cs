@@ -182,6 +182,23 @@ namespace Game {
                     }
                     Vector2 scale = new(SpanScale(run.Span));
                     Vector2 position = new(lineX + run.X, blockY + line.Y);
+                    // 文字像素对齐：FontBatch2D 对入批坐标的内部 Round 发生在局部空间，批末再叠加本树的
+                    // GlobalTransform——平移带小数（父链累计边距/行高）时屏幕仍落半像素相位，同一字形随段落
+                    // 忽锐忽糊、伪粗体双绘读作两个重叠的字。这里连同 QueueText 自身的半间距偏移一起对齐到
+                    // 屏幕整数栅格，并传 DisableSnapToPixels 绕开内部 Round，每处文字的绘制相位恒为 0。
+                    // 排版坐标不动（命中/省略号不受影响），quad 用同一 delta 跟随文字
+                    Vector2 spacingHalf = new(
+                        0.5f * scale.X * Font.Scale * (FontSpacing.X + Font.Spacing.X),
+                        0.5f * scale.Y * Font.Scale * (FontSpacing.Y + Font.Spacing.Y)
+                    );
+                    Vector2 draw = position + spacingHalf;
+                    Vector2 drawTranslate = new(GlobalTransform.M41, GlobalTransform.M42);
+                    draw += new Vector2(
+                        MathF.Round(draw.X + drawTranslate.X) - (draw.X + drawTranslate.X),
+                        MathF.Round(draw.Y + drawTranslate.Y) - (draw.Y + drawTranslate.Y)
+                    );
+                    Vector2 drawDelta = draw - position;
+                    TextAnchor anchor = TextAnchor.Default | TextAnchor.DisableSnapToPixels;
                     if (flatBatch2D != null
                         && run.Span.BackgroundColor is Color background) {
                         // 背景＝run 自身字号的 em 高矩形（同下划线基准）
@@ -189,8 +206,8 @@ namespace Game {
                         if (backgroundColor.A != 0) {
                             QueueTransformedQuad(
                                 flatBatch2D,
-                                position.X,
-                                position.Y,
+                                position.X + drawDelta.X,
+                                position.Y + drawDelta.Y,
                                 run.Width,
                                 Font.GlyphHeight * scale.X * Font.Scale,
                                 backgroundColor
@@ -203,10 +220,10 @@ namespace Game {
                         int shadowStart = fontBatch2D.TriangleVertices.Count;
                         fontBatch2D.QueueText(
                             run.Text,
-                            position + 1f * new Vector2(FontScale),
+                            draw + 1f * new Vector2(FontScale),
                             0f,
                             new Color((byte)0, (byte)0, (byte)0, color.A),
-                            TextAnchor.Default,
+                            anchor,
                             scale,
                             FontSpacing
                         );
@@ -219,10 +236,10 @@ namespace Game {
                         int boldStart = fontBatch2D.TriangleVertices.Count;
                         fontBatch2D.QueueText(
                             run.Text,
-                            position + new Vector2(FontScale, 0f),
+                            draw + new Vector2(FontScale, 0f),
                             0f,
                             color,
-                            TextAnchor.Default,
+                            anchor,
                             scale,
                             FontSpacing
                         );
@@ -233,10 +250,10 @@ namespace Game {
                     int runStart = fontBatch2D.TriangleVertices.Count;
                     fontBatch2D.QueueText(
                         run.Text,
-                        position,
+                        draw,
                         0f,
                         color,
-                        TextAnchor.Default,
+                        anchor,
                         scale,
                         FontSpacing
                     );
@@ -249,8 +266,8 @@ namespace Game {
                         float strikeY = position.Y + Font.GlyphHeight * scale.X * Font.Scale * 0.5f - thickness * 0.5f;
                         QueueTransformedQuad(
                             flatBatch2D,
-                            position.X,
-                            strikeY,
+                            position.X + drawDelta.X,
+                            strikeY + drawDelta.Y,
                             run.Width,
                             thickness,
                             color
@@ -263,8 +280,8 @@ namespace Game {
                         float thickness = MathUtils.Max(FontScale * Font.Scale, 1f);
                         QueueTransformedQuad(
                             flatBatch2D,
-                            position.X,
-                            underlineY,
+                            position.X + drawDelta.X,
+                            underlineY + drawDelta.Y,
                             run.Width,
                             thickness,
                             color
