@@ -224,7 +224,7 @@ namespace Game {
                 Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f)
             };
             if (!isTaskItem) {
-                LabelWidget markerLabel = new() {
+                FontTextWidget markerLabel = new() {
                     Text = HtmlTextUtils.GetListMarker(ordered, number, listDepth + 1),
                     Font = Font,
                     Color = colorOverride ?? DefaultColor,
@@ -523,7 +523,7 @@ namespace Game {
                 CanvasWidget row = new() {
                     Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f)
                 };
-                LabelWidget markerLabel = new() {
+                FontTextWidget markerLabel = new() {
                     Text = HtmlTextUtils.GetListMarker(ordered, number, listDepth + 1),
                     Font = Font,
                     Color = colorOverride ?? DefaultColor,
@@ -623,19 +623,22 @@ namespace Game {
                 HorizontalAlignment = WidgetAlignment.Stretch,
                 VerticalAlignment = WidgetAlignment.Stretch,
                 CenterColor = CodeCenterColor,
-                BevelColor = CodeBevelColor
+                BevelColor = CodeBevelColor,
+                DirectionalLight = 0f,
+                AmbientLight = 1f
             };
             outer.Children.Add(frame);
             ScrollPanelWidget scrollPanel = new() {
                 Direction = LayoutDirection.Horizontal,
-                ScrollPosition = 0f
+                ScrollPosition = 0f,
+                Margin = new Vector2(3f, 3f),
             };
             StackPanelWidget linesPanel = new() {
                 Direction = LayoutDirection.Vertical,
-                Margin = new Vector2(8f, 6f)
+                Margin = new Vector2(5f, 6f)
             };
             foreach (string line in lines) {
-                linesPanel.Children.Add(new LabelWidget {
+                linesPanel.Children.Add(new FontTextWidget {
                     Text = line.Length == 0 ? " " : line,
                     Font = Font,
                     Color = CodeTextColor,

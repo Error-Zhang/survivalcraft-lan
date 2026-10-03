@@ -147,7 +147,7 @@ namespace Game {
                         return false;
                     }
                 );
-                return new LabelWidget {
+                return new FontTextWidget {
                     Text = text,
                     Font = LabelWidget.BitmapFont,
                     HorizontalAlignment = WidgetAlignment.Near,

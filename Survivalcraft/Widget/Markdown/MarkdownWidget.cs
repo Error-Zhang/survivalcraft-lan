@@ -103,7 +103,7 @@ namespace Game {
                 // 同一输入结果确定，清脏防每帧 Measure 重试
                 m_builder.CodeBlocks.Clear();
                 m_builder.ImageBlocks.Clear();
-                Children.Add(new LabelWidget {
+                Children.Add(new FontTextWidget {
                     Text = "(Markdown 渲染失败：" + e.Message + ")",
                     Font = m_builder.Font,
                     Color = DefaultColor,
