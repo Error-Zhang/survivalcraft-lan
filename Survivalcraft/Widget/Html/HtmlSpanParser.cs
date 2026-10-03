@@ -22,7 +22,9 @@ namespace Game {
         public static void ParseHtmlNode(HtmlAgilityPack.HtmlNode node, List<TextSpan> spans, MarkdownSpanStyle style, Color defaultColor, int depth = 0) {
             switch (node.NodeType) {
                 case HtmlAgilityPack.HtmlNodeType.Text:
-                    AddText(WebUtility.HtmlDecode(node.InnerText), spans, style, defaultColor);
+                    // HTML 空白语义：元素间源码换行/缩进是排版噪声，折叠为单空格。
+                    // 不 trim（行中 "a <b>b</b>" 的尾空格保衔接），段首空白由块级 Flush 清理
+                    AddText(CollapseWhitespace(WebUtility.HtmlDecode(node.InnerText)), spans, style, defaultColor);
                     return;
                 case HtmlAgilityPack.HtmlNodeType.Element:
                     break;
@@ -157,6 +159,31 @@ namespace Game {
                 BackgroundColor = style.Background,
                 Strikethrough = style.Strikethrough
             });
+        }
+
+        static readonly Regex s_whitespaceRegex = new("\\s+", RegexOptions.Compiled);
+
+        // DOM 文本节点空白规范化：连续空白（含换行/缩进）折叠为单空格。
+        // 行首 \\n 不处理会让 RichTextLayout 整段 runs 清空（真实帖子 HTML 多行格式必踩）
+        static string CollapseWhitespace(string text) {
+            return string.IsNullOrEmpty(text) ? text : s_whitespaceRegex.Replace(text, " ");
+        }
+
+        // 段首空白清理：剥掉首个 span 的前导空白，纯空白 span 整个移除，直至遇到非空白开头。
+        // 块级 Flush 前调用——折叠后的元素间空白落在段首时不应渲染（会缩进首行）
+        public static void TrimLeadingWhitespace(List<TextSpan> spans) {
+            while (spans.Count > 0) {
+                TextSpan first = spans[0];
+                string trimmed = first.Text.TrimStart();
+                if (trimmed.Length == 0) {
+                    spans.RemoveAt(0);
+                    continue;
+                }
+                if (trimmed.Length != first.Text.Length) {
+                    first.Text = trimmed;
+                }
+                break;
+            }
         }
 
         // 左边界 lookbehind：防止 border-color/link-color 等属性内的 color 子串被误当文字色

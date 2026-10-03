@@ -28,6 +28,10 @@ namespace Game {
             List<TextSpan> pendingSpans = [];
             void Flush() {
                 if (pendingSpans.Count > 0) {
+                    HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
+                    if (pendingSpans.Count == 0) {
+                        return;
+                    }
                     RichTextWidget widget = CreateRichText(colorOverride);
                     widget.Spans.AddRange(pendingSpans);
                     panel.Children.Add(widget);
@@ -144,9 +148,12 @@ namespace Game {
                         && child.Name.ToLowerInvariant() is "ul" or "ol" or "blockquote" or "pre" or "p" or "div";
                     if (isBlock) {
                         if (pendingSpans.Count > 0) {
-                            RichTextWidget widget = CreateRichText(colorOverride);
-                            widget.Spans.AddRange(pendingSpans);
-                            contentPanel.Children.Add(widget);
+                            HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
+                            if (pendingSpans.Count > 0) {
+                                RichTextWidget widget = CreateRichText(colorOverride);
+                                widget.Spans.AddRange(pendingSpans);
+                                contentPanel.Children.Add(widget);
+                            }
                             pendingSpans = [];
                         }
                         switch (child.Name.ToLowerInvariant()) {
@@ -174,6 +181,7 @@ namespace Game {
                         HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, colorOverride ?? DefaultColor);
                     }
                 }
+                HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
                 if (pendingSpans.Count > 0) {
                     RichTextWidget widget = CreateRichText(colorOverride);
                     widget.Spans.AddRange(pendingSpans);
