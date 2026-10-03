@@ -2,6 +2,7 @@ using Engine;
 using Engine.Media;
 using Markdig;
 using Markdig.Extensions.EmphasisExtras;
+using Markdig.Extensions.Tables;
 using Markdig.Syntax;
 using MdBlock = Markdig.Syntax.Block;
 
@@ -28,8 +29,10 @@ namespace Game {
         public readonly List<CanvasWidget> CodeBlocks = [];
 
         // Strikethrough 扩展：默认 pipeline 不解析 ~~x~~（会留在字面量）
+        // PipeTables：默认 pipeline 不解析 GFM 管道表（| a | b |）
         static readonly MarkdownPipeline s_pipeline = new MarkdownPipelineBuilder()
             .UseEmphasisExtras(EmphasisExtraOptions.Strikethrough)
+            .UsePipeTables()
             .Build();
 
         // 标题字号/金色阶梯（PRD 6.3，与 PostDetailsContentBuilder 同源风格）
@@ -116,6 +119,9 @@ namespace Game {
                         OutlineThickness = 0f,
                         Margin = new Vector2(0f, 6f)
                     });
+                    break;
+                case Table table:
+                    panel.Children.Add(CreateTable(table, colorOverride));
                     break;
                 case HtmlBlock htmlBlock:
                     BuildHtml(GetBlockText(htmlBlock), panel, listDepth, colorOverride, depth + 1);
@@ -205,6 +211,60 @@ namespace Game {
             outer.Children.Add(inner);
             CanvasWidget.SetPosition(inner, new Vector2(10f, 0f));
             return outer;
+        }
+
+        // 表格：Table→TableRow(IsHeader)→TableCell（1.4.0 无 Inline 属性，行内挂在 cell 内 ParagraphBlock.Inline 上）；
+        // 列对齐在 Table.ColumnDefinitions[i].Alignment；表头行染粗体 span（跟随换行）
+        MarkdownTableWidget CreateTable(Table table, Color? colorOverride) {
+            MarkdownTableWidget widget = new() {
+                Font = Font,
+                FontScale = FontScale,
+                DefaultColor = colorOverride ?? DefaultColor
+            };
+            if (LinkClicked != null) {
+                widget.LinkClicked += href => LinkClicked(href);
+            }
+            var alignments = new List<MarkdownTableAlignment?>();
+            foreach (TableColumnDefinition definition in table.ColumnDefinitions) {
+                alignments.Add(definition.Alignment switch {
+                    TableColumnAlign.Center => MarkdownTableAlignment.Center,
+                    TableColumnAlign.Right => MarkdownTableAlignment.Right,
+                    TableColumnAlign.Left => MarkdownTableAlignment.Left,
+                    _ => null
+                });
+            }
+            widget.SetColumnAlignments(alignments);
+            foreach (MdBlock child in table) {
+                if (child is not TableRow row) {
+                    continue;
+                }
+                bool isHeader = row.IsHeader;
+                List<List<TextSpan>> cells = [];
+                foreach (MdBlock rowChild in row) {
+                    if (rowChild is not TableCell cell) {
+                        continue;
+                    }
+                    List<TextSpan> spans = [];
+                    foreach (MdBlock cellChild in cell) {
+                        if (cellChild is ParagraphBlock paragraph
+                            && paragraph.Inline != null) {
+                            MarkdownSpanParser.Parse(paragraph.Inline, spans, default, widget.DefaultColor);
+                        }
+                    }
+                    if (isHeader) {
+                        foreach (TextSpan span in spans) {
+                            span.Style = span.Style switch {
+                                RichTextStyle.Italic => RichTextStyle.BoldItalic,
+                                RichTextStyle.Normal => RichTextStyle.Bold,
+                                _ => span.Style
+                            };
+                        }
+                    }
+                    cells.Add(spans);
+                }
+                widget.AddRow(isHeader, cells);
+            }
+            return widget;
         }
 
         // HtmlAgilityPack DOM 入口（HtmlBlock / 外部 HTML 片段）
