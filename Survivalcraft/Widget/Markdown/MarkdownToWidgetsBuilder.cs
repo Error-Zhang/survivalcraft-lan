@@ -5,6 +5,7 @@ using Markdig.Extensions.EmphasisExtras;
 using Markdig.Extensions.Tables;
 using Markdig.Extensions.TaskLists;
 using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
 using MdBlock = Markdig.Syntax.Block;
 
 namespace Game {
@@ -28,6 +29,14 @@ namespace Game {
 
         // 代码块外层 Canvas，宽度需在 MarkdownWidget.MeasureOverride 按可用宽解析（构建时父宽未知）
         public readonly List<CanvasWidget> CodeBlocks = [];
+
+        // 宽度未定时（ContentWidth<=0）需在测量期回填宽度的图片块 frame（同 CodeBlocks 机制；
+        // 已加载完成的 frame 由 loader.IsFrameApplied 排除，宽=图宽不可覆盖）
+        public readonly List<CanvasWidget> ImageBlocks = [];
+
+        // 图片异步加载管线；null = 图片保持占位文本（宿主不接图片管线的场景）。
+        // 类型 internal：由 MarkdownWidget 注入并持有纹理生命周期，直接使用本 builder 的外部代码保持占位行为
+        internal RichContentImageLoader ImageLoader;
 
         // Strikethrough 扩展：默认 pipeline 不解析 ~~x~~（会留在字面量）
         // PipeTables：默认 pipeline 不解析 GFM 管道表（| a | b |）
@@ -56,6 +65,9 @@ namespace Game {
         static readonly Color ThematicBreakColor = new(120, 120, 120);
 
         const int ListIndentPerDepth = 22;
+
+        // 图片块高上限（适配时缩小不放大，与 PDCB 同值）
+        const float MaxImageHeight = 360f;
 
         // 块级嵌套深度上限（引用/列表/HTML 互嵌递归）：防御不可信输入的深嵌套
         const int MaxDepth = 64;
@@ -94,6 +106,14 @@ namespace Game {
                     break;
                 }
                 case ParagraphBlock paragraph: {
+                    // 纯图段落 → 图片块（异步加载管线）；混排段维持占位文本（行内真嵌图范围外）
+                    if (ImageLoader != null
+                        && TryGetParagraphImages(paragraph.Inline, out List<LinkInline> images)) {
+                        foreach (LinkInline image in images) {
+                            AddImageBlock(panel, image.Url, MarkdownSpanParser.GetInlineText(image));
+                        }
+                        break;
+                    }
                     RichTextWidget widget = CreateRichText(colorOverride);
                     if (paragraph.Inline != null) {
                         MarkdownSpanParser.Parse(paragraph.Inline, widget.Spans, default, widget.Color);
@@ -231,6 +251,36 @@ namespace Game {
             }
             isChecked = false;
             return false;
+        }
+
+        // 纯图段落判定：inline 序列全部是图片（允许图片间空白字面量，`![](a) ![](b)` 也算）。
+        // 链接包图 [![img](i)](href) 外层非 image link，不算
+        static bool TryGetParagraphImages(ContainerInline inline, out List<LinkInline> images) {
+            images = null;
+            bool any = false;
+            if (inline == null) {
+                return false;
+            }
+            foreach (Inline child in inline) {
+                if (child is LinkInline link && link.IsImage) {
+                    (images ??= []).Add(link);
+                    any = true;
+                }
+                else if (!(child is LiteralInline literal && string.IsNullOrWhiteSpace(literal.Content.ToString()))) {
+                    return false;
+                }
+            }
+            return any;
+        }
+
+        // 图片块：走共用 RichContentImageLoader；宽度未定时 frame 记入 ImageBlocks 由测量期回填
+        void AddImageBlock(StackPanelWidget panel, string url, string alt) {
+            CanvasWidget frame = ImageLoader.CreateImageBlock(url, alt, ContentWidth, MaxImageHeight);
+            frame.Margin = new Vector2(0f, 4f);
+            panel.Children.Add(frame);
+            if (ContentWidth <= 0f) {
+                ImageBlocks.Add(frame);
+            }
         }
 
         // CheckboxWidget 纯展示（v1 定稿裁定）：不自动勾选、关命中测试防挡滚动拖动；
@@ -401,6 +451,11 @@ namespace Game {
                             OutlineThickness = 0f,
                             Margin = new Vector2(0f, 6f)
                         });
+                        break;
+                    case "img" when ImageLoader != null:
+                        // 块级 <img>：与纯图段落同管线。行内 <img>（p 内）仍被丢弃（范围外）
+                        Flush();
+                        AddImageBlock(panel, node.GetAttributeValue("src", null), node.GetAttributeValue("alt", null));
                         break;
                     default:
                         // 未知块级标签：透传子节点累积为段

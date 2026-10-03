@@ -3,7 +3,9 @@ using Engine.Media;
 
 namespace Game {
     // Markdown 部件：竖排块级布局（StackPanelWidget）。Markdown setter 仅标脏，首次 Measure 时重建
-    // （字体/父宽在构建期不可得）；子 RichTextWidget 的 LinkClicked 聚合转发
+    // （字体/父宽在构建期不可得）；子 RichTextWidget 的 LinkClicked 聚合转发。
+    // 图片管线：本部件持有 RichContentImageLoader（纹理句柄生命周期归部件）——
+    // UpdateCeases（被移出更新树，ContainerWidget 级联）与 Rebuild（内容变更）时全量释放
     public class MarkdownWidget : StackPanelWidget {
         string m_markdown;
 
@@ -35,9 +37,15 @@ namespace Game {
 
         readonly MarkdownToWidgetsBuilder m_builder = new();
 
+        // 图片纹理生命周期归本部件（widget 树无 Dispose 级联，UpdateCeases 释放）
+        readonly RichContentImageLoader m_imageLoader = new();
+
         public MarkdownWidget() {
             Direction = LayoutDirection.Vertical;
             DefaultColor = Color.White;
+            // 块容器横向撑满宿主格：内部 Center 对齐（图片块等）的参考系恒为宿主内容宽，
+            // 不随内容最宽子件塌缩（窄内容居中会整体左漂）
+            HorizontalAlignment = WidgetAlignment.Stretch;
         }
 
         public override void MeasureOverride(Vector2 parentAvailableSize) {
@@ -50,16 +58,34 @@ namespace Game {
             foreach (CanvasWidget codeBlock in m_builder.CodeBlocks) {
                 codeBlock.Size = new Vector2(contentWidth, codeBlock.Size.Y);
             }
+            // 图片块同机制；已加载完成的 frame 宽=图宽，不覆盖（HorizontalAlignment=Center 居中）
+            foreach (CanvasWidget imageBlock in m_builder.ImageBlocks) {
+                if (!m_imageLoader.IsFrameApplied(imageBlock)) {
+                    imageBlock.Size = new Vector2(contentWidth, imageBlock.Size.Y);
+                }
+            }
             base.MeasureOverride(parentAvailableSize);
         }
 
+        public override void UpdateCeases() {
+            // 框架把本部件移出更新树时调用（ContainerWidget 级联）：释放图片纹理句柄并标记已释放，
+            // 晚到的图片回调就地销毁新纹理，不再加入列表
+            m_imageLoader.ReleaseTextures();
+            base.UpdateCeases();
+        }
+
         void Rebuild() {
+            // 内容变更：旧内容的图片纹理立即全量释放（loader 代际递增使旧下载晚到回调就地销毁），
+            // 缓存一并清空——内容变了没有复用价值；同类内 Markdown 相同值不会走到这（setter 判等）
+            m_imageLoader.ReleaseTextures();
             Children.Clear();
             m_builder.CodeBlocks.Clear();
+            m_builder.ImageBlocks.Clear();
             m_builder.Font = Font ?? LabelWidget.BitmapFont ?? BitmapFont.DebugFont;
             m_builder.FontScale = FontScale;
             m_builder.DefaultColor = DefaultColor;
             m_builder.ContentWidth = ContentWidth;
+            m_builder.ImageLoader = m_imageLoader;
             m_builder.LinkClicked = null;
             if (LinkClicked != null) {
                 m_builder.LinkClicked += href => LinkClicked(href);
@@ -76,6 +102,7 @@ namespace Game {
                 // 解析/构建失败不能留在半空状态：清残留 + 兜底错误段落。
                 // 同一输入结果确定，清脏防每帧 Measure 重试
                 m_builder.CodeBlocks.Clear();
+                m_builder.ImageBlocks.Clear();
                 Children.Add(new LabelWidget {
                     Text = "(Markdown 渲染失败：" + e.Message + ")",
                     Font = m_builder.Font,
