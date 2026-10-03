@@ -18,9 +18,6 @@ namespace Game {
         // 占位 frame 高度（加载中/失败态）；成功后按图片适配
         const float PlaceholderHeight = 220f;
 
-        // frame 宽度尚未被宿主解析（MarkdownWidget 宽度跟随父容器）时的适配兜底宽
-        const float FallbackWidth = 828f;
-
         // 相对 URL 解析基准；null = 仅接受绝对 URL
         public string BaseUrl;
 
@@ -40,6 +37,11 @@ namespace Game {
         // 已换上真实纹理的 frame：宿主（MarkdownWidget）测量期只回填未完成 frame 的宽度，
         // 已完成的 frame 宽=图宽，不能被覆盖（HorizontalAlignment=Center 居中）
         readonly HashSet<CanvasWidget> m_appliedFrames = [];
+
+        // 纹理就绪但宿主宽未解析（frame.Size.X<=0，跟随父容器的宿主在测量期才回填）的 frame。
+        // 挂起到宿主调 ResolvePendingWidths()（测量期回填之后）再适配上屏；
+        // 不挂起就会按兜底宽适配，窄容器/列表项内溢出
+        readonly List<(CanvasWidget Frame, RectangleWidget Background, RectangleWidget Image, LabelWidget Status, string Alt, string Url, float MaxHeight)> m_pendingFrames = [];
 
         // frame 是否已换上真实纹理（见 m_appliedFrames）
         public bool IsFrameApplied(CanvasWidget frame) => m_appliedFrames.Contains(frame);
@@ -107,6 +109,23 @@ namespace Game {
             m_loadedTextures.Clear();
             m_imageTextureCache.Clear();
             m_appliedFrames.Clear();
+            m_pendingFrames.Clear();
+        }
+
+        // 宿主测量期回填 frame 宽度之后调用：宽已解析的挂起 frame 补适配上屏。
+        // 每帧测量都会调，未解析的继续挂起
+        public void ResolvePendingWidths() {
+            if (m_pendingFrames.Count == 0) {
+                return;
+            }
+            for (int i = m_pendingFrames.Count - 1; i >= 0; i--) {
+                (CanvasWidget frame, RectangleWidget background, RectangleWidget image, LabelWidget status, string alt, string url, float maxHeight) = m_pendingFrames[i];
+                if (frame.Size.X <= 0f) {
+                    continue;
+                }
+                m_pendingFrames.RemoveAt(i);
+                ApplyImageTexture(m_imageTextureCache.TryGetValue(url, out Texture2D texture) ? texture : null, frame, background, image, status, alt, url, maxHeight);
+            }
         }
 
         async Task LoadImageAsync(string url,
@@ -230,6 +249,12 @@ namespace Game {
                     status.Text = FailedToLoadText(alt);
                     return;
                 }
+                if (frame.Size.X <= 0f) {
+                    // 宿主宽未解析（跟随父容器的宿主测量期才回填）：挂起，宽解析后由
+                    // ResolvePendingWidths 补适配上屏。现在适配只能按兜底宽，窄容器/列表项内必溢出
+                    m_pendingFrames.Add((frame, background, image, status, alt, url, maxHeight));
+                    return;
+                }
                 Vector2 size = GetImageDisplaySize(texture, frame.Size.X, maxHeight);
                 frame.Size = size;
                 background.Size = size;
@@ -261,10 +286,10 @@ namespace Game {
         }
 
         // 图片显示尺寸：适配可用宽与高上限，不放大（scale ≤ 1）。
-        // 可用宽取占位 frame 当前宽（宿主在测量期回填过），未解析时用兜底宽
+        // 可用宽=占位 frame 当前宽（宿主测量期回填过；宽未解析的 frame 在 ApplyImageTexture
+        // 已挂起，不会走到这里）
         Vector2 GetImageDisplaySize(Texture2D texture, float availableWidth, float maxHeight) {
-            float width = availableWidth > 0f ? availableWidth : FallbackWidth;
-            float scale = MathUtils.Min(width / texture.Width, maxHeight / texture.Height);
+            float scale = MathUtils.Min(availableWidth / texture.Width, maxHeight / texture.Height);
             if (scale > 1f) {
                 scale = 1f;
             }

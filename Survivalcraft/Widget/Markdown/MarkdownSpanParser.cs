@@ -21,7 +21,6 @@ namespace Game {
 
     // Markdig inline 序列 → List<TextSpan>；HtmlInline 片段委托 HtmlSpanParser（Widget/Html/）
     public static class MarkdownSpanParser {
-        // 超链接蓝
         // 行内嵌套深度上限：防御不可信输入的深嵌套（StackOverflowException 不可捕获，直接崩进程）
         const int MaxDepth = 64;
 

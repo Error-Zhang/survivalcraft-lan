@@ -65,6 +65,8 @@ namespace Game {
                     imageBlock.Size = new Vector2(MathUtils.Max(contentWidth - indentX, 50f), imageBlock.Size.Y);
                 }
             }
+            // 宽已解析的挂起 frame（纹理先于测量就绪：缓存命中/秒图）此刻补适配上屏
+            m_imageLoader.ResolvePendingWidths();
             base.MeasureOverride(parentAvailableSize);
         }
 
