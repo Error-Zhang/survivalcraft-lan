@@ -1,42 +1,27 @@
 using System.Globalization;
-using System.Net;
 using System.Text;
 using Engine;
-using Engine.Graphics;
 using HtmlAgilityPack;
 
 namespace Game {
     /// <summary>
     /// 帖子/版本详情内容构建器：HtmlAgilityPack 解析出的 DOM 树就是唯一模型，
     /// 本类直接遍历 HtmlNode 生成引擎 widget（不维护第二套中间块模型）。
-    /// 富文本降级规则：块级标签切分段落、img 走图片管线、a 降级为 " (href)" 纯文本
-    /// （引擎 Label 不可点击）、li 按列表深度缩进并带序号标记。
-    /// 另持有已加载图片纹理的生命周期（引擎 Dialog/Widget 树无 Dispose 级联）。
+    /// 富文本降级规则：块级标签切分段落、img 走图片管线（RichContentImageLoader，与 Markdown 系共用）、
+    /// a 降级为 " (href)" 纯文本（引擎 Label 不可点击）、li 按列表深度缩进并带序号标记。
     /// </summary>
     sealed class PostDetailsContentBuilder {
         const float ContentWidth = 828f;
 
+        // 图片块高上限（适配时缩小不放大）
+        const float MaxImageHeight = 360f;
+
         // 每层列表缩进宽度（标签"li 深度 × 缩进"对应视觉上一档层级）。
         const float ListIndentPerDepth = 22f;
 
-        static readonly CommunityHttpDownloader s_imageDownloader = new(HttpClientProvider.Community);
+        readonly RichContentImageLoader m_imageLoader;
 
         readonly StackPanelWidget m_contentPanel;
-
-        readonly string m_baseUrl;
-
-        // Texture2D 持有 GL 纹理句柄（GraphicsResource:IDisposable），框架的 Dialog/Widget 树无 Dispose 级联。
-        // 收集每张加载的纹理，重建内容或对话框移除时统一释放，避免每开一次详情累积一个不可回收句柄。
-        readonly List<Texture2D> m_loadedTextures = [];
-
-        // URL → 纹理：内容重建（自动翻译等）时复用已下载图片，避免同一张图下载两次。
-        // 纹理对象与 m_loadedTextures 同源（后者负责释放），对话框关闭时一并清空。
-        readonly Dictionary<string, Texture2D> m_imageTextureCache = new(StringComparer.OrdinalIgnoreCase);
-
-        // 对话框脱离 widget 树后置位。图片下载是异步的：若用户在下载未完成时关闭对话框，
-        // UpdateCeases 已把列表清空，晚到的回调若再把纹理加入列表将永不被释放（UpdateCeases 不会再次触发）。
-        // 回调据此标志就地释放新纹理，避免 GL 句柄泄漏。
-        bool m_texturesReleased;
 
         // 遍历状态（每次 AppendContent 重置）。
         readonly StringBuilder m_textBuffer = new();
@@ -57,7 +42,7 @@ namespace Game {
 
         public PostDetailsContentBuilder(StackPanelWidget contentPanel, string baseUrl) {
             m_contentPanel = contentPanel ?? throw new ArgumentNullException(nameof(contentPanel));
-            m_baseUrl = baseUrl;
+            m_imageLoader = new RichContentImageLoader { BaseUrl = baseUrl };
         }
 
         // 翻译前置检查：是否存在可翻译的可见文本（script/style 与纯图片不计）。
@@ -133,30 +118,10 @@ namespace Game {
             }
         }
 
-        // 对话框关闭（UpdateCeases）时调用：释放纹理句柄并标记已释放，
+        // 对话框关闭（UpdateCeases）时调用：释放图片纹理句柄并标记已释放，
         // 晚到的图片下载回调据此就地释放新纹理，不再加入列表。
         public void ReleaseTextures() {
-            if (m_loadedTextures.Count == 0) {
-                m_texturesReleased = true;
-                return;
-            }
-            foreach (Texture2D texture in m_loadedTextures) {
-                try {
-                    texture?.Dispose();
-                }
-                catch (Exception ex) {
-                    Log.Information(
-                        string.Format(
-                            CultureInfo.InvariantCulture,
-                            LanguageControl.Get("PostDetailsContentBuilder", "DisposePostDetailsTextureFailed"),
-                            ex.Message
-                        )
-                    );
-                }
-            }
-            m_loadedTextures.Clear();
-            m_imageTextureCache.Clear();
-            m_texturesReleased = true;
+            m_imageLoader.ReleaseTextures();
         }
 
         static bool HasVisibleText(HtmlNode node) {
@@ -317,178 +282,8 @@ namespace Game {
                 : 1;
 
         void AddImageBlock(string url, string alt) {
-            url = ResolveUrl(url);
-            alt = string.IsNullOrWhiteSpace(alt) ? LanguageControl.Get("PostDetailsContentBuilder", "Image") : alt.Trim();
             AddSpacer(m_contentPanel, 10f);
-            CanvasWidget frame = new() { Size = new Vector2(ContentWidth, 220f), HorizontalAlignment = WidgetAlignment.Center };
-            m_contentPanel.Children.Add(frame);
-            RectangleWidget background = new() {
-                Size = new Vector2(ContentWidth, 220f),
-                FillColor = new Color(8, 8, 8, 220),
-                OutlineColor = new Color(120, 120, 120, 180),
-                OutlineThickness = 1f
-            };
-            frame.Children.Add(background);
-            RectangleWidget image = new() {
-                Size = new Vector2(ContentWidth, 220f), FillColor = Color.White, OutlineThickness = 0f, TextureLinearFilter = true, IsVisible = false
-            };
-            frame.Children.Add(image);
-            LabelWidget status = new() {
-                Text = string.IsNullOrWhiteSpace(url)
-                    ? string.Format(CultureInfo.InvariantCulture, LanguageControl.Get("PostDetailsDialog", "FailedToLoad"), alt)
-                    : string.Format(CultureInfo.InvariantCulture, LanguageControl.Get("PostDetailsDialog", "Loading"), alt),
-                HorizontalAlignment = WidgetAlignment.Center,
-                VerticalAlignment = WidgetAlignment.Center,
-                Color = new Color(170, 170, 170),
-                FontScale = 0.78f,
-                WordWrap = true
-            };
-            frame.Children.Add(status);
-            if (string.IsNullOrWhiteSpace(url)) {
-                return;
-            }
-            if (m_imageTextureCache.TryGetValue(url, out Texture2D cachedTexture)) {
-                // 缓存命中（内容重建，如自动翻译）：复用已下载纹理，不再重复下载。
-                ApplyImageTexture(
-                    cachedTexture,
-                    frame,
-                    background,
-                    image,
-                    status,
-                    alt,
-                    url
-                );
-                return;
-            }
-            _ = LoadImageAsync(url, alt, frame, background, image, status);
-        }
-
-        async Task LoadImageAsync(string url, string alt, CanvasWidget frame, RectangleWidget background, RectangleWidget image, LabelWidget status) {
-            try {
-                using MemoryStream downloaded = await s_imageDownloader.DownloadToMemoryAsync(url, null, CancellationToken.None)
-                    .ConfigureAwait(false);
-                byte[] data = downloaded.ToArray();
-                Dispatcher.Dispatch(
-                    delegate {
-                        try {
-                            if (data.Length == 0) {
-                                status.Text = string.Format(
-                                    CultureInfo.InvariantCulture,
-                                    LanguageControl.Get("PostDetailsDialog", "FailedToLoad"),
-                                    alt
-                                );
-                                return;
-                            }
-                            using MemoryStream stream = new(data);
-                            Texture2D texture = Texture2D.Load(stream);
-                            if (m_texturesReleased) {
-                                // 对话框已关闭：纹理不会被任何 UpdateCeases 释放，就地回收。
-                                try {
-                                    texture.Dispose();
-                                }
-                                catch (Exception disposeEx) {
-                                    Log.Information(
-                                        string.Format(
-                                            CultureInfo.InvariantCulture,
-                                            LanguageControl.Get("PostDetailsContentBuilder", "DisposeLatePostDetailsTextureFailed"),
-                                            disposeEx.Message
-                                        )
-                                    );
-                                }
-                                return;
-                            }
-                            if (m_imageTextureCache.TryGetValue(url, out Texture2D existingTexture)) {
-                                // 重建期间并发下载了同一 URL：后到者就地释放，复用先到者。
-                                try {
-                                    texture.Dispose();
-                                }
-                                catch (Exception disposeEx) {
-                                    Log.Information(
-                                        string.Format(
-                                            CultureInfo.InvariantCulture,
-                                            LanguageControl.Get("PostDetailsContentBuilder", "DisposeDuplicatePostDetailsTextureFailed"),
-                                            disposeEx.Message
-                                        )
-                                    );
-                                }
-                                texture = existingTexture;
-                            }
-                            else {
-                                m_imageTextureCache[url] = texture;
-                                m_loadedTextures.Add(texture);
-                            }
-                            ApplyImageTexture(
-                                texture,
-                                frame,
-                                background,
-                                image,
-                                status,
-                                alt,
-                                url
-                            );
-                        }
-                        catch (Exception ex) {
-                            status.Text = string.Format(CultureInfo.InvariantCulture, LanguageControl.Get("PostDetailsDialog", "FailedToLoad"), alt);
-                            Log.Information(
-                                string.Format(
-                                    CultureInfo.InvariantCulture,
-                                    LanguageControl.Get("PostDetailsContentBuilder", "DecodePostDetailsImageFailed"),
-                                    url,
-                                    ex.Message
-                                )
-                            );
-                        }
-                    }
-                );
-            }
-            catch (Exception ex) {
-                Dispatcher.Dispatch(
-                    delegate {
-                        status.Text = string.Format(CultureInfo.InvariantCulture, LanguageControl.Get("PostDetailsDialog", "FailedToLoad"), alt);
-                    }
-                );
-                Log.Information(
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        LanguageControl.Get("PostDetailsContentBuilder", "RequestPostDetailsImageFailed"),
-                        url,
-                        ex.Message
-                    )
-                );
-            }
-        }
-
-        static void ApplyImageTexture(Texture2D texture,
-            CanvasWidget frame,
-            RectangleWidget background,
-            RectangleWidget image,
-            LabelWidget status,
-            string alt,
-            string url) {
-            try {
-                if (texture is not { Width: > 0, Height: > 0 }) {
-                    status.Text = string.Format(CultureInfo.InvariantCulture, LanguageControl.Get("PostDetailsDialog", "FailedToLoad"), alt);
-                    return;
-                }
-                Vector2 size = GetImageDisplaySize(texture);
-                frame.Size = size;
-                background.Size = size;
-                image.Size = size;
-                image.Subtexture = new Subtexture(texture, Vector2.Zero, Vector2.One);
-                image.IsVisible = true;
-                status.IsVisible = false;
-            }
-            catch (Exception ex) {
-                status.Text = string.Format(CultureInfo.InvariantCulture, LanguageControl.Get("PostDetailsDialog", "FailedToLoad"), alt);
-                Log.Warning(
-                    string.Format(
-                        CultureInfo.InvariantCulture,
-                        LanguageControl.Get("PostDetailsContentBuilder", "DecodePostDetailsImageFailed"),
-                        url,
-                        ex.Message
-                    )
-                );
-            }
+            m_contentPanel.Children.Add(m_imageLoader.CreateImageBlock(url, alt, ContentWidth, MaxImageHeight));
         }
 
         static void AddSpacer(StackPanelWidget panel, float height) {
@@ -502,38 +297,6 @@ namespace Game {
             panel.Children.Add(
                 new LabelWidget { Text = text, Color = GetTextColor(kind), FontScale = GetFontScale(kind), WordWrap = true, MarginLeft = indent }
             );
-        }
-
-        string ResolveUrl(string url) {
-            if (string.IsNullOrWhiteSpace(url)) {
-                return string.Empty;
-            }
-            url = WebUtility.HtmlDecode(url.Trim());
-            if (url.StartsWith("//", StringComparison.Ordinal)) {
-                return $"https:{url}";
-            }
-            if (Uri.TryCreate(url, UriKind.Absolute, out Uri absoluteUri)) {
-                return absoluteUri.ToString();
-            }
-            if (!Uri.TryCreate(m_baseUrl, UriKind.Absolute, out Uri baseUri)) {
-                return url;
-            }
-            return url.StartsWith("/", StringComparison.Ordinal)
-                ? new Uri(new Uri(baseUri.GetLeftPart(UriPartial.Authority)), url).ToString()
-                : new Uri(baseUri, url).ToString();
-        }
-
-        static Vector2 GetImageDisplaySize(Texture2D texture) {
-            if (texture is not { Width: > 0, Height: > 0 }) {
-                return new Vector2(ContentWidth, 220f);
-            }
-            float width = texture.Width;
-            float height = texture.Height;
-            float scale = MathUtils.Min(ContentWidth / width, 360f / height);
-            if (scale > 1f) {
-                scale = 1f;
-            }
-            return new Vector2(width * scale, height * scale);
         }
 
         static bool IsBlockTag(string tagName) => tagName is "p" or "div" or "section" or "article" or "header" or "footer" or "tr" or "ul" or "ol";
