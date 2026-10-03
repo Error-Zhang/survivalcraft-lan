@@ -157,10 +157,12 @@ namespace Game {
                 || Color.A == 0) {
                 return;
             }
-            // 背景/下划线/删除线用 layer=-1 的 FlatBatch：渲染器按 batch Layer 排序绘制，
-            // -1 排在文字批次（默认 0）之前，背景才压在文字下
-            bool needsFlatBatch = ShowLinkUnderline || HasBackground || HasStrikethrough;
-            FlatBatch2D flatBatch2D = needsFlatBatch ? dc.PrimitivesRenderer2D.FlatBatch(-1, DepthStencilState.None) : null;
+            // 背景/下划线用 layer=-1 的 FlatBatch、删除线用 layer=2：渲染器按 batch Layer 排序绘制，
+            // -1 排在文字批（FontBatch layer=1）之前背景才压在文字下；删除线横穿字形，若也在文字下会被
+            // Pericles 烘焙黑描边切成暗缝（实测穿越处亮度 255→128），故排到文字批之后画在字上
+            bool needsUnderlayBatch = ShowLinkUnderline || HasBackground;
+            FlatBatch2D flatBatch2D = needsUnderlayBatch ? dc.PrimitivesRenderer2D.FlatBatch(-1, DepthStencilState.None) : null;
+            FlatBatch2D overlayBatch2D = HasStrikethrough ? dc.PrimitivesRenderer2D.FlatBatch(2, DepthStencilState.None) : null;
             SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
             FontBatch2D fontBatch2D = dc.PrimitivesRenderer2D.FontBatch(Font, 1, DepthStencilState.None, null, null, samplerState);
             int batchStart = fontBatch2D.TriangleVertices.Count;
@@ -261,11 +263,13 @@ namespace Game {
                         fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), runStart);
                     }
                     if (run.Span.Strikethrough) {
-                        // 删除线＝em 中线（基准同下划线：GlyphHeight×span 字号×Font.Scale），厚度同下划线
+                        // 删除线＝em 中线（基准同下划线：GlyphHeight×span 字号×Font.Scale），厚度同下划线；
+                        // em 高常带半像素（51×0.5=25.5），连同全局平移一起取整，线才压满整行像素呈实色
                         float thickness = MathUtils.Max(FontScale * Font.Scale, 1f);
                         float strikeY = position.Y + Font.GlyphHeight * scale.X * Font.Scale * 0.5f - thickness * 0.5f;
+                        strikeY = MathF.Round(strikeY + drawDelta.Y + GlobalTransform.M42) - drawDelta.Y - GlobalTransform.M42;
                         QueueTransformedQuad(
-                            flatBatch2D,
+                            overlayBatch2D,
                             position.X + drawDelta.X,
                             strikeY + drawDelta.Y,
                             run.Width,
