@@ -3,6 +3,7 @@ using Engine.Media;
 using Markdig;
 using Markdig.Extensions.EmphasisExtras;
 using Markdig.Extensions.Tables;
+using Markdig.Extensions.TaskLists;
 using Markdig.Syntax;
 using MdBlock = Markdig.Syntax.Block;
 
@@ -30,9 +31,11 @@ namespace Game {
 
         // Strikethrough 扩展：默认 pipeline 不解析 ~~x~~（会留在字面量）
         // PipeTables：默认 pipeline 不解析 GFM 管道表（| a | b |）
+        // TaskLists：默认 pipeline 不解析 GFM 任务项（- [ ] / - [x]）
         static readonly MarkdownPipeline s_pipeline = new MarkdownPipelineBuilder()
             .UseEmphasisExtras(EmphasisExtraOptions.Strikethrough)
             .UsePipeTables()
+            .UseTaskLists()
             .Build();
 
         // 标题字号/金色阶梯（PRD 6.3，与 PostDetailsContentBuilder 同源风格）
@@ -154,17 +157,32 @@ namespace Game {
         // 项 = CanvasWidget 行：marker 列 + 内容列。CanvasWidget 会按 child 位置自动扣减测量可用宽，
         // 内容列换行宽 = 行宽 - 缩进；行内内容与嵌套块共用一个竖排 StackPanel
         CanvasWidget CreateListItem(bool ordered, int number, int listDepth, IEnumerable<MdBlock> markdigBlocks, Color? colorOverride, bool markdigItem, int depth) {
+            // 任务项（- [ ] / - [x]）：marker 列换成 CheckboxWidget（GFM 任务项无 •/编号）
+            bool isTaskItem = false;
+            bool taskChecked = false;
+            ParagraphBlock taskParagraph = null;
+            if (markdigItem) {
+                foreach (MdBlock itemBlock in markdigBlocks) {
+                    if (itemBlock is ParagraphBlock firstParagraph) {
+                        isTaskItem = TryGetTaskList(firstParagraph, out taskChecked);
+                        taskParagraph = firstParagraph;
+                        break;
+                    }
+                }
+            }
             CanvasWidget row = new() {
                 Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f)
             };
-            LabelWidget markerLabel = new() {
-                Text = HtmlTextUtils.GetListMarker(ordered, number, listDepth + 1),
-                Font = Font,
-                Color = colorOverride ?? DefaultColor,
-                FontScale = FontScale * 0.8f
-            };
-            row.Children.Add(markerLabel);
-            CanvasWidget.SetPosition(markerLabel, new Vector2(ListIndentPerDepth * listDepth + 4f, 3f));
+            if (!isTaskItem) {
+                LabelWidget markerLabel = new() {
+                    Text = HtmlTextUtils.GetListMarker(ordered, number, listDepth + 1),
+                    Font = Font,
+                    Color = colorOverride ?? DefaultColor,
+                    FontScale = FontScale * 0.8f
+                };
+                row.Children.Add(markerLabel);
+                CanvasWidget.SetPosition(markerLabel, new Vector2(ListIndentPerDepth * listDepth + 4f, 3f));
+            }
             StackPanelWidget contentPanel = CreatePanel();
             row.Children.Add(contentPanel);
             CanvasWidget.SetPosition(contentPanel, new Vector2(ListIndentPerDepth * (listDepth + 1), 0f));
@@ -176,6 +194,20 @@ namespace Game {
                         RichTextWidget widget = CreateRichText(colorOverride);
                         if (paragraphBlock.Inline != null) {
                             MarkdownSpanParser.Parse(paragraphBlock.Inline, widget.Spans, default, widget.Color);
+                            // 任务项：段落首个 inline 是 TaskList（LeafInline，上面的未知叶 inline 规则丢弃它不渲染，
+                            // 余下文本带一个前导空格正好作 checkbox 与文字的间隙）
+                            if (isTaskItem && paragraphBlock == taskParagraph) {
+                                // 任务标记后的前导空格只该当 checkbox 与首行文字的间隙——留在 run 里会让首行
+                                // 字形比内容列缩进一个空格宽，续行块对不齐首行。首行去掉它，间隙由 checkbox
+                                // 尺寸（16，内容列前留 2px）与位置保证，续行/嵌套块天然与首行文字对齐
+                                TextSpan firstSpan = widget.Spans.FirstOrDefault(s => s.Text.Length > 0);
+                                if (firstSpan?.Text[0] == ' ') {
+                                    firstSpan.Text = firstSpan.Text[1..];
+                                }
+                                CheckboxWidget checkbox = CreateCheckbox(taskChecked, colorOverride);
+                                row.Children.Add(checkbox);
+                                CanvasWidget.SetPosition(checkbox, new Vector2(ListIndentPerDepth * listDepth + 4f, 5f));
+                            }
                         }
                         contentPanel.Children.Add(widget);
                     }
@@ -190,6 +222,26 @@ namespace Game {
             }
             return row;
         }
+
+        // 任务项探测：GFM 任务标记是项内首段落的第一个 inline（- [ ] 未完成 / - [x] 已完成）
+        static bool TryGetTaskList(ParagraphBlock paragraph, out bool isChecked) {
+            if (paragraph.Inline?.FirstChild is TaskList taskList) {
+                isChecked = taskList.Checked;
+                return true;
+            }
+            isChecked = false;
+            return false;
+        }
+
+        // CheckboxWidget 纯展示（v1 定稿裁定）：不自动勾选、关命中测试防挡滚动拖动；
+        // 尺寸 16 对齐正文行高（XML 默认 32 偏大，18 会顶到内容列），tick 贴图来自全局图集
+        CheckboxWidget CreateCheckbox(bool isChecked, Color? colorOverride) => new() {
+            IsChecked = isChecked,
+            IsAutoCheckingEnabled = false,
+            IsHitTestVisible = false,
+            CheckboxSize = new Vector2(16f, 16f),
+            Color = colorOverride ?? DefaultColor
+        };
 
         // 引用块：左竖线（-1 高度随内容拉伸）+ 灰字 + 左缩进
         CanvasWidget CreateQuote(ContainerBlock quote, int listDepth, Color? colorOverride, int depth) {
