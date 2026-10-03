@@ -66,6 +66,16 @@ namespace Game {
 
         const int ListIndentPerDepth = 22;
 
+        // 列表行内坐标（相对挂载点）：marker 列偏移、marker→文字保底间隙、任务 checkbox 尺寸。
+        // marker 字号=正文（用户裁定勿缩小）；y 偏移不做字形垂直补偿（字体可自定义，补偿会害正常字体偏下）
+        const float MarkerOffsetX = 4f;
+
+        const float MarkerOffsetY = 3f;
+
+        const float MarkerTextGap = 8f;
+
+        const float TaskCheckboxSize = 16f;
+
         // 图片块高上限（适配时缩小不放大，与 PDCB 同值）
         const float MaxImageHeight = 360f;
 
@@ -167,16 +177,31 @@ namespace Game {
             listPanel.Margin = new Vector2(0f, 2f);
             // 有序列表起始编号：Markdig 只给 OrderedStart 原始串（"3." 的 "3"），自己转 int（失败回退 1）
             int number = list.IsOrdered && int.TryParse(list.OrderedStart, out int orderedStart) ? orderedStart : 1;
+            // 文字列按全列表最宽 marker 对齐（"10." 比 "1." 宽），保底 marker→文字间隙；
+            // 嵌套列表挂在本级文字列内，缩进节奏恒一档 ListIndentPerDepth
+            float markerScale = FontScale;
+            float maxMarkerWidth = 0f;
+            int scanNumber = number;
             foreach (ListItemBlock item in list) {
-                listPanel.Children.Add(CreateListItem(list.IsOrdered, number, listDepth, item, colorOverride, markdigItem: true, depth));
+                string marker = HtmlTextUtils.GetListMarker(list.IsOrdered, scanNumber, listDepth + 1);
+                maxMarkerWidth = MathUtils.Max(maxMarkerWidth, Font.MeasureText(marker, new Vector2(markerScale), Vector2.Zero).X);
+                if (list.IsOrdered) {
+                    scanNumber++;
+                }
+            }
+            float contentX = MathUtils.Max(ListIndentPerDepth, MarkerOffsetX + maxMarkerWidth + MarkerTextGap);
+            foreach (ListItemBlock item in list) {
+                listPanel.Children.Add(CreateListItem(list.IsOrdered, number, listDepth, item, colorOverride, markdigItem: true, depth, contentX));
                 number++;
             }
             panel.Children.Add(listPanel);
         }
 
         // 项 = CanvasWidget 行：marker 列 + 内容列。CanvasWidget 会按 child 位置自动扣减测量可用宽，
-        // 内容列换行宽 = 行宽 - 缩进；行内内容与嵌套块共用一个竖排 StackPanel
-        CanvasWidget CreateListItem(bool ordered, int number, int listDepth, IEnumerable<MdBlock> markdigBlocks, Color? colorOverride, bool markdigItem, int depth) {
+        // 内容列换行宽 = 行宽 - 缩进；行内内容与嵌套块共用一个竖排 StackPanel。
+        // 嵌套块/子列表挂在本级文字列内，因此行内坐标全部相对挂载点（marker 4 / 文字列 contentX），
+        // 缩进随嵌套层级自然累加一档，不再按 listDepth 绝对档重复累计
+        CanvasWidget CreateListItem(bool ordered, int number, int listDepth, IEnumerable<MdBlock> markdigBlocks, Color? colorOverride, bool markdigItem, int depth, float contentX) {
             // 任务项（- [ ] / - [x]）：marker 列换成 CheckboxWidget（GFM 任务项无 •/编号）
             bool isTaskItem = false;
             bool taskChecked = false;
@@ -190,6 +215,11 @@ namespace Game {
                     }
                 }
             }
+            // 任务项 checkbox（16 宽）占满 marker 列：文字列保底 checkbox 右缘 + 间隙，
+            // 否则 checkbox 与文字只剩 ~2px（marker 列宽 22 是按 •/数字定的）
+            if (isTaskItem) {
+                contentX = MathUtils.Max(contentX, MarkerOffsetX + TaskCheckboxSize + MarkerTextGap);
+            }
             CanvasWidget row = new() {
                 Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f)
             };
@@ -198,14 +228,14 @@ namespace Game {
                     Text = HtmlTextUtils.GetListMarker(ordered, number, listDepth + 1),
                     Font = Font,
                     Color = colorOverride ?? DefaultColor,
-                    FontScale = FontScale * 0.8f
+                    FontScale = FontScale
                 };
                 row.Children.Add(markerLabel);
-                CanvasWidget.SetPosition(markerLabel, new Vector2(ListIndentPerDepth * listDepth + 4f, 3f));
+                CanvasWidget.SetPosition(markerLabel, new Vector2(MarkerOffsetX, MarkerOffsetY));
             }
             StackPanelWidget contentPanel = CreatePanel();
             row.Children.Add(contentPanel);
-            CanvasWidget.SetPosition(contentPanel, new Vector2(ListIndentPerDepth * (listDepth + 1), 0f));
+            CanvasWidget.SetPosition(contentPanel, new Vector2(contentX, 0f));
             bool hasBlocks = false;
             if (markdigItem) {
                 foreach (MdBlock itemBlock in markdigBlocks) {
@@ -226,7 +256,7 @@ namespace Game {
                                 }
                                 CheckboxWidget checkbox = CreateCheckbox(taskChecked, colorOverride);
                                 row.Children.Add(checkbox);
-                                CanvasWidget.SetPosition(checkbox, new Vector2(ListIndentPerDepth * listDepth + 4f, 5f));
+                                CanvasWidget.SetPosition(checkbox, new Vector2(MarkerOffsetX, 5f));
                             }
                         }
                         contentPanel.Children.Add(widget);
@@ -289,7 +319,7 @@ namespace Game {
             IsChecked = isChecked,
             IsAutoCheckingEnabled = false,
             IsHitTestVisible = false,
-            CheckboxSize = new Vector2(16f, 16f),
+            CheckboxSize = new Vector2(TaskCheckboxSize, TaskCheckboxSize),
             Color = colorOverride ?? DefaultColor
         };
 
@@ -474,7 +504,22 @@ namespace Game {
             listPanel.Margin = new Vector2(0f, 2f);
             // <ol start="4">：解析失败回退 1
             int number = int.TryParse(listNode.GetAttributeValue("start", null), out int parsedStart) ? parsedStart : 1;
-            foreach (HtmlAgilityPack.HtmlNode li in listNode.Elements("li")) {
+            // 文字列按全列表最宽 marker 对齐（同 Markdig 路径），嵌套缩进恒一档
+            List<HtmlAgilityPack.HtmlNode> items = [.. listNode.Elements("li")];
+            float markerScale = FontScale;
+            float maxMarkerWidth = 0f;
+            int scanNumber = number;
+            foreach (HtmlAgilityPack.HtmlNode li in items) {
+                maxMarkerWidth = MathUtils.Max(
+                    maxMarkerWidth,
+                    Font.MeasureText(HtmlTextUtils.GetListMarker(ordered, scanNumber, listDepth + 1), new Vector2(markerScale), Vector2.Zero).X
+                );
+                if (ordered) {
+                    scanNumber++;
+                }
+            }
+            float contentX = MathUtils.Max(ListIndentPerDepth, MarkerOffsetX + maxMarkerWidth + MarkerTextGap);
+            foreach (HtmlAgilityPack.HtmlNode li in items) {
                 CanvasWidget row = new() {
                     Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, -1f)
                 };
@@ -482,13 +527,13 @@ namespace Game {
                     Text = HtmlTextUtils.GetListMarker(ordered, number, listDepth + 1),
                     Font = Font,
                     Color = colorOverride ?? DefaultColor,
-                    FontScale = FontScale * 0.8f
+                    FontScale = markerScale
                 };
                 row.Children.Add(markerLabel);
-                CanvasWidget.SetPosition(markerLabel, new Vector2(ListIndentPerDepth * listDepth + 4f, 3f));
+                CanvasWidget.SetPosition(markerLabel, new Vector2(MarkerOffsetX, MarkerOffsetY));
                 StackPanelWidget contentPanel = CreatePanel();
                 row.Children.Add(contentPanel);
-                CanvasWidget.SetPosition(contentPanel, new Vector2(ListIndentPerDepth * (listDepth + 1), 0f));
+                CanvasWidget.SetPosition(contentPanel, new Vector2(contentX, 0f));
                 // li 内行内内容累积成段；内嵌块级标签递归处理
                 List<TextSpan> pendingSpans = [];
                 foreach (HtmlAgilityPack.HtmlNode child in li.ChildNodes) {
