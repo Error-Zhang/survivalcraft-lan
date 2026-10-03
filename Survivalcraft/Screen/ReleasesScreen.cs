@@ -16,7 +16,7 @@ namespace Game {
 
         public List<ReleaseInfo> Releases { get; set; } = new(); //所有发布版的信息
         public LabelWidget m_titleLabel;
-        public LabelWidget m_textLabel;
+        public MarkdownWidget m_textLabel;
         public LabelWidget m_infoLabel;
         public ListPanelWidget m_releasesListPanel;
         public StackPanelWidget m_releaseInfoPanel;
@@ -29,10 +29,11 @@ namespace Game {
             XElement node = ContentManager.Get<XElement>("Screens/ReleasesScreen");
             LoadContents(this, node);
             m_titleLabel = Children.Find<LabelWidget>("ReleaseTitle");
-            m_textLabel = Children.Find<LabelWidget>("ReleaseText");
+            m_textLabel = Children.Find<MarkdownWidget>("ReleaseText");
             m_scrollPanel = Children.Find<ScrollPanelWidget>("ScrollPanel");
             m_releasesListPanel = Children.Find<ListPanelWidget>("ReleasesList");
             m_infoLabel = Children.Find<LabelWidget>("ReleaseInfo");
+            m_textLabel.LinkClicked += WebBrowserManager.LaunchBrowser;
             m_releaseInfoPanel = Children.Find<StackPanelWidget>("ReleaseInfoPanel");
             m_releasesListPanel.ItemWidgetFactory = item => new LabelWidget {
                 Text = item is ReleaseInfo releaseInfo
@@ -155,7 +156,7 @@ namespace Game {
             ReleaseInfo releaseInfo = (ReleaseInfo)item;
             m_titleLabel.Text = releaseInfo.name;
             m_infoLabel.Text = string.Format(LanguageControl.GetContentWidgets(fName, 4), releaseInfo.author.name, releaseInfo.created_at);
-            m_textLabel.Text = releaseInfo.body;
+            m_textLabel.Markdown = releaseInfo.body;
             PopulateAssetsList(releaseInfo);
         }
 
