@@ -114,7 +114,8 @@ namespace Game {
                 DefaultColor = DefaultColor,
                 ContentWidth = ContentWidth,
                 LinkClicked = LinkClicked,
-                ImageLoader = ImageLoader
+                ImageLoader = ImageLoader,
+                CurrentIndentX = CurrentIndentX
             };
             htmlBuilder.BuildHtmlInto(html, panel, listDepth, colorOverride, depth);
             CodeBlocks.AddRange(htmlBuilder.CodeBlocks);
@@ -185,6 +186,9 @@ namespace Game {
             StackPanelWidget contentPanel = CreatePanel();
             row.Children.Add(contentPanel);
             CanvasWidget.SetPosition(contentPanel, new Vector2(contentX, 0f));
+            // 嵌套上下文：项内代码块/图片块宽度按文字列收窄
+            float prevIndent = CurrentIndentX;
+            CurrentIndentX = contentX;
             bool hasBlocks = false;
             if (markdigItem) {
                 foreach (MdBlock itemBlock in markdigBlocks) {
@@ -219,6 +223,7 @@ namespace Game {
             if (!hasBlocks) {
                 contentPanel.Children.Add(CreateRichText(colorOverride));
             }
+            CurrentIndentX = prevIndent;
             return row;
         }
 
@@ -265,7 +270,10 @@ namespace Game {
         // 引用块：左竖线（-1 高度随内容拉伸）+ 灰字 + 左缩进
         CanvasWidget CreateQuote(ContainerBlock quote, int listDepth, Color? colorOverride, int depth) {
             CanvasWidget outer = CreateQuoteFrame(out StackPanelWidget inner);
+            float prevIndent = CurrentIndentX;
+            CurrentIndentX += 10f;
             BuildBlocks(quote, inner, listDepth, QuoteColor, depth + 1);
+            CurrentIndentX = prevIndent;
             return outer;
         }
 

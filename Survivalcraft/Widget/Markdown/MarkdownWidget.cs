@@ -53,15 +53,16 @@ namespace Game {
             if (m_needsBuild) {
                 Rebuild();
             }
-            // 代码块外层宽度：构建时父宽未知，测量期按可用宽解析
+            // 代码块外层宽度：构建时父宽未知，测量期按可用宽解析（扣减构建时记录的嵌套缩进，
+            // 列表项/引用块内不占全宽）
             float contentWidth = ContentWidth > 0f ? ContentWidth : parentAvailableSize.X;
-            foreach (CanvasWidget codeBlock in m_builder.CodeBlocks) {
-                codeBlock.Size = new Vector2(contentWidth, codeBlock.Size.Y);
+            foreach ((CanvasWidget codeBlock, float indentX) in m_builder.CodeBlocks) {
+                codeBlock.Size = new Vector2(MathUtils.Max(contentWidth - indentX, 50f), codeBlock.Size.Y);
             }
             // 图片块同机制；已加载完成的 frame 宽=图宽，不覆盖（HorizontalAlignment=Center 居中）
-            foreach (CanvasWidget imageBlock in m_builder.ImageBlocks) {
+            foreach ((CanvasWidget imageBlock, float indentX) in m_builder.ImageBlocks) {
                 if (!m_imageLoader.IsFrameApplied(imageBlock)) {
-                    imageBlock.Size = new Vector2(contentWidth, imageBlock.Size.Y);
+                    imageBlock.Size = new Vector2(MathUtils.Max(contentWidth - indentX, 50f), imageBlock.Size.Y);
                 }
             }
             base.MeasureOverride(parentAvailableSize);

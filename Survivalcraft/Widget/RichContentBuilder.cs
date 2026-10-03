@@ -19,16 +19,23 @@ namespace Game {
         // 非 event：允许宿主整体赋值/解绑
         public Action<string> LinkClicked;
 
-        // 代码块外层 Canvas，宽度需在宿主 MeasureOverride 按可用宽解析（构建时父宽未知）
-        public readonly List<CanvasWidget> CodeBlocks = [];
+        // 代码块外层 Canvas，宽度需在宿主 MeasureOverride 按可用宽解析（构建时父宽未知）。
+        // 元组带构建时的嵌套内容列缩进（CurrentIndentX），回填时从宿主宽中扣减——
+        // 否则列表项/引用块内的代码块按全宽构建，右缘溢出面板
+        public readonly List<(CanvasWidget Frame, float IndentX)> CodeBlocks = [];
 
         // 宽度未定时（ContentWidth<=0）需在测量期回填宽度的图片块 frame（同 CodeBlocks 机制；
         // 已加载完成的 frame 由 loader.IsFrameApplied 排除，宽=图宽不可覆盖）
-        public readonly List<CanvasWidget> ImageBlocks = [];
+        public readonly List<(CanvasWidget Frame, float IndentX)> ImageBlocks = [];
 
         // 图片异步加载管线；null = 图片保持占位文本（宿主不接图片管线的场景）。
         // 类型 internal：由宿主 widget 注入并持有纹理生命周期，直接使用本 builder 的外部代码保持占位行为
         internal RichContentImageLoader ImageLoader;
+
+        // 当前嵌套内容列的横向缩进（列表项文字列、引用块竖线右移等）。
+        // 进入嵌套上下文前保存、离开时恢复（栈式纪律归调用方）；代码块/图片块宽度据此扣减。
+        // internal：Markdown 前端把 HtmlBlock 委托给 HtmlToWidgetsBuilder 时需要传递
+        internal float CurrentIndentX;
 
         // 标题字号/金色阶梯（PRD 6.3，与 PostDetailsContentBuilder 同源风格）
         static readonly float[] s_headingScales = [1.6f, 1.4f, 1.2f, 1.1f, 1f, 1f];
@@ -83,14 +90,22 @@ namespace Game {
             Direction = LayoutDirection.Vertical
         };
 
-        // 图片块：走共用 RichContentImageLoader；宽度未定时 frame 记入 ImageBlocks 由测量期回填
+        // 图片块：走共用 RichContentImageLoader；宽度未定时 frame 记入 ImageBlocks 由测量期回填。
+        // 占位宽扣减嵌套缩进（列表项/引用块内图片不占全宽）
         protected void AddImageBlock(StackPanelWidget panel, string url, string alt) {
-            CanvasWidget frame = ImageLoader.CreateImageBlock(url, alt, ContentWidth, MaxImageHeight);
+            float width = NestedContentWidth();
+            CanvasWidget frame = ImageLoader.CreateImageBlock(url, alt, width, MaxImageHeight);
             frame.Margin = new Vector2(0f, 4f);
             panel.Children.Add(frame);
             if (ContentWidth <= 0f) {
-                ImageBlocks.Add(frame);
+                ImageBlocks.Add((frame, CurrentIndentX));
             }
+        }
+
+        // 嵌套感知的可用内容宽：显式 ContentWidth 扣减当前缩进（保底防深嵌套负值）；
+        // <0 时返回 -1（跟随父格/测量期回填）
+        protected float NestedContentWidth() {
+            return ContentWidth > 0f ? MathUtils.Max(ContentWidth - CurrentIndentX, 50f) : -1f;
         }
 
         // 标题行 widget：金色 + 字号阶梯（level 1-6）
@@ -114,7 +129,7 @@ namespace Game {
             float lineHeight = ((Font?.GlyphHeight ?? 51f) + (Font?.Spacing.Y ?? 0f)) * codeScale * (Font?.Scale ?? 1f) + 1f;
             float contentHeight = lines.Length * lineHeight;
             CanvasWidget outer = new() {
-                Size = new Vector2(ContentWidth > 0f ? ContentWidth : -1f, contentHeight + 20f),
+                Size = new Vector2(NestedContentWidth(), contentHeight + 20f),
                 Margin = new Vector2(0f, 4f)
             };
             BevelledRectangleWidget frame = new() {
@@ -147,7 +162,7 @@ namespace Game {
             }
             scrollPanel.Children.Add(linesPanel);
             outer.Children.Add(scrollPanel);
-            CodeBlocks.Add(outer);
+            CodeBlocks.Add((outer, CurrentIndentX));
             return outer;
         }
 

@@ -134,6 +134,9 @@ namespace Game {
                 StackPanelWidget contentPanel = CreatePanel();
                 row.Children.Add(contentPanel);
                 CanvasWidget.SetPosition(contentPanel, new Vector2(contentX, 0f));
+                // 嵌套上下文：li 内代码块/图片块宽度按文字列收窄
+                float prevIndent = CurrentIndentX;
+                CurrentIndentX = contentX;
                 // li 内行内内容累积成段；内嵌块级标签递归处理
                 List<TextSpan> pendingSpans = [];
                 foreach (HtmlAgilityPack.HtmlNode child in li.ChildNodes) {
@@ -176,6 +179,7 @@ namespace Game {
                     widget.Spans.AddRange(pendingSpans);
                     contentPanel.Children.Add(widget);
                 }
+                CurrentIndentX = prevIndent;
                 listPanel.Children.Add(row);
                 number++;
             }
@@ -184,7 +188,10 @@ namespace Game {
 
         CanvasWidget CreateHtmlQuote(HtmlAgilityPack.HtmlNode quoteNode, int listDepth, Color? colorOverride, int depth) {
             CanvasWidget outer = CreateQuoteFrame(out StackPanelWidget inner);
+            float prevIndent = CurrentIndentX;
+            CurrentIndentX += 10f;
             BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1);
+            CurrentIndentX = prevIndent;
             return outer;
         }
 
