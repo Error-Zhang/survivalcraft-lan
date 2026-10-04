@@ -15,9 +15,6 @@ namespace Game {
     sealed class RichContentImageLoader {
         static readonly CommunityHttpDownloader s_imageDownloader = new(HttpClientProvider.Community);
 
-        // 占位 frame 高度（加载中/失败态）；成功后按图片适配
-        const float PlaceholderHeight = 220f;
-
         // 相对 URL 解析基准；null = 仅接受绝对 URL
         public string BaseUrl;
 
@@ -41,48 +38,60 @@ namespace Game {
         // 纹理就绪但宿主宽未解析（frame.Size.X<=0，跟随父容器的宿主在测量期才回填）的 frame。
         // 挂起到宿主调 ResolvePendingWidths()（测量期回填之后）再适配上屏；
         // 不挂起就会按兜底宽适配，窄容器/列表项内溢出
-        readonly List<(CanvasWidget Frame, RectangleWidget Background, RectangleWidget Image, LabelWidget Status, string Alt, string Url, float MaxHeight)> m_pendingFrames = [];
+        readonly List<(CanvasWidget Frame, RectangleWidget Image, FontTextWidget Status, string Alt, string Url, float MaxHeight)> m_pendingFrames = [];
 
         // frame 是否已换上真实纹理（见 m_appliedFrames）
         public bool IsFrameApplied(CanvasWidget frame) => m_appliedFrames.Contains(frame);
 
         // 创建图片块 widget 并触发异步加载。占位宽 <=0（宽度跟随父容器）时由宿主在测量期回填 frame.Size.X。
         // 调用方负责把它挂进内容面板（图片块上方通常需要 spacer，由调用方按各自版式控制）。
+        // 占位态视觉=网页破图样式：1px 灰框紧贴状态字并整体居中于 frame。框不能直接用 Rectangle
+        // （无内容，-1 尽量小惯例下缩成线），外包 Canvas 的 desired=文字+边距把框撑起
         public CanvasWidget CreateImageBlock(string url, string alt, float placeholderWidth, float maxHeight) {
             url = ResolveUrl(url);
             alt = string.IsNullOrWhiteSpace(alt) ? LanguageControl.Get("PostDetailsContentBuilder", "Image") : alt.Trim();
-            CanvasWidget frame = new() { Size = new Vector2(placeholderWidth, PlaceholderHeight), HorizontalAlignment = WidgetAlignment.Center };
-            RectangleWidget background = new() {
-                Size = new Vector2(placeholderWidth, PlaceholderHeight),
-                FillColor = new Color(8, 8, 8, 220),
-                OutlineColor = new Color(120, 120, 120, 180),
-                OutlineThickness = 1f
-            };
-            frame.Children.Add(background);
+            CanvasWidget frame = new() { Size = new Vector2(placeholderWidth, -1f), HorizontalAlignment = WidgetAlignment.Center };
             RectangleWidget image = new() {
-                Size = new Vector2(placeholderWidth, PlaceholderHeight), FillColor = Color.White, OutlineThickness = 0f, TextureLinearFilter = true, IsVisible = false
+                Size = new Vector2(-1f, -1f),
+                HorizontalAlignment = WidgetAlignment.Stretch,
+                VerticalAlignment = WidgetAlignment.Stretch,
+                FillColor = Color.White, OutlineThickness = 0f, TextureLinearFilter = true, IsVisible = false
             };
             frame.Children.Add(image);
-            LabelWidget status = new() {
+            CanvasWidget statusBox = new() {
+                HorizontalAlignment = WidgetAlignment.Center,
+                VerticalAlignment = WidgetAlignment.Center
+            };
+            statusBox.Children.Add(
+                new RectangleWidget {
+                    Size = new Vector2(-1f, -1f),
+                    HorizontalAlignment = WidgetAlignment.Stretch,
+                    VerticalAlignment = WidgetAlignment.Stretch,
+                    FillColor = Color.Transparent,
+                    OutlineColor = new Color(128, 128, 128, 128),
+                    OutlineThickness = 1f
+                }
+            );
+            FontTextWidget status = new() {
                 Text = string.IsNullOrWhiteSpace(url)
                     ? FailedToLoadText(alt)
                     : LoadingText(alt),
-                HorizontalAlignment = WidgetAlignment.Center,
-                VerticalAlignment = WidgetAlignment.Center,
-                Color = new Color(170, 170, 170),
-                FontScale = 0.78f,
-                WordWrap = true
+                Color = new Color(128, 128, 128),
+                FontScale = 0.8f,
+                WordWrap = true,
+                Margin = new Vector2(4f, 4f)
             };
-            frame.Children.Add(status);
+            statusBox.Children.Add(status);
+            frame.Children.Add(statusBox);
             if (string.IsNullOrWhiteSpace(url)) {
                 return frame;
             }
             if (m_imageTextureCache.TryGetValue(url, out Texture2D cachedTexture)) {
                 // 缓存命中（内容重建，如自动翻译）：复用已下载纹理，不再重复下载。
-                ApplyImageTexture(cachedTexture, frame, background, image, status, alt, url, maxHeight);
+                ApplyImageTexture(cachedTexture, frame, image, status, alt, url, maxHeight);
                 return frame;
             }
-            _ = LoadImageAsync(url, alt, frame, background, image, status, maxHeight);
+            _ = LoadImageAsync(url, alt, frame, image, status, maxHeight);
             return frame;
         }
 
@@ -119,21 +128,20 @@ namespace Game {
                 return;
             }
             for (int i = m_pendingFrames.Count - 1; i >= 0; i--) {
-                (CanvasWidget frame, RectangleWidget background, RectangleWidget image, LabelWidget status, string alt, string url, float maxHeight) = m_pendingFrames[i];
+                (CanvasWidget frame, RectangleWidget image, FontTextWidget status, string alt, string url, float maxHeight) = m_pendingFrames[i];
                 if (frame.Size.X <= 0f) {
                     continue;
                 }
                 m_pendingFrames.RemoveAt(i);
-                ApplyImageTexture(m_imageTextureCache.TryGetValue(url, out Texture2D texture) ? texture : null, frame, background, image, status, alt, url, maxHeight);
+                ApplyImageTexture(m_imageTextureCache.TryGetValue(url, out Texture2D texture) ? texture : null, frame, image, status, alt, url, maxHeight);
             }
         }
 
         async Task LoadImageAsync(string url,
             string alt,
             CanvasWidget frame,
-            RectangleWidget background,
             RectangleWidget image,
-            LabelWidget status,
+            FontTextWidget status,
             float maxHeight) {
             int generation = m_generation;
             byte[] data;
@@ -219,7 +227,7 @@ namespace Game {
                             m_imageTextureCache[url] = texture;
                             m_loadedTextures.Add(texture);
                         }
-                        ApplyImageTexture(texture, frame, background, image, status, alt, url, maxHeight);
+                        ApplyImageTexture(texture, frame, image, status, alt, url, maxHeight);
                     }
                     catch (Exception ex) {
                         status.Text = FailedToLoadText(alt);
@@ -238,9 +246,8 @@ namespace Game {
 
         void ApplyImageTexture(Texture2D texture,
             CanvasWidget frame,
-            RectangleWidget background,
             RectangleWidget image,
-            LabelWidget status,
+            FontTextWidget status,
             string alt,
             string url,
             float maxHeight) {
@@ -252,12 +259,11 @@ namespace Game {
                 if (frame.Size.X <= 0f) {
                     // 宿主宽未解析（跟随父容器的宿主测量期才回填）：挂起，宽解析后由
                     // ResolvePendingWidths 补适配上屏。现在适配只能按兜底宽，窄容器/列表项内必溢出
-                    m_pendingFrames.Add((frame, background, image, status, alt, url, maxHeight));
+                    m_pendingFrames.Add((frame, image, status, alt, url, maxHeight));
                     return;
                 }
                 Vector2 size = GetImageDisplaySize(texture, frame.Size.X, maxHeight);
                 frame.Size = size;
-                background.Size = size;
                 image.Size = size;
                 image.Subtexture = new Subtexture(texture, Vector2.Zero, Vector2.One);
                 image.IsVisible = true;
