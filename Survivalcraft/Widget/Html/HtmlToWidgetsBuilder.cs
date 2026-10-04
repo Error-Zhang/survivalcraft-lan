@@ -304,11 +304,18 @@ namespace Game {
             if (rows.Count == 0) {
                 return null;
             }
+            // 剔除空行（无 td/th——本方法不产行、底座无对应布局行），使行序号=ExpandSlots 布局行号
+            rows.RemoveAll(entry => !HasCellElement(entry.Row));
             // 列对齐：格级属性降列级——自上而下取每列第一个出现的对齐（td/th 与 tr 的 align 属性、
             // style text-align 都认），此后该列锚点固定（照包装类 SetColumnAlignments 语义）；
-            // 列号按前置 colspan 累计（旧实现无 colspan，格序即列序）
+            // 列号照底座 ExpandSlots 口径模拟（M1）：cursor 跳过被前行 rowspan 登记的占格——旧口径
+            // 仅按前置 colspan 累计，rowspan+列对齐组合下 anchor 染错列（视觉错对齐）。ExpandSlots
+            // 的越界 colspan 二次钳（columns−Col）发生在全部 slot.Col 定值之后，不影响列号，故模拟
+            // 对全部输入与布局期定列逐槽一致
             List<MarkdownTableAlignment?> alignments = [];
-            foreach ((HtmlAgilityPack.HtmlNode tr, bool fromThead) in rows) {
+            HashSet<(int Row, int Col)> occupied = [];
+            for (int r = 0; r < rows.Count; r++) {
+                (HtmlAgilityPack.HtmlNode tr, bool fromThead) = rows[r];
                 // 表头行判定行级统一（F3）：thead 行或行内含 th，与 th 的格序无关——原实现随格
                 // 遍历置位，th 前的 td 格以 false 建格漏染粗；整行格统一染粗（同 Markdown CreateTable 口径）
                 bool isHeader = fromThead || HasHeaderCell(tr);
@@ -332,12 +339,23 @@ namespace Game {
                     if (rowSpan > 1) {
                         TablePanelWidget.SetRowSpan(cell, rowSpan);
                     }
+                    // M1：跳过被前行 rowspan 占住的槽位定真实列号（照 ExpandSlots cursor 口径）
+                    while (occupied.Contains((r, column))) {
+                        column++;
+                    }
                     while (alignments.Count <= column) {
                         alignments.Add(null);
                     }
                     alignments[column] ??= ParseCellAlignment(cellNode, tr);
                     ApplyCellAnchor(cell, ToTextAnchor(alignments[column]));
                     cells.Add(cell);
+                    // rowspan 向后续行登记占格（照 ExpandSlots：行覆盖至 min(r+rowSpan, 行数) 前，
+                    // 列覆盖 [column, column+colSpan)，colspan 用未钳值与第一遍 cursor 推进同口径）
+                    for (int rr = r + 1; rr < MathUtils.Min(r + rowSpan, rows.Count); rr++) {
+                        for (int cc = column; cc < column + colSpan; cc++) {
+                            occupied.Add((rr, cc));
+                        }
+                    }
                     column += colSpan;
                 }
                 if (cells.Count > 0) {
@@ -438,6 +456,17 @@ namespace Game {
             foreach (HtmlAgilityPack.HtmlNode child in row.ChildNodes) {
                 if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
                     && child.Name.ToLowerInvariant() == "th") {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 行直下是否含 td/th 格（M1 空行剔除辅助：空行不产行、底座无对应布局行）
+        static bool HasCellElement(HtmlAgilityPack.HtmlNode row) {
+            foreach (HtmlAgilityPack.HtmlNode child in row.ChildNodes) {
+                if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
+                    && child.Name.ToLowerInvariant() is "td" or "th") {
                     return true;
                 }
             }
