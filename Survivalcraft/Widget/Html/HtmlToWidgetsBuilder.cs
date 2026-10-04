@@ -309,7 +309,9 @@ namespace Game {
             // 列号按前置 colspan 累计（旧实现无 colspan，格序即列序）
             List<MarkdownTableAlignment?> alignments = [];
             foreach ((HtmlAgilityPack.HtmlNode tr, bool fromThead) in rows) {
-                bool isHeader = fromThead;
+                // 表头行判定行级统一（F3）：thead 行或行内含 th，与 th 的格序无关——原实现随格
+                // 遍历置位，th 前的 td 格以 false 建格漏染粗；整行格统一染粗（同 Markdown CreateTable 口径）
+                bool isHeader = fromThead || HasHeaderCell(tr);
                 List<Widget> cells = [];
                 int column = 0;
                 foreach (HtmlAgilityPack.HtmlNode cellNode in tr.ChildNodes) {
@@ -319,9 +321,6 @@ namespace Game {
                     string cellTag = cellNode.Name.ToLowerInvariant();
                     if (cellTag is not ("td" or "th")) {
                         continue;
-                    }
-                    if (cellTag == "th") {
-                        isHeader = true;
                     }
                     // colspan/rowspan 属性：空/非法/≤0 → 1（Set 后仅非平凡值登记 attached 状态）
                     int colSpan = ParseSpanAttribute(cellNode, "colspan");
@@ -432,6 +431,17 @@ namespace Game {
         // SetColSpan/SetRowSpan 内部还有 max(·,1) 钳制兜底，越界 span 由底座 ExpandSlots 钳到实际列数
         static int ParseSpanAttribute(HtmlAgilityPack.HtmlNode cell, string name) {
             return int.TryParse(cell.GetAttributeValue(name, null), out int value) && value > 0 ? Math.Min(value, 1000) : 1;
+        }
+
+        // 行直下是否含 th 格（行级表头判定辅助，F3；thead 判定由调用侧 fromThead 承担）
+        static bool HasHeaderCell(HtmlAgilityPack.HtmlNode row) {
+            foreach (HtmlAgilityPack.HtmlNode child in row.ChildNodes) {
+                if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
+                    && child.Name.ToLowerInvariant() == "th") {
+                    return true;
+                }
+            }
+            return false;
         }
 
         // 块格表头染粗：递归格内全部 RichTextWidget（嵌套表格一并——CSS th 粗体继承口径）
