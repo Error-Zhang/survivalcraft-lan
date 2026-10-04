@@ -37,7 +37,7 @@ namespace Game {
         // internal：Markdown 前端把 HtmlBlock 委托给 HtmlToWidgetsBuilder 时需要传递
         internal float CurrentIndentX;
 
-        // 标题字号/金色阶梯（PRD 6.3，与 PostDetailsContentBuilder 同源风格）
+        // 标题字号/金色阶梯（PRD 6.3，帖子详情 header 视觉同源）
         static readonly float[] s_headingScales = [1.6f, 1.4f, 1.2f, 1.1f, 1f, 1f];
 
         static readonly Color HeadingColor = new(255, 230, 140);

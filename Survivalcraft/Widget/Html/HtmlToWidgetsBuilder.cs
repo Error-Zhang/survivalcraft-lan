@@ -38,6 +38,20 @@ namespace Game {
                     pendingSpans.Clear();
                 }
             }
+            // 行内上下文透传：子节点里的 <img> 升级为图片块（富文本编辑器帖图最常见 <p><img> 包裹，
+            // img 无文本子节点会被 span 解析静默丢弃），其余照常 span 累积
+            void AppendInlineChildren(HtmlAgilityPack.HtmlNode node, Color? inlineColorOverride) {
+                foreach (HtmlAgilityPack.HtmlNode child in node.ChildNodes) {
+                    if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
+                        && child.Name.Equals("img", StringComparison.OrdinalIgnoreCase)
+                        && ImageLoader != null) {
+                        Flush();
+                        AddImageBlock(panel, child.GetAttributeValue("src", null), child.GetAttributeValue("alt", null));
+                        continue;
+                    }
+                    HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, inlineColorOverride ?? DefaultColor);
+                }
+            }
             foreach (HtmlAgilityPack.HtmlNode node in nodes) {
                 if (node.NodeType != HtmlAgilityPack.HtmlNodeType.Element
                     && node.NodeType != HtmlAgilityPack.HtmlNodeType.Text) {
@@ -48,6 +62,11 @@ namespace Game {
                     continue;
                 }
                 switch (node.Name.ToLowerInvariant()) {
+                    case "script":
+                    case "style":
+                        // 体源码非可见内容（HasVisibleText 同口径），块级直挂场景兜底跳过
+                        Flush();
+                        break;
                     case "h1":
                     case "h2":
                     case "h3":
@@ -62,7 +81,7 @@ namespace Game {
                     }
                     case "p":
                         Flush();
-                        HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
+                        AppendInlineChildren(node, colorOverride);
                         Flush();
                         break;
                     case "div":
@@ -103,7 +122,7 @@ namespace Game {
                             BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1);
                         }
                         else {
-                            HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
+                            AppendInlineChildren(node, colorOverride);
                         }
                         break;
                 }
@@ -157,19 +176,22 @@ namespace Game {
                 CurrentIndentX += contentX;
                 // li 内行内内容累积成段；内嵌块级标签递归处理
                 List<TextSpan> pendingSpans = [];
+                void FlushLi() {
+                    if (pendingSpans.Count > 0) {
+                        HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
+                        if (pendingSpans.Count > 0) {
+                            RichTextWidget widget = CreateRichText(colorOverride);
+                            widget.Spans.AddRange(pendingSpans);
+                            contentPanel.Children.Add(widget);
+                        }
+                        pendingSpans = [];
+                    }
+                }
                 foreach (HtmlAgilityPack.HtmlNode child in li.ChildNodes) {
                     bool isBlock = child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
                         && child.Name.ToLowerInvariant() is "ul" or "ol" or "blockquote" or "pre" or "p" or "div";
                     if (isBlock) {
-                        if (pendingSpans.Count > 0) {
-                            HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
-                            if (pendingSpans.Count > 0) {
-                                RichTextWidget widget = CreateRichText(colorOverride);
-                                widget.Spans.AddRange(pendingSpans);
-                                contentPanel.Children.Add(widget);
-                            }
-                            pendingSpans = [];
-                        }
+                        FlushLi();
                         switch (child.Name.ToLowerInvariant()) {
                             case "ul":
                             case "ol":
@@ -191,16 +213,18 @@ namespace Game {
                             }
                         }
                     }
+                    else if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
+                        && child.Name.Equals("img", StringComparison.OrdinalIgnoreCase)
+                        && ImageLoader != null) {
+                        // li 内行内 <img> 升级为图片块（同 AppendInlineChildren 口径）
+                        FlushLi();
+                        AddImageBlock(contentPanel, child.GetAttributeValue("src", null), child.GetAttributeValue("alt", null));
+                    }
                     else {
                         HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, colorOverride ?? DefaultColor);
                     }
                 }
-                HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
-                if (pendingSpans.Count > 0) {
-                    RichTextWidget widget = CreateRichText(colorOverride);
-                    widget.Spans.AddRange(pendingSpans);
-                    contentPanel.Children.Add(widget);
-                }
+                FlushLi();
                 CurrentIndentX = prevIndent;
                 listPanel.Children.Add(row);
                 number++;

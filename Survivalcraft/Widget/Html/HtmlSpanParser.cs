@@ -39,6 +39,10 @@ namespace Game {
                 AddText("\n", spans, style, defaultColor);
                 return;
             }
+            // script/style 体的源码不是可见内容（HasVisibleText 同口径），span 透传会把它渲染成段落
+            if (tag is "script" or "style") {
+                return;
+            }
             MarkdownSpanStyle inner = ApplyOpenTag(node, style, out Color? background, out Color? forceColor);
             ParseHtmlChildren(node, spans, inner, defaultColor, depth, forceColor, background);
         }

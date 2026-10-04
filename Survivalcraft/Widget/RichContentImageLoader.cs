@@ -6,7 +6,7 @@ using Engine.Media;
 
 namespace Game {
     /// <summary>
-    /// 富内容图片异步加载管线，PostDetailsContentBuilder（HTML）与 Markdown 系 widget 共用：
+    /// 富内容图片异步加载管线，HtmlWidget/HtmlToWidgetsBuilder（HTML）与 Markdown 系 widget 共用：
     /// 占位 frame（底框 + 隐藏 image + 状态字）→ 后台下载并解码（ImageSharp 纯 CPU，不碰 GL）→
     /// Dispatcher 回主线程做 GL 上传换 Subtexture。
     /// 另持有已加载图片纹理的生命周期（引擎 Dialog/Widget 树无 Dispose 级联）：
