@@ -18,7 +18,7 @@ namespace Game {
 
         public bool m_wordWrap;
 
-        public TextWordBreak m_wordBreak;
+        public TextWordBreak m_wordBreak = TextWordBreak.BreakWord;
 
         public bool m_ellipsis;
 
@@ -91,7 +91,7 @@ namespace Game {
             }
         }
 
-        /// <summary>断行模式：Normal=词边界优先（既有行为），BreakAll=行尾即拆（CSS word-break:break-all）。</summary>
+        /// <summary>断行模式：默认 BreakWord=词边界回退+无断点强拆（引擎历史行为）；Normal/KeepAll 无断点纯溢出；BreakAll=行尾即拆。</summary>
         public TextWordBreak WordBreak {
             get => m_wordBreak;
             set {
