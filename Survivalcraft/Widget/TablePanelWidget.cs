@@ -247,17 +247,20 @@ namespace Game {
                     QueueQuad(batch, 0f, 0f, tableWidth, tableHeight, color);
                 }
             }
-            // ② 行底（整行宽=表宽，画在 cell 底之下）
+            // ② 行底（整行宽=表宽，画在 cell 底之下）。高度含行间 Gap.Y（末行除外）：行带
+            // "线到线满"——gap 区随行底色铺展（与 X 向行底全宽含 cell 间 Gap 同口径），表底只在
+            // 无行底行与表缘露出
             for (int r = 0; r < rows; r++) {
                 if (!m_layoutRows[r].Background.HasValue) {
                     continue;
                 }
                 Color color = m_layoutRows[r].Background.Value * GlobalColorTransform;
                 if (color.A > 0) {
-                    QueueQuad(batch, 0f, rowTops[r], tableWidth, m_rowHeights[r], color);
+                    QueueQuad(batch, 0f, rowTops[r], tableWidth, m_rowHeights[r] + (r < rows - 1 ? Gap.Y : 0f), color);
                 }
             }
-            // ③ cell 底：跨越 track 合成矩形（含 CellPadding；跨内 Gap 属合成矩形，cell 间 Gap 归表底）
+            // ③ cell 底：跨越 track 合成矩形（含 CellPadding、跨内 Gap 与末列右/末行下 Gap——
+            // 底缘贴分界线，cell 间 gap 区由相邻 cell 底/行底瓜分铺满行带，不露表底缝）
             for (int r = 0; r < rows; r++) {
                 foreach (TableCellSlot slot in m_layoutRows[r].Cells) {
                     if (slot.Cell == null) {
@@ -275,12 +278,20 @@ namespace Game {
                     for (int c = 0; c < slot.Col; c++) {
                         colX += m_arrangedWidths[c] + Gap.X;
                     }
-                    int spanRows = MathUtils.Max(MathUtils.Min(slot.RowSpan, rows - slot.Row), 1);
-                    float spanH = Gap.Y * (spanRows - 1);
-                    for (int rr = slot.Row; rr < slot.Row + spanRows; rr++) {
-                        spanH += m_rowHeights[rr];
+                    int spanCols = MathUtils.Max(MathUtils.Min(slot.ColSpan, columns - slot.Col), 1);
+                    float bandW = TrackSpanWidth(m_arrangedWidths, slot.Col, spanCols);
+                    if (slot.Col + spanCols < columns) {
+                        bandW += Gap.X;
                     }
-                    QueueQuad(batch, colX, rowTops[slot.Row], TrackSpanWidth(m_arrangedWidths, slot.Col, slot.ColSpan), spanH, color);
+                    int spanRows = MathUtils.Max(MathUtils.Min(slot.RowSpan, rows - slot.Row), 1);
+                    float bandH = Gap.Y * (spanRows - 1);
+                    for (int rr = slot.Row; rr < slot.Row + spanRows; rr++) {
+                        bandH += m_rowHeights[rr];
+                    }
+                    if (slot.Row + spanRows < rows) {
+                        bandH += Gap.Y;
+                    }
+                    QueueQuad(batch, colX, rowTops[slot.Row], bandW, bandH, color);
                 }
             }
             // ④ 格线
@@ -589,14 +600,21 @@ namespace Game {
             maxCore = MathUtils.Max(maxCore, 0f);
             float minCore;
             if (cell is RichTextWidget rich) {
-                // token 扫描（照 MD 表 MeasureCellMinWidth）+2×CellPadding.X：min 是 track 口径
-                //（高度轮 innerW 扣 2×pad+margin 的逆操作），缺 pad 时列宽落 [token, token+2×pad)
-                // 窗口净宽<词宽 → BreakWord 紧急强拆长词（F2）
+                // 文字自然宽（Size.X<0 自动口径）max 补 2×CellPadding.X 与 min 同为 track 口径：
+                // 列宽=文字+2pad，Arrange 内缩 pad 后文字恰满——缺补时内容区=文字−2pad 必溢出
+                // （15.8.5 "表头三"出格）。Size.X≥0 显式外框（HTML 纯行内格 Size=自然宽+2pad 锚定）
+                // 已含 pad，补了双计
                 minCore = MeasureSpansMinWidth(rich.Spans, rich.Font, rich.FontScale) + 2f * CellPadding.X;
+                if (rich.Size.X < 0f) {
+                    maxCore += 2f * CellPadding.X;
+                }
             }
             else if (cell is LabelWidget label) {
                 // label 单 span 扫描（span.FontScale=0 → 回退 label.FontScale），pad 口径同上
                 minCore = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, label.FontScale) + 2f * CellPadding.X;
+                if (label.Size.X < 0f) {
+                    maxCore += 2f * CellPadding.X;
+                }
             }
             else {
                 // 非文字类不收缩（按钮/图片 CSS 语义本就 min=max）。注意按钮系（ClickableWidget 无
