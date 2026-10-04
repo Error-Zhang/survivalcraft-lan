@@ -1,4 +1,5 @@
 using Engine;
+using Engine.Graphics;
 
 namespace Game {
     // HtmlAgilityPack DOM → widget 树（块级遍历）。外部 HTML 片段入口（P2：HtmlWidget 壳、
@@ -118,7 +119,7 @@ namespace Game {
                     case "table": {
                         Flush();
                         // 空表（无任何行）返回 null 不产部件——零尺寸 widget 仍会靠 Margin 贡献 8px 空白
-                        MarkdownTableWidget table = CreateHtmlTable(node, colorOverride);
+                        TablePanelWidget table = CreateHtmlTable(node, colorOverride, depth);
                         if (table != null) {
                             panel.Children.Add(table);
                         }
@@ -267,20 +268,24 @@ namespace Game {
             return outer;
         }
 
-        // HTML 表格 → MarkdownTableWidget（与 Markdown 管道表同部件：两阶段列宽协商/削峰收缩/横向滚动兜底）。
-        // 行收集：table 直下 tr 与 thead/tbody/tfoot 内 tr 展平（caption/colgroup/col 无对应视觉语义，跳过）；
-        // thead 行或含 th 的行为表头（粗体由 builder 侧染 span，同 Markdown CreateTable 口径）。
-        // cell 只装行内内容：td 内块级标签按 span 透传降级（cell 是 RichTextWidget，无图片/代码块槽），
-        // td 内嵌套 table 同样降级为连排文本
-        MarkdownTableWidget CreateHtmlTable(HtmlAgilityPack.HtmlNode tableNode, Color? colorOverride) {
-            MarkdownTableWidget widget = new() {
-                Font = Font,
-                FontScale = FontScale,
-                DefaultColor = colorOverride ?? DefaultColor
-            };
-            if (LinkClicked != null) {
-                widget.LinkClicked += href => LinkClicked(href);
+        // HTML 表格 → TablePanelWidget 直产（spec §7.1）：布局/列协商/格线全由底座承担，本方法只做
+        // DOM→行/格映射。行收集：table 直下 tr 与 thead/tbody/tfoot 内 tr 展平（caption/colgroup/col
+        // 无对应视觉语义，跳过）；thead 行或含 th 的行为表头（粗体由 builder 侧染 span，同 Markdown
+        // CreateTable 口径）。无滚动兜底（包装类超宽横向滚动不随迁）：Σmin 超宿主时底座定格列 min 溢出
+        TablePanelWidget CreateHtmlTable(HtmlAgilityPack.HtmlNode tableNode, Color? colorOverride, int depth) {
+            if (depth > MaxDepth) {
+                return null;
             }
+            // 视觉对齐 MD 表现状：三开关全开+同 padding+同线色（InnerBorder 在场时 HeaderSeparator
+            // 不双画，仅 InnerBorder=false 的自定义场景生效）
+            TablePanelWidget widget = new() {
+                CellPadding = new Vector2(6f, 3f),
+                BorderColor = MarkdownTableWidget.GridLineColor,
+                OuterBorder = true,
+                InnerBorder = true,
+                HeaderSeparator = true,
+                Margin = new Vector2(0f, 4f)
+            };
             List<(HtmlAgilityPack.HtmlNode Row, bool FromThead)> rows = [];
             foreach (HtmlAgilityPack.HtmlNode child in tableNode.ChildNodes) {
                 if (child.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
@@ -299,12 +304,13 @@ namespace Game {
             if (rows.Count == 0) {
                 return null;
             }
-            // 列对齐：格级属性降列级——自上而下取每列第一个出现的对齐（td/th 与 tr 的
-            // align 属性、style text-align 都认），此后该列锚点固定
+            // 列对齐：格级属性降列级——自上而下取每列第一个出现的对齐（td/th 与 tr 的 align 属性、
+            // style text-align 都认），此后该列锚点固定（照包装类 SetColumnAlignments 语义）；
+            // 列号按前置 colspan 累计（旧实现无 colspan，格序即列序）
             List<MarkdownTableAlignment?> alignments = [];
             foreach ((HtmlAgilityPack.HtmlNode tr, bool fromThead) in rows) {
                 bool isHeader = fromThead;
-                List<List<TextSpan>> cells = [];
+                List<Widget> cells = [];
                 int column = 0;
                 foreach (HtmlAgilityPack.HtmlNode cellNode in tr.ChildNodes) {
                     if (cellNode.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
@@ -317,26 +323,148 @@ namespace Game {
                     if (cellTag == "th") {
                         isHeader = true;
                     }
-                    List<TextSpan> spans = [];
-                    HtmlSpanParser.ParseHtmlNode(cellNode, spans, default, widget.DefaultColor);
-                    cells.Add(spans);
+                    // colspan/rowspan 属性：空/非法/≤0 → 1（Set 后仅非平凡值登记 attached 状态）
+                    int colSpan = ParseSpanAttribute(cellNode, "colspan");
+                    int rowSpan = ParseSpanAttribute(cellNode, "rowspan");
+                    Widget cell = CreateHtmlCell(cellNode, isHeader, colorOverride, depth);
+                    if (colSpan > 1) {
+                        TablePanelWidget.SetColSpan(cell, colSpan);
+                    }
+                    if (rowSpan > 1) {
+                        TablePanelWidget.SetRowSpan(cell, rowSpan);
+                    }
                     while (alignments.Count <= column) {
                         alignments.Add(null);
                     }
                     alignments[column] ??= ParseCellAlignment(cellNode, tr);
-                    column++;
-                }
-                if (isHeader) {
-                    foreach (List<TextSpan> cellSpans in cells) {
-                        BoldCellSpans(cellSpans);
-                    }
+                    ApplyCellAnchor(cell, ToTextAnchor(alignments[column]));
+                    cells.Add(cell);
+                    column += colSpan;
                 }
                 if (cells.Count > 0) {
-                    widget.AddRow(isHeader, cells);
+                    TableRowWidget row = new() { Header = isHeader };
+                    foreach (Widget cell in cells) {
+                        row.Children.Add(cell);
+                    }
+                    widget.Children.Add(row);
                 }
             }
-            widget.SetColumnAlignments(alignments);
             return widget;
+        }
+
+        // 列宽协商语义（照包装类 AddRow 口径）：自然宽+2×CellPadding
+        const float CellPaddingX = 6f;
+
+        // 单格构建（spec §7.1 cell 内容升级）：纯行内 → RichTextWidget（WordWrap + Stretch 拉满格矩形，
+        // Size.X 锚定 自然宽+2×CellPadding——底座 track 即旧列宽，高度轮按 track−2×CellPadding 重测）；
+        // 含块级子标签（p/div/section/article/table/h1-h6/hr/pre/blockquote/ul/ol），或有图片管线时
+        // img 为唯一元素内容 → StackPanelWidget（Vertical）直装块：BuildHtmlNodes 整格重入（p/li 内
+        // 块级同口径），img 升级图片块、嵌套 table 递归本方法。纯行内 cell 的 img 照旧 span 占位
+        // （HtmlSpanParser 分支保留）。格内块宽用 ContentWidth 现值近似（协商前格净宽未知，局限见
+        // task-8-report）
+        Widget CreateHtmlCell(HtmlAgilityPack.HtmlNode cellNode, bool isHeader, Color? colorOverride, int depth) {
+            bool hasBlockChild = false;
+            bool imgOnly = ImageLoader != null;
+            foreach (HtmlAgilityPack.HtmlNode child in cellNode.ChildNodes) {
+                if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Element) {
+                    if (IsBlockTag(child.Name)) {
+                        hasBlockChild = true;
+                        break;
+                    }
+                    if (imgOnly
+                        && !child.Name.Equals("img", StringComparison.OrdinalIgnoreCase)) {
+                        imgOnly = false;
+                    }
+                }
+                else if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Text
+                    && imgOnly
+                    && !string.IsNullOrWhiteSpace(child.InnerText)) {
+                    imgOnly = false;
+                }
+            }
+            if (hasBlockChild
+                || imgOnly) {
+                StackPanelWidget panel = CreatePanel();
+                // 横向拉满格矩形：格内锚点/换行参考系=整格净宽，不随最宽子件塌缩
+                panel.HorizontalAlignment = WidgetAlignment.Stretch;
+                BuildHtmlNodes(cellNode.ChildNodes, panel, 0, colorOverride, depth + 1);
+                if (isHeader) {
+                    BoldWidgetSpans(panel);
+                }
+                return panel;
+            }
+            // 纯行内：span 解析（img 命中 HtmlSpanParser 占位分支，照旧保留）
+            List<TextSpan> spans = [];
+            HtmlSpanParser.ParseHtmlNode(cellNode, spans, default, colorOverride ?? DefaultColor);
+            if (isHeader) {
+                BoldCellSpans(spans);
+            }
+            RichTextWidget widget = new() {
+                Font = Font,
+                FontScale = FontScale,
+                Color = colorOverride ?? DefaultColor,
+                WordWrap = true,
+                // 拉满格矩形（track−2×CellPadding）：TextAnchor 居中/右对齐按 ActualSize 定偏移，
+                // Near 会塌缩到内容宽
+                HorizontalAlignment = WidgetAlignment.Stretch,
+                VerticalAlignment = WidgetAlignment.Stretch
+            };
+            widget.Spans.AddRange(spans);
+            if (LinkClicked != null) {
+                widget.LinkClicked += href => LinkClicked(href);
+            }
+            // 按 float.MaxValue 自测拿自然宽（与旧 scratch Layout(float.MaxValue,∞) 同参对齐），
+            // Size.X 锚定让底座 track=自然宽+2×CellPadding；Size.Y=-1 保持折行高自动
+            widget.Measure(new Vector2(float.MaxValue, float.PositiveInfinity));
+            widget.Size = new Vector2(widget.ParentDesiredSize.X + 2f * CellPaddingX, -1f);
+            return widget;
+        }
+
+        // td 直下块级子标签判定（li 内块级同名单）：命中即整格走块级直装
+        static bool IsBlockTag(string tag) {
+            return tag.ToLowerInvariant() is "p" or "div" or "section" or "article" or "table"
+                or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr" or "pre" or "blockquote"
+                or "ul" or "ol";
+        }
+
+        // colspan/rowspan 属性解析：空/非法/≤0 → 1（SetColSpan/SetRowSpan 内部还有 max(·,1) 钳制兜底）
+        static int ParseSpanAttribute(HtmlAgilityPack.HtmlNode cell, string name) {
+            return int.TryParse(cell.GetAttributeValue(name, null), out int value) && value > 0 ? value : 1;
+        }
+
+        // 块格表头染粗：递归格内全部 RichTextWidget（嵌套表格一并——CSS th 粗体继承口径）
+        static void BoldWidgetSpans(Widget widget) {
+            if (widget is RichTextWidget rich) {
+                BoldCellSpans(rich.Spans);
+            }
+            else if (widget is ContainerWidget container) {
+                foreach (Widget child in container.Children) {
+                    BoldWidgetSpans(child);
+                }
+            }
+        }
+
+        // 格锚点下写：RichTextWidget 直写 TextAnchor 并横向拉满容器（留锚点偏移余量）；容器格递归
+        // （CSS text-align 继承口径，嵌套表格一并）
+        static void ApplyCellAnchor(Widget widget, TextAnchor anchor) {
+            if (widget is RichTextWidget rich) {
+                rich.TextAnchor = anchor;
+                rich.HorizontalAlignment = WidgetAlignment.Stretch;
+            }
+            else if (widget is ContainerWidget container) {
+                foreach (Widget child in container.Children) {
+                    ApplyCellAnchor(child, anchor);
+                }
+            }
+        }
+
+        // MarkdownTableAlignment → TextAnchor（照包装类 AssignAnchors 映射；缺省=左对齐 Default）
+        static TextAnchor ToTextAnchor(MarkdownTableAlignment? alignment) {
+            return alignment switch {
+                MarkdownTableAlignment.Center => TextAnchor.HorizontalCenter,
+                MarkdownTableAlignment.Right => TextAnchor.Right,
+                _ => TextAnchor.Default
+            };
         }
 
         // 对齐取值顺序：cell 自身 align → 所在行 align → cell style text-align → 行 style text-align；
