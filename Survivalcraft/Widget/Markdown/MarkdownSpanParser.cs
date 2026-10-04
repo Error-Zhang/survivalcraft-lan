@@ -17,6 +17,14 @@ namespace Game {
         public bool Strikethrough;
 
         public string Href;
+
+        // 字号倍率（HTML small/sub/sup 嵌套累乘）；0=未设置，span.FontScale 留 0 继承 widget
+        public float Scale;
+
+        public bool Underline;
+
+        // 基线偏移比例累积（sub +0.25 / sup −0.33），语义同 TextSpan.BaselineShift
+        public float BaselineShift;
     }
 
     // Markdig inline 序列 → List<TextSpan>；HtmlInline 片段委托 HtmlSpanParser（Widget/Html/）

@@ -25,6 +25,13 @@ namespace Game {
         // 删除线（markdown ~~x~~ / HTML del|s|strike），绘制于 em 中线
         public bool Strikethrough { get; set; }
 
+        // 下划线（HTML ins），画在字形下方不穿字（layer=-1 背景批，同链接下划线）
+        public bool Underline { get; set; }
+
+        // 基线偏移（HTML sub/sup）：正=下移、负=上移，单位=父字号 em 高的比例
+        //（绘制期换算 GlyphHeight×DefaultFontScale×Font.Scale）。纯绘制偏移，不改行高/推进量
+        public float BaselineShift { get; set; }
+
         public float FontScale { get; set; }
 
         public RichTextStyle Style { get; set; }

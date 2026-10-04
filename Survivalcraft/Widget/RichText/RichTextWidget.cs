@@ -173,7 +173,7 @@ namespace Game {
             // 背景/下划线用 layer=-1 的 FlatBatch、删除线用 layer=2：渲染器按 batch Layer 排序绘制，
             // -1 排在文字批（FontBatch layer=1）之前背景才压在文字下；删除线横穿字形，若也在文字下会被
             // Pericles 烘焙黑描边切成暗缝（实测穿越处亮度 255→128），故排到文字批之后画在字上
-            bool needsUnderlayBatch = ShowLinkUnderline || HasBackground;
+            bool needsUnderlayBatch = ShowLinkUnderline || HasBackground || HasUnderline;
             FlatBatch2D flatBatch2D = needsUnderlayBatch ? dc.PrimitivesRenderer2D.FlatBatch(-1, DepthStencilState.None) : null;
             FlatBatch2D overlayBatch2D = HasStrikethrough ? dc.PrimitivesRenderer2D.FlatBatch(2, DepthStencilState.None) : null;
             SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
@@ -197,6 +197,11 @@ namespace Game {
                     }
                     Vector2 scale = new(SpanScale(run.Span));
                     Vector2 position = new(lineX + run.X, blockY + line.Y);
+                    // 基线偏移（sub/sup）：先融进 position，背景/文字/删除线/下划线全体跟随；
+                    // em 基准=父字号（FontScale=layout DefaultFontScale），不随 span 自身缩小再缩
+                    if (run.Span.BaselineShift != 0f) {
+                        position.Y += run.Span.BaselineShift * Font.GlyphHeight * FontScale * Font.Scale;
+                    }
                     // 文字像素对齐：FontBatch2D 对入批坐标的内部 Round 发生在局部空间，批末再叠加本树的
                     // GlobalTransform——平移带小数（父链累计边距/行高）时屏幕仍落半像素相位，同一字形随段落
                     // 忽锐忽糊、伪粗体双绘读作两个重叠的字。这里连同 QueueText 自身的半间距偏移一起对齐到
@@ -290,9 +295,13 @@ namespace Game {
                             color
                         );
                     }
-                    if (run.Span.IsLink
-                        && ShowLinkUnderline) {
-                        // GlyphHeight 须乘 Font.Scale（与 CalculateLineHeight 一致），否则落在下一行
+                    bool underline = run.Span.Underline
+                        || (run.Span.IsLink && ShowLinkUnderline);
+                    if (underline
+                        && flatBatch2D != null) {
+                        // 下划线（HTML ins/链接）：字形下方 1px 处、厚度同删除线；GlyphHeight 须乘
+                        // Font.Scale（与 CalculateLineHeight 一致），否则落在下一行；基线偏移已融
+                        // position 自动跟随
                         float underlineY = position.Y + Font.GlyphHeight * scale.X * Font.Scale + 1f;
                         float thickness = MathUtils.Max(FontScale * Font.Scale, 1f);
                         QueueTransformedQuad(
@@ -349,6 +358,17 @@ namespace Game {
             get {
                 foreach (TextSpan span in Spans) {
                     if (span.Strikethrough) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
+        bool HasUnderline {
+            get {
+                foreach (TextSpan span in Spans) {
+                    if (span.Underline) {
                         return true;
                     }
                 }

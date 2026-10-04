@@ -72,6 +72,23 @@ namespace Game {
                 case "strike":
                     inner.Strikethrough = true;
                     break;
+                case "ins":
+                case "u":
+                    // u 与 ins 视觉同效（CSS 默认 text-decoration: underline）
+                    inner.Underline = true;
+                    break;
+                case "small":
+                    // CSS smaller：相对父级累乘（small>small 连缩）
+                    inner.Scale = (inner.Scale > 0f ? inner.Scale : 1f) * 0.8f;
+                    break;
+                case "sub":
+                case "sup": {
+                    // 字号同 CSS smaller 惯例 0.833；基线偏移取浏览器近似（super ≈ 升 0.33em、sub ≈ 降 0.25em），
+                    // 嵌套累加；em 基准=父字号（绘制期 DefaultFontScale）
+                    inner.Scale = (inner.Scale > 0f ? inner.Scale : 1f) * 0.833f;
+                    inner.BaselineShift += node.Name.Equals("sub", StringComparison.OrdinalIgnoreCase) ? 0.25f : -0.33f;
+                    break;
+                }
                 case "a":
                     inner.Href = node.GetAttributeValue("href", null);
                     inner.Color = RichContentPalette.LinkColor;
@@ -167,7 +184,10 @@ namespace Game {
                 : style.Italic ? RichTextStyle.Italic : RichTextStyle.Normal;
             spans.Add(new TextSpan(text, style.Color ?? defaultColor, richStyle, style.Href) {
                 BackgroundColor = style.Background,
-                Strikethrough = style.Strikethrough
+                Strikethrough = style.Strikethrough,
+                FontScale = style.Scale,
+                Underline = style.Underline,
+                BaselineShift = style.BaselineShift
             });
         }
 

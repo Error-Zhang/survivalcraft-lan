@@ -208,7 +208,9 @@ namespace Game {
                     Color = source?.Color,
                     BackgroundColor = source?.BackgroundColor,
                     FontScale = sourceScale,
-                    Style = source?.Style ?? RichTextStyle.Normal
+                    Style = source?.Style ?? RichTextStyle.Normal,
+                    Underline = source?.Underline ?? false,
+                    BaselineShift = source?.BaselineShift ?? 0f
                 };
                 TextRun run = new() {
                     Span = ellipsis,
