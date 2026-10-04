@@ -457,8 +457,9 @@ namespace Game {
 
         // 收集可见子件成行结构：行壳行的可见 cell 进槽、裸子件=单 cell 单行。IsHeader =
         // 行壳 Header || 行序号 < HeaderRows。每帧 Measure 重算；行/槽对象归还池复用（单线程
-        // UI，帧序 Measure→Arrange→Draw 内 m_layoutRows 仍有效），Acquire* 全字段重置、
-        // 复用槽逐字段覆写，不留陈旧态
+        // UI，帧序 Measure→Arrange→Draw 内 m_layoutRows 仍有效）：AcquireRow 只清 Cells
+        // （RowWidget/IsHeader/Background 靠两调用点无条件覆写），AcquireSlot 全字段重置——
+        // 不留陈旧态
         void CollectRows() {
             foreach (TableLayoutRow row in m_layoutRows) {
                 m_slotPool.AddRange(row.Cells);
