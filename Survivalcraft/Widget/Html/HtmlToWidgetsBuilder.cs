@@ -427,9 +427,11 @@ namespace Game {
                 or "ul" or "ol";
         }
 
-        // colspan/rowspan 属性解析：空/非法/≤0 → 1（SetColSpan/SetRowSpan 内部还有 max(·,1) 钳制兜底）
+        // colspan/rowspan 属性解析：空/非法/≤0 → 1，上限钳 1000（HTML 标准同值）——不可信源
+        // `<td colspan="2000000000">` 不钳会经 alignments 扩容 + 底座 new float[columns] 双重内存爆炸；
+        // SetColSpan/SetRowSpan 内部还有 max(·,1) 钳制兜底，越界 span 由底座 ExpandSlots 钳到实际列数
         static int ParseSpanAttribute(HtmlAgilityPack.HtmlNode cell, string name) {
-            return int.TryParse(cell.GetAttributeValue(name, null), out int value) && value > 0 ? value : 1;
+            return int.TryParse(cell.GetAttributeValue(name, null), out int value) && value > 0 ? Math.Min(value, 1000) : 1;
         }
 
         // 块格表头染粗：递归格内全部 RichTextWidget（嵌套表格一并——CSS th 粗体继承口径）
