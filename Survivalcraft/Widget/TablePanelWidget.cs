@@ -604,14 +604,14 @@ namespace Game {
                 // 列宽=文字+2pad，Arrange 内缩 pad 后文字恰满——缺补时内容区=文字−2pad 必溢出
                 // （15.8.5 "表头三"出格）。Size.X≥0 显式外框（HTML 纯行内格 Size=自然宽+2pad 锚定）
                 // 已含 pad，补了双计
-                minCore = MeasureSpansMinWidth(rich.Spans, rich.Font, rich.FontScale) + 2f * CellPadding.X;
+                minCore = MeasureSpansMinWidth(rich.Spans, rich.Font, rich.FontScale, rich.WordBreak) + 2f * CellPadding.X;
                 if (rich.Size.X < 0f) {
                     maxCore += 2f * CellPadding.X;
                 }
             }
             else if (cell is LabelWidget label) {
                 // label 单 span 扫描（span.FontScale=0 → 回退 label.FontScale），pad 口径同上
-                minCore = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, label.FontScale) + 2f * CellPadding.X;
+                minCore = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, label.FontScale, label.WordBreak) + 2f * CellPadding.X;
                 if (label.Size.X < 0f) {
                     maxCore += 2f * CellPadding.X;
                 }
@@ -626,13 +626,17 @@ namespace Game {
             return (maxCore + marginX, MathUtils.Max(minCore, 0f) + marginX);
         }
 
-        // cell min 宽：最长不可断 token（拉丁词整词不拆；CJK 字间可断，单字即完整 token）。
+        // cell min 宽：最长不可断 token（拉丁词整词不拆；CJK 字间按 cell.WordBreak 定可断性，
+        // 与渲染 FindLineBreakPosition 同源：BreakWord/Normal/BreakAll 可断、单字即完整 token，
+        // KeepAll 禁断、CJK 连串成整 token）。
         // 照 MarkdownTableWidget.MeasureCellMinWidth 提取的共用实现（略过 kerning，min 轻微高估，安全方向）。
-        // v1 口径：表格协商按默认 WordBreak=BreakWord 假设（CJK 可断）；cell 显式 WordBreak=KeepAll
-        // 时渲染按词级断行、此处 min 低估——收缩态该格可能溢出，属进阶用法自担
-        static float MeasureSpansMinWidth(List<TextSpan> spans, BitmapFont font, float defaultFontScale) {
+        // 残留低估：行首禁则未建模——BreakWord/Normal 下渲染会禁掉禁则标点前的 CJK 断点
+        // （如"文。"粘连），此处仍按可断计，min 略低于渲染真值（标点级，收缩态边缘可溢出，
+        // 量级远小于 KeepAll 失配，不值得为它上禁则表）
+        static float MeasureSpansMinWidth(List<TextSpan> spans, BitmapFont font, float defaultFontScale, TextWordBreak wordBreak) {
             float maxWord = 0f;
             float word = 0f;
+            bool cjkBreakable = wordBreak != TextWordBreak.KeepAll;
             foreach (TextSpan span in spans) {
                 float scale = span.FontScale > 0f ? span.FontScale : defaultFontScale;
                 string text = span.Text ?? string.Empty;
@@ -644,7 +648,8 @@ namespace Game {
                         word = 0f;
                         continue;
                     }
-                    if (FontTextWidget.IsCjkChar(c)) {
+                    if (cjkBreakable
+                        && FontTextWidget.IsCjkChar(c)) {
                         maxWord = MathUtils.Max(maxWord, word);
                         word = 0f;
                         maxWord = MathUtils.Max(maxWord, CharacterAdvance(c, scale, font));
