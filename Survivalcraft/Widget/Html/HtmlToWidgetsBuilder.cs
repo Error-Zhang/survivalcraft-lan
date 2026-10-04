@@ -343,9 +343,10 @@ namespace Game {
         }
 
         // HTML 表格 → TablePanelWidget 直产（spec §7.1）：布局/列协商/格线全由底座承担，本方法只做
-        // DOM→行/格映射。行收集：table 直下 tr 与 thead/tbody/tfoot 内 tr 展平（caption/colgroup/col
-        // 无对应视觉语义，跳过）；thead 行或含 th 的行为表头（粗体由 builder 侧染 span，同 Markdown
-        // CreateTable 口径）。无滚动兜底（包装类超宽横向滚动不随迁）：Σmin 超宿主时底座定格列 min 溢出
+        // DOM→行/格映射。行收集：table 直下 tr 与 thead/tbody 内 tr 展平、tfoot 行沉底（HTML 渲染
+        // 语义，FooterRows 记行数）；caption/colgroup/col 无对应视觉语义，跳过（caption 已在表 case
+        // 预提取渲染）。thead 行或含 th 的行为表头（粗体由 builder 侧染 span，同 Markdown CreateTable
+        // 口径）。无滚动兜底（包装类超宽横向滚动不随迁）：Σmin 超宿主时底座定格列 min 溢出
         TablePanelWidget CreateHtmlTable(HtmlAgilityPack.HtmlNode tableNode, Color? colorOverride, int depth) {
             // 格内容相对格左缘定位（spec §5.3）：入口清零外层嵌套缩进——格 shell 的回填扣减基准
             // 是格净宽，li 内嵌套表格时外层缩进已由挂载位置体现，再计入会双扣；全部出口恢复
@@ -367,6 +368,9 @@ namespace Game {
                 Margin = new Vector2(0f, 4f)
             };
             List<(HtmlAgilityPack.HtmlNode Row, bool FromThead)> rows = [];
+            // tfoot 行收集沉底（HTML 渲染语义：footer 行无论 DOM 位置恒在表尾），行数设
+            // FooterRows 驱动底座表尾结构（FooterSeparator 语义对称 HeaderSeparator）
+            List<HtmlAgilityPack.HtmlNode> footerRows = [];
             foreach (HtmlAgilityPack.HtmlNode child in tableNode.ChildNodes) {
                 if (child.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
                     continue;
@@ -376,16 +380,26 @@ namespace Game {
                     rows.Add((child, false));
                 }
                 else if (childTag is "thead" or "tbody" or "tfoot") {
-                    foreach (HtmlAgilityPack.HtmlNode tr in child.Elements("tr")) {
-                        rows.Add((tr, childTag == "thead"));
+                    if (childTag == "tfoot") {
+                        footerRows.AddRange(child.Elements("tr"));
+                    }
+                    else {
+                        foreach (HtmlAgilityPack.HtmlNode tr in child.Elements("tr")) {
+                            rows.Add((tr, childTag == "thead"));
+                        }
                     }
                 }
+            }
+            foreach (HtmlAgilityPack.HtmlNode tr in footerRows) {
+                rows.Add((tr, false));
             }
             if (rows.Count == 0) {
                 CurrentIndentX = prevIndent;
                 return null;
             }
-            // 剔除空行（无 td/th——本方法不产行、底座无对应布局行），使行序号=ExpandSlots 布局行号
+            // 剔除空行（无 td/th——本方法不产行、底座无对应布局行），使行序号=ExpandSlots 布局行号；
+            // FooterRows 计剔除后的真实 footer 行数
+            int footerRowCount = footerRows.Count(HasCellElement);
             rows.RemoveAll(entry => !HasCellElement(entry.Row));
             // 列对齐：格级属性降列级——自上而下取每列第一个出现的对齐（td/th 与 tr 的 align 属性、
             // style text-align 都认），此后该列锚点固定（照包装类 SetColumnAlignments 语义）；
@@ -446,6 +460,9 @@ namespace Game {
                     }
                     widget.Children.Add(row);
                 }
+            }
+            if (footerRowCount > 0) {
+                widget.FooterRows = footerRowCount;
             }
             CurrentIndentX = prevIndent;
             return widget;

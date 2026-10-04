@@ -54,6 +54,9 @@ namespace Game {
         /// <summary>前 N 行视为表头（行 IsHeader = 行壳 Header || 行序号 &lt; HeaderRows）。</summary>
         public int HeaderRows { get; set; }
 
+        /// <summary>末 N 行视为表尾（HTML tfoot 沉底场景；对称 HeaderRows，Markdown 表恒 0）。</summary>
+        public int FooterRows { get; set; }
+
         /// <summary>整表底色（Task 5 消费）。</summary>
         public Color? BackgroundColor { get; set; }
 
@@ -63,6 +66,10 @@ namespace Game {
 
         /// <summary>表头下分隔线（实际显示 = InnerBorder || HeaderSeparator）。</summary>
         public bool HeaderSeparator { get; set; }
+
+        /// <summary>表尾上分隔线（实际显示 = InnerBorder || FooterSeparator，对称 HeaderSeparator；
+        /// FooterRows=0 时无效果）。</summary>
+        public bool FooterSeparator { get; set; }
 
         public Color BorderColor { get; set; } = new Color(160, 160, 160, 90);
 
@@ -197,6 +204,7 @@ namespace Game {
             int columns = m_arrangedWidths.Length;
             int rows = m_layoutRows.Count;
             bool headerLine = InnerBorder || HeaderSeparator;
+            bool footerLine = InnerBorder || FooterSeparator;
             bool anyRowBackground = false;
             bool anyCellBackground = false;
             foreach (TableLayoutRow row in m_layoutRows) {
@@ -217,7 +225,8 @@ namespace Game {
                     && !anyCellBackground
                     && !OuterBorder
                     && !InnerBorder
-                    && !headerLine)) {
+                    && !headerLine
+                    && !footerLine)) {
                 return;
             }
             FlatBatch2D batch = dc.PrimitivesRenderer2D.FlatBatch(-1, DepthStencilState.None);
@@ -340,6 +349,19 @@ namespace Game {
                         ? rowTops[lastHeader + 1]
                         : MathUtils.Min(rowTops[lastHeader] + m_rowHeights[lastHeader], tableHeight - LineThickness);
                     QueueHorizontalLineSegments(batch, y, lastHeader + 1, lineColor);
+                }
+            }
+            // 表尾上横线（FooterSeparator，对称表头下横线）：线位=footer 首行顶 rowTops[firstFooter]
+            //（全表"track 起点"口径），分界=firstFooter；该分界在内线范围（1..rows-1）恒被 InnerBorder
+            // 画出，同位不重复叠加（HeaderSeparator 同款互斥语义）；footer 即首行（firstFooter=0）无
+            // 上分界、FooterRows=0 无 footer——两者均无效果；rowspan 跨越该分界的列段由
+            // QueueHorizontalLineSegments 跳过
+            if (footerLine
+                && FooterRows > 0
+                && !InnerBorder) {
+                int firstFooter = rows - FooterRows;
+                if (firstFooter > 0) {
+                    QueueHorizontalLineSegments(batch, MathUtils.Min(rowTops[firstFooter], tableHeight - LineThickness), firstFooter, lineColor);
                 }
             }
         }
