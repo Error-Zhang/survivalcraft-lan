@@ -432,23 +432,29 @@ namespace Game {
             maxCore = MathUtils.Max(maxCore, 0f);
             float minCore;
             if (cell is RichTextWidget rich) {
-                minCore = MeasureSpansMinWidth(rich.Spans, rich.Font, rich.FontScale);   // token 扫描（照 MD 表 MeasureCellMinWidth）
+                // token 扫描（照 MD 表 MeasureCellMinWidth）+2×CellPadding.X：min 是 track 口径
+                //（高度轮 innerW 扣 2×pad+margin 的逆操作），缺 pad 时列宽落 [token, token+2×pad)
+                // 窗口净宽<词宽 → BreakWord 紧急强拆长词（F2）
+                minCore = MeasureSpansMinWidth(rich.Spans, rich.Font, rich.FontScale) + 2f * CellPadding.X;
             }
             else if (cell is LabelWidget label) {
-                // label 单 span 扫描（v1 忽略 label.FontScale，量级影响可接受）
-                minCore = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, 1f);
+                // label 单 span 扫描（v1 忽略 label.FontScale，量级影响可接受），pad 口径同上
+                minCore = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, 1f) + 2f * CellPadding.X;
             }
             else {
                 // 非文字类不收缩（按钮/图片 CSS 语义本就 min=max）。注意按钮系（ClickableWidget 无
                 // MeasureOverride）未显式 Size 时 desired=∞，此处按 0+floor 兜底、摆位被 cell 钳满——
-                // 按钮作 cell 请显式 Size（引擎惯例本就如此），不走自然尺寸协商
+                // 按钮作 cell 请显式 Size（引擎惯例本就如此），不走自然尺寸协商。
+                // 不补 2×CellPadding.X：显式 Size 本就是外框口径（含 pad），补了反而双计
                 minCore = maxCore;
             }
             return (maxCore + marginX, MathUtils.Max(minCore, 0f) + marginX);
         }
 
         // cell min 宽：最长不可断 token（拉丁词整词不拆；CJK 字间可断，单字即完整 token）。
-        // 照 MarkdownTableWidget.MeasureCellMinWidth 提取的共用实现（略过 kerning，min 轻微高估，安全方向）
+        // 照 MarkdownTableWidget.MeasureCellMinWidth 提取的共用实现（略过 kerning，min 轻微高估，安全方向）。
+        // v1 口径：表格协商按默认 WordBreak=BreakWord 假设（CJK 可断）；cell 显式 WordBreak=KeepAll
+        // 时渲染按词级断行、此处 min 低估——收缩态该格可能溢出，属进阶用法自担
         static float MeasureSpansMinWidth(List<TextSpan> spans, BitmapFont font, float defaultFontScale) {
             float maxWord = 0f;
             float word = 0f;
