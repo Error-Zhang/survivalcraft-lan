@@ -616,6 +616,15 @@ namespace Game {
                     maxCore += 2f * CellPadding.X;
                 }
             }
+            else if (cell is RichContentPanel || cell is TablePanelWidget) {
+                // 格内块容器/嵌套表 desired=内容口径（无显式 Size 锚定，同文字格）：max 补
+                // 2×CellPadding.X 让 track=内容+2pad、Arrange 内缩后恰拿内容宽——缺补时格 pad
+                // 吃内容 2×pad（格内代码块右缘 12px 被裁进横滚、格内图应用态恒缩 2×pad 比例
+                // refitprobe appliedFit 实证 120→108、td 内嵌套表同族）。min=max 不收缩语义保持。
+                // 显式 Size 非文字格（按钮系）仍走下方 else 外框口径不补
+                maxCore += 2f * CellPadding.X;
+                minCore = maxCore;
+            }
             else {
                 // 非文字类不收缩（按钮/图片 CSS 语义本就 min=max）。注意按钮系（ClickableWidget 无
                 // MeasureOverride）未显式 Size 时 desired=∞，此处按 0+floor 兜底、摆位被 cell 钳满——
