@@ -49,6 +49,15 @@ namespace Game {
             if (tag is "script" or "style") {
                 return;
             }
+            if (tag == "q") {
+                // <q>：内容前后补英文弯引号（HTML 默认 content 引号随 lang 变，这里固定 “”；
+                // 嵌套 q 不换引号层级——用户裁定简单做）
+                AddText("\u201C", spans, style, defaultColor);
+                MarkdownSpanStyle qInner = ApplyOpenTag(node, style, out _, out _);
+                ParseHtmlChildren(node, spans, qInner, defaultColor, depth);
+                AddText("\u201D", spans, style, defaultColor);
+                return;
+            }
             MarkdownSpanStyle inner = ApplyOpenTag(node, style, out Color? background, out Color? forceColor);
             ParseHtmlChildren(node, spans, inner, defaultColor, depth, forceColor, background);
         }
@@ -94,11 +103,24 @@ namespace Game {
                     inner.Color = RichContentPalette.LinkColor;
                     break;
                 case "code":
+                case "samp":
+                    // samp（程序输出样本）与 code 视觉同效
                     forceColor = RichContentPalette.CodeColor;
                     background = RichContentPalette.CodeBackgroundColor;
                     // 标签栈路径（行内 HTML）没有 DOM 后刷机制，色与底色都直接挂进样式上下文
                     inner.Color = RichContentPalette.CodeColor;
                     inner.Background = RichContentPalette.CodeBackgroundColor;
+                    break;
+                case "kbd":
+                    forceColor = RichContentPalette.KbdColor;
+                    background = RichContentPalette.KbdBackgroundColor;
+                    inner.Color = RichContentPalette.KbdColor;
+                    inner.Background = RichContentPalette.KbdBackgroundColor;
+                    break;
+                case "var":
+                case "address":
+                    // var（变量）与 address（联系地址）HTML 默认渲染同为斜体
+                    inner.Italic = true;
                     break;
                 case "span": {
                     string styleAttr = node.GetAttributeValue("style", null);
@@ -128,6 +150,12 @@ namespace Game {
                 return style;
             }
             if (tag.StartsWith("</", StringComparison.Ordinal)) {
+                Match closeName = s_htmlCloseTagNameRegex.Match(tag);
+                if (closeName.Success
+                    && closeName.Groups[1].Value.ToLowerInvariant() == "q") {
+                    // <q> 闭标签：补尾引号（引号用进入前 style，不吃 q 内容样式）
+                    AddText("\u201D", spans, style, defaultColor);
+                }
                 // 闭标签：出栈恢复进入前样式；无配对开标签时忽略
                 return htmlStack.Count > 0 ? htmlStack.Pop() : style;
             }
@@ -136,7 +164,12 @@ namespace Game {
                 ParseFragment(tag, spans, style, defaultColor, depth + 1);
                 return style;
             }
-            // 开标签：入栈保存进入前样式，再借 HAP 解析属性效果（style/href；残缺片段无子节点）
+            // 开标签：q 先补头引号；入栈保存进入前样式，再借 HAP 解析属性效果（style/href；残缺片段无子节点）
+            Match openName = s_htmlTagNameRegex.Match(tag);
+            if (openName.Success
+                && openName.Groups[1].Value.ToLowerInvariant() == "q") {
+                AddText("\u201C", spans, style, defaultColor);
+            }
             htmlStack.Push(style);
             HtmlAgilityPack.HtmlDocument doc = new();
             doc.LoadHtml(tag);
@@ -149,6 +182,8 @@ namespace Game {
         }
 
         static readonly Regex s_htmlTagNameRegex = new("^<\\s*([a-zA-Z][a-zA-Z0-9]*)", RegexOptions.Compiled);
+
+        static readonly Regex s_htmlCloseTagNameRegex = new("^</\\s*([a-zA-Z][a-zA-Z0-9]*)", RegexOptions.Compiled);
 
         static bool IsVoidHtmlTag(string tag) {
             if (tag.EndsWith("/>", StringComparison.Ordinal)) {

@@ -204,7 +204,7 @@ namespace Game {
                 foreach (HtmlAgilityPack.HtmlNode child in li.ChildNodes) {
                     bool isBlock = child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
                         && child.Name.ToLowerInvariant() is "ul" or "ol" or "blockquote" or "pre" or "p" or "div"
-                            or "section" or "article" or "table"
+                            or "section" or "article" or "table" or "footer"
                             or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr";
                     if (isBlock) {
                         FlushLi();
@@ -460,11 +460,12 @@ namespace Game {
             return widget;
         }
 
-        // td 直下块级子标签判定（li 内块级同名单）：命中即整格走块级直装
+        // td 直下块级子标签判定（li 内块级同名单）：命中即整格走块级直装。footer 按用户裁定
+        // 当块级元素（独立成段，无特殊视觉），走 default 单节点重入
         static bool IsBlockTag(string tag) {
             return tag.ToLowerInvariant() is "p" or "div" or "section" or "article" or "table"
                 or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr" or "pre" or "blockquote"
-                or "ul" or "ol";
+                or "ul" or "ol" or "footer";
         }
 
         // colspan/rowspan 属性解析：空/非法/≤0 → 1，上限钳 1000（HTML 标准同值）——不可信源
@@ -570,7 +571,7 @@ namespace Game {
                     continue;
                 }
                 if (child.Name.ToLowerInvariant() is "pre" or "ul" or "ol" or "blockquote" or "p" or "div" or "hr" or "table"
-                    or "h1" or "h2" or "h3" or "h4" or "h5" or "h6") {
+                    or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "footer") {
                     return true;
                 }
                 if (ContainsBlockChild(child, depth + 1)) {

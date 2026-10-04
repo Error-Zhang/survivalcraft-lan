@@ -9,5 +9,10 @@ namespace Game {
         public static readonly Color CodeBackgroundColor = new(60, 60, 70);
 
         public static readonly Color LinkColor = new(96, 168, 255);
+
+        // <kbd> 键帽灰底深字（浅灰底是网页惯例，深色主题上按用户指定值保留亮块语义）
+        public static readonly Color KbdColor = new(80, 80, 80);
+
+        public static readonly Color KbdBackgroundColor = new(240, 240, 240);
     }
 }
