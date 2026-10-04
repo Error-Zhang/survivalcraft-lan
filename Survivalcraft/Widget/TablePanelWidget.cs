@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Engine;
+using Engine.Graphics;
 using Engine.Media;
 
 namespace Game {
@@ -31,6 +32,9 @@ namespace Game {
     /// 详见 docs/superpowers/specs/2026-10-04-table-panel-widget-design.md。
     /// </summary>
     public class TablePanelWidget : ContainerWidget {
+        // 格线厚（照 MarkdownTableWidget.LineThickness）
+        const float LineThickness = 1f;
+
         sealed class CellAttached {
             public int ColSpan = 1;
 
@@ -151,8 +155,8 @@ namespace Game {
         // ArrangeChildWidgetInCell（对齐语义引擎原生）；空槽（补位）跳过。列 x/宽用摊余后宽度——
         // Stretch 摊余在摆位前一次线性完成，不改 DesiredSize
         public override void ArrangeOverride() {
-            float[] arranged = ComputeArrangedWidths();
-            float tableWidth = TrackSpanWidth(arranged, 0, arranged.Length);
+            m_arrangedWidths = ComputeArrangedWidths();   // Draw 消费（引擎帧序 Measure→Arrange→Draw 保证就绪）
+            float tableWidth = TrackSpanWidth(m_arrangedWidths, 0, m_arrangedWidths.Length);
             float rowY = 0f;
             for (int r = 0; r < m_layoutRows.Count; r++) {
                 TableLayoutRow row = m_layoutRows[r];
@@ -166,7 +170,7 @@ namespace Game {
                     }
                     float colX = 0f;
                     for (int c = 0; c < slot.Col; c++) {
-                        colX += arranged[c] + Gap.X;
+                        colX += m_arrangedWidths[c] + Gap.X;
                     }
                     int spanRows = MathUtils.Max(MathUtils.Min(slot.RowSpan, m_layoutRows.Count - slot.Row), 1);
                     float spanH = Gap.Y * (spanRows - 1);
@@ -175,11 +179,155 @@ namespace Game {
                     }
                     ArrangeChildWidgetInCell(
                         new Vector2(colX + CellPadding.X, rectY + CellPadding.Y),
-                        new Vector2(colX + TrackSpanWidth(arranged, slot.Col, slot.ColSpan) - CellPadding.X, rectY + spanH - CellPadding.Y),
+                        new Vector2(colX + TrackSpanWidth(m_arrangedWidths, slot.Col, slot.ColSpan) - CellPadding.X, rectY + spanH - CellPadding.Y),
                         slot.Cell);
                 }
                 rowY += m_rowHeights[r] + Gap.Y;
             }
+        }
+
+        // 绘制（spec §3）：单 FlatBatch layer=-1 垫底，顺序 ①表底 ②行底 ③cell 底 ④格线。quad 四角
+        // 各自 Vector2.Transform(局部点, GlobalTransform) 预变换入批（照 MarkdownTableWidget 的
+        // TableGridWidget.Draw 先例——共享 batch 严禁 TransformTriangles 二次变换，顶点区间在多
+        // draw-item 间不可靠）；颜色 ×GlobalColorTransform、A>0 才画。列几何用 Arrange 期摊余数组
+        // m_arrangedWidths（Stretch 摊余只在 Arrange 期发生，引擎帧序 Measure→Arrange→Draw 保证
+        // Draw 前已赋值）。cell 底=跨越 track 合成矩形（含 CellPadding 与跨内 Gap，cell 间 Gap 区
+        // 归表底）；线位=track 边界 x/y 前缀和，底边/右边线回缩一个线厚防出界（照 MD 表）
+        public override void Draw(DrawContext dc) {
+            int columns = m_arrangedWidths.Length;
+            int rows = m_layoutRows.Count;
+            bool headerLine = InnerBorder || HeaderSeparator;
+            bool anyRowBackground = false;
+            bool anyCellBackground = false;
+            foreach (TableLayoutRow row in m_layoutRows) {
+                anyRowBackground |= row.Background.HasValue;
+                foreach (TableCellSlot slot in row.Cells) {
+                    if (slot.Cell != null
+                        && GetCellBackground(slot.Cell).HasValue) {
+                        anyCellBackground = true;
+                        break;
+                    }
+                }
+            }
+            // 全开关关+无底色（或无结构）：零 batch 开销
+            if (columns == 0
+                || rows == 0
+                || (!BackgroundColor.HasValue
+                    && !anyRowBackground
+                    && !anyCellBackground
+                    && !OuterBorder
+                    && !InnerBorder
+                    && !headerLine)) {
+                return;
+            }
+            FlatBatch2D batch = dc.PrimitivesRenderer2D.FlatBatch(-1, DepthStencilState.None);
+            float tableWidth = TrackSpanWidth(m_arrangedWidths, 0, columns);
+            float tableHeight = Gap.Y * MathUtils.Max(rows - 1, 0);
+            foreach (float height in m_rowHeights) {
+                tableHeight += height;
+            }
+            if (tableWidth <= 0f
+                || tableHeight <= 0f) {
+                return;
+            }
+            // 行 y 前缀和（rowspan cell 底与线位共用）
+            float[] rowTops = new float[rows];
+            float top = 0f;
+            for (int r = 0; r < rows; r++) {
+                rowTops[r] = top;
+                top += m_rowHeights[r] + Gap.Y;
+            }
+            // ① 表底
+            if (BackgroundColor.HasValue) {
+                Color color = BackgroundColor.Value * GlobalColorTransform;
+                if (color.A > 0) {
+                    QueueQuad(batch, 0f, 0f, tableWidth, tableHeight, color);
+                }
+            }
+            // ② 行底（整行宽=表宽，画在 cell 底之下）
+            for (int r = 0; r < rows; r++) {
+                if (!m_layoutRows[r].Background.HasValue) {
+                    continue;
+                }
+                Color color = m_layoutRows[r].Background.Value * GlobalColorTransform;
+                if (color.A > 0) {
+                    QueueQuad(batch, 0f, rowTops[r], tableWidth, m_rowHeights[r], color);
+                }
+            }
+            // ③ cell 底：跨越 track 合成矩形（含 CellPadding；跨内 Gap 属合成矩形，cell 间 Gap 归表底）
+            for (int r = 0; r < rows; r++) {
+                foreach (TableCellSlot slot in m_layoutRows[r].Cells) {
+                    if (slot.Cell == null) {
+                        continue;
+                    }
+                    Color? background = GetCellBackground(slot.Cell);
+                    if (!background.HasValue) {
+                        continue;
+                    }
+                    Color color = background.Value * GlobalColorTransform;
+                    if (color.A <= 0) {
+                        continue;
+                    }
+                    float colX = 0f;
+                    for (int c = 0; c < slot.Col; c++) {
+                        colX += m_arrangedWidths[c] + Gap.X;
+                    }
+                    int spanRows = MathUtils.Max(MathUtils.Min(slot.RowSpan, rows - slot.Row), 1);
+                    float spanH = Gap.Y * (spanRows - 1);
+                    for (int rr = slot.Row; rr < slot.Row + spanRows; rr++) {
+                        spanH += m_rowHeights[rr];
+                    }
+                    QueueQuad(batch, colX, rowTops[slot.Row], TrackSpanWidth(m_arrangedWidths, slot.Col, slot.ColSpan), spanH, color);
+                }
+            }
+            // ④ 格线
+            Color lineColor = BorderColor * GlobalColorTransform;
+            if (lineColor.A <= 0) {
+                return;
+            }
+            // 外框四条（底边/右边回缩一个线厚防出界）
+            if (OuterBorder) {
+                QueueQuad(batch, 0f, 0f, tableWidth, LineThickness, lineColor);
+                QueueQuad(batch, 0f, tableHeight - LineThickness, tableWidth, LineThickness, lineColor);
+                QueueQuad(batch, 0f, 0f, LineThickness, tableHeight, lineColor);
+                QueueQuad(batch, tableWidth - LineThickness, 0f, LineThickness, tableHeight, lineColor);
+            }
+            // 内部行列分隔线（位=track 起始边界前缀和，不含外框两条）
+            if (InnerBorder) {
+                for (int r = 1; r < rows; r++) {
+                    QueueQuad(batch, 0f, MathUtils.Min(rowTops[r], tableHeight - LineThickness), tableWidth, LineThickness, lineColor);
+                }
+                float x = 0f;
+                for (int c = 1; c < columns; c++) {
+                    x += m_arrangedWidths[c - 1] + Gap.X;
+                    QueueQuad(batch, MathUtils.Min(x, tableWidth - LineThickness), 0f, LineThickness, tableHeight, lineColor);
+                }
+            }
+            // 表头下横线：最末 IsHeader 行下缘（多个表头行只画最末行下）；该分界已被 InnerBorder
+            // 画出（表头非最末行）则不重复叠加；无表头行则 HeaderSeparator 无效果
+            if (headerLine) {
+                int lastHeader = -1;
+                for (int r = 0; r < rows; r++) {
+                    if (m_layoutRows[r].IsHeader) {
+                        lastHeader = r;
+                    }
+                }
+                if (lastHeader >= 0
+                    && !(InnerBorder && lastHeader < rows - 1)) {
+                    float y = MathUtils.Min(rowTops[lastHeader] + m_rowHeights[lastHeader], tableHeight - LineThickness);
+                    QueueQuad(batch, 0f, y, tableWidth, LineThickness, lineColor);
+                }
+            }
+        }
+
+        // 局部坐标 quad 四角各自经 GlobalTransform 变换后入批（照 TableGridWidget.QueueQuad，斜切/旋转变换下不塌陷）
+        void QueueQuad(FlatBatch2D batch, float x, float y, float w, float h, Color color) {
+            Matrix m = GlobalTransform;
+            Vector2 p1 = Vector2.Transform(new Vector2(x, y), m);
+            Vector2 p2 = Vector2.Transform(new Vector2(x + w, y), m);
+            Vector2 p3 = Vector2.Transform(new Vector2(x + w, y + h), m);
+            Vector2 p4 = Vector2.Transform(new Vector2(x, y + h), m);
+            batch.QueueQuad(p1, p2, p3, p4, 0f, color);
         }
 
         readonly List<TableLayoutRow> m_layoutRows = [];
@@ -193,6 +341,8 @@ namespace Game {
         bool[] m_columnSaturated = [];   // span 均摊用（列已有 ColSpan==1 cell 直测定格），帧内重置
 
         float[] m_rowHeights = [];       // 高度轮产物：每行总高（含 2×CellPadding.Y），帧内重建
+
+        float[] m_arrangedWidths = [];   // Arrange 期摊余列宽（Stretch 摊余产物），Draw 绘制口径用
 
         // 收集可见子件成行结构：行壳行的可见 cell 进槽、裸子件=单 cell 单行。IsHeader =
         // 行壳 Header || 行序号 < HeaderRows。每帧 Measure 重算（行数少，直清直建）。
