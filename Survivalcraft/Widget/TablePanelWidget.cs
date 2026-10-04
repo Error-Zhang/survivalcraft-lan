@@ -155,7 +155,7 @@ namespace Game {
         // ArrangeChildWidgetInCell（对齐语义引擎原生）；空槽（补位）跳过。列 x/宽用摊余后宽度——
         // Stretch 摊余在摆位前一次线性完成，不改 DesiredSize
         public override void ArrangeOverride() {
-            m_arrangedWidths = ComputeArrangedWidths();   // Draw 消费（引擎帧序 Measure→Arrange→Draw 保证就绪）
+            ComputeArrangedWidths();   // Draw 消费（引擎帧序 Measure→Arrange→Draw 保证就绪）
             float tableWidth = TrackSpanWidth(m_arrangedWidths, 0, m_arrangedWidths.Length);
             float rowY = 0f;
             for (int r = 0; r < m_layoutRows.Count; r++) {
@@ -230,8 +230,11 @@ namespace Game {
                 || tableHeight <= 0f) {
                 return;
             }
-            // 行 y 前缀和（rowspan cell 底与线位共用）
-            float[] rowTops = new float[rows];
+            // 行 y 前缀和（rowspan cell 底与线位共用）——帧复用缓冲，每调用全量覆写
+            if (m_rowTops.Length != rows) {
+                m_rowTops = new float[rows];
+            }
+            float[] rowTops = m_rowTops;
             float top = 0f;
             for (int r = 0; r < rows; r++) {
                 rowTops[r] = top;
@@ -339,7 +342,11 @@ namespace Game {
         // 表头下横线同口径复用（y 由调用者定：行分界取 rowTops[r]、表头线取表头行下缘）
         void QueueHorizontalLineSegments(FlatBatch2D batch, float y, int rowBoundary, Color lineColor) {
             int columns = m_arrangedWidths.Length;
-            bool[] crossed = new bool[columns];
+            if (m_hCrossed.Length != columns) {
+                m_hCrossed = new bool[columns];
+            }
+            Array.Clear(m_hCrossed, 0, columns);   // 每调用清零重填（条件置位，复用不留陈旧跨越态）
+            bool[] crossed = m_hCrossed;
             foreach (TableLayoutRow row in m_layoutRows) {
                 foreach (TableCellSlot slot in row.Cells) {
                     if (slot.Cell == null) {
@@ -381,7 +388,11 @@ namespace Game {
         // 行 y 位用 Draw 期 rowTops 前缀和，已含 Gap）
         void QueueVerticalLineSegments(FlatBatch2D batch, float x, int colBoundary, float[] rowTops, float tableHeight, Color lineColor) {
             int rows = m_layoutRows.Count;
-            bool[] crossed = new bool[rows];
+            if (m_vCrossed.Length != rows) {
+                m_vCrossed = new bool[rows];
+            }
+            Array.Clear(m_vCrossed, 0, rows);   // 每调用清零重填（条件置位，复用不留陈旧跨越态）
+            bool[] crossed = m_vCrossed;
             foreach (TableLayoutRow row in m_layoutRows) {
                 foreach (TableCellSlot slot in row.Cells) {
                     if (slot.Cell == null
@@ -416,6 +427,14 @@ namespace Game {
 
         readonly List<TableLayoutRow> m_layoutRows = [];
 
+        // 帧路径复用缓冲（每帧 Measure/Draw 反复执行，避免逐帧分配，照 FlexPanelWidget
+        // m_rowPool 先例——pop→清字段→复用，空则 new）
+        readonly List<TableLayoutRow> m_layoutRowPool = [];
+
+        readonly List<TableCellSlot> m_slotPool = [];
+
+        readonly List<int> m_spreadTargets = [];   // SpreadToColumns 均摊目标列，每次调用 Clear 重填
+
         float[] m_columnMin = [];
 
         float[] m_columnMax = [];
@@ -424,30 +443,41 @@ namespace Game {
 
         bool[] m_columnSaturated = [];   // span 均摊用（列已有 ColSpan==1 cell 直测定格），帧内重置
 
-        float[] m_rowHeights = [];       // 高度轮产物：每行总高（含 2×CellPadding.Y），帧内重建
+        float[] m_rowHeights = [];       // 高度轮产物：每行总高（含 2×CellPadding.Y），帧内重算（累积自 0，复用先清零）
 
-        float[] m_arrangedWidths = [];   // Arrange 期摊余列宽（Stretch 摊余产物），Draw 绘制口径用
+        float[] m_arrangedWidths = [];   // Arrange 期摊余列宽（Stretch 摊余产物，原地覆写），Draw 绘制口径用
+
+        float[] m_rowTops = [];          // Draw 期行 y 前缀和（rowspan cell 底与线位共用），每调用全量覆写
+
+        bool[] m_hCrossed = [];          // 横线分段 scratch：rowspan 跨越的列（长度=列数），每调用清零重填
+
+        bool[] m_vCrossed = [];          // 竖线分段 scratch：colspan 跨越的行（长度=行数），每调用清零重填
 
         // 收集可见子件成行结构：行壳行的可见 cell 进槽、裸子件=单 cell 单行。IsHeader =
-        // 行壳 Header || 行序号 < HeaderRows。每帧 Measure 重算（行数少，直清直建）。
+        // 行壳 Header || 行序号 < HeaderRows。每帧 Measure 重算；行/槽对象归还池复用（单线程
+        // UI，帧序 Measure→Arrange→Draw 内 m_layoutRows 仍有效），Acquire* 全字段重置、
+        // 复用槽逐字段覆写，不留陈旧态
         void CollectRows() {
+            foreach (TableLayoutRow row in m_layoutRows) {
+                m_slotPool.AddRange(row.Cells);
+                m_layoutRowPool.Add(row);
+            }
             m_layoutRows.Clear();
             int rowIndex = 0;
             foreach (Widget child in Children) {
                 if (!child.IsVisible) { continue; }
                 if (child is TableRowWidget rowWidget) {
-                    TableLayoutRow row = new() {
-                        RowWidget = rowWidget,
-                        IsHeader = rowWidget.Header || rowIndex < HeaderRows,
-                        Background = rowWidget.BackgroundColor
-                    };
+                    TableLayoutRow row = AcquireRow();
+                    row.RowWidget = rowWidget;
+                    row.IsHeader = rowWidget.Header || rowIndex < HeaderRows;
+                    row.Background = rowWidget.BackgroundColor;
                     foreach (Widget cell in rowWidget.Children) {
                         if (cell.IsVisible) {
-                            row.Cells.Add(new TableCellSlot {
-                                Cell = cell,
-                                ColSpan = MathUtils.Max(GetColSpan(cell), 1),
-                                RowSpan = MathUtils.Max(GetRowSpan(cell), 1)
-                            });
+                            TableCellSlot slot = AcquireSlot();
+                            slot.Cell = cell;
+                            slot.ColSpan = MathUtils.Max(GetColSpan(cell), 1);
+                            slot.RowSpan = MathUtils.Max(GetRowSpan(cell), 1);
+                            row.Cells.Add(slot);
                         }
                     }
                     m_layoutRows.Add(row);
@@ -455,14 +485,48 @@ namespace Game {
                 }
                 else {
                     // 裸子件=单 cell 单行（CSS 匿名行简化，spec §2.5）
-                    m_layoutRows.Add(new TableLayoutRow {
-                        RowWidget = null,
-                        IsHeader = rowIndex < HeaderRows,
-                        Cells = [ new TableCellSlot { Cell = child, ColSpan = MathUtils.Max(GetColSpan(child), 1), RowSpan = MathUtils.Max(GetRowSpan(child), 1) } ]
-                    });
+                    TableLayoutRow row = AcquireRow();
+                    row.RowWidget = null;
+                    row.IsHeader = rowIndex < HeaderRows;
+                    row.Background = null;
+                    TableCellSlot slot = AcquireSlot();
+                    slot.Cell = child;
+                    slot.ColSpan = MathUtils.Max(GetColSpan(child), 1);
+                    slot.RowSpan = MathUtils.Max(GetRowSpan(child), 1);
+                    row.Cells.Add(slot);
+                    m_layoutRows.Add(row);
                     rowIndex++;
                 }
             }
+        }
+
+        TableLayoutRow AcquireRow() {
+            int last = m_layoutRowPool.Count - 1;
+            if (last >= 0) {
+                TableLayoutRow pooled = m_layoutRowPool[last];
+                m_layoutRowPool.RemoveAt(last);
+                pooled.Cells.Clear();   // 槽已归 m_slotPool，此处仅弃陈旧引用
+                return pooled;
+            }
+            return new TableLayoutRow();
+        }
+
+        // 槽全字段重置：Cell 由 CollectRows 覆写、Row/Col 由 ExpandSlots 每帧覆写，Height 仅
+        // RowSpan==1 槽在高度轮覆写——池化必须在此归零防 rowspan 槽读到陈旧高
+        TableCellSlot AcquireSlot() {
+            int last = m_slotPool.Count - 1;
+            if (last >= 0) {
+                TableCellSlot pooled = m_slotPool[last];
+                m_slotPool.RemoveAt(last);
+                pooled.Cell = null;
+                pooled.Row = 0;
+                pooled.Col = 0;
+                pooled.ColSpan = 1;
+                pooled.RowSpan = 1;
+                pooled.Height = 0f;
+                return pooled;
+            }
+            return new TableCellSlot();
         }
 
         // 槽位展开：列数 = 各行占格（含 span 展开后）最大值。每行 cell 用 cursor 推进定 Col，cursor
@@ -572,7 +636,8 @@ namespace Game {
         // （均未饱和则摊全部覆盖列）——spec §5.1
         void SpreadToColumns(TableCellSlot slot, float max, float min) {
             int span = MathUtils.Max(MathUtils.Min(slot.ColSpan, m_columnMax.Length - slot.Col), 1);
-            List<int> targets = [];
+            List<int> targets = m_spreadTargets;   // 帧复用缓冲，每次调用 Clear 重填
+            targets.Clear();
             for (int c = slot.Col; c < slot.Col + span; c++) {
                 if (!m_columnSaturated[c]) {
                     targets.Add(c);
@@ -598,7 +663,9 @@ namespace Game {
         void NegotiateColumns(float availX) {
             int n = m_columnMax.Length;
             availX = MathUtils.Max(availX - Gap.X * MathUtils.Max(n - 1, 0), 0f);
-            m_columnWidth = new float[n];
+            if (m_columnWidth.Length != n) {
+                m_columnWidth = new float[n];   // 帧复用：同长度直接覆写（三路分支均全量写入）
+            }
             float sumMax = 0f;
             float sumMin = 0f;
             for (int c = 0; c < n; c++) {
@@ -630,7 +697,10 @@ namespace Game {
         // 多 rowspan cell 按序叠加不迭代。cell 垂直 margin 不计入行高（v1 简化，与摆位内缩一致）。
         // 每帧 Measure 全量重算
         void MeasureRowHeights() {
-            m_rowHeights = new float[m_layoutRows.Count];
+            if (m_rowHeights.Length != m_layoutRows.Count) {
+                m_rowHeights = new float[m_layoutRows.Count];
+            }
+            Array.Clear(m_rowHeights, 0, m_rowHeights.Length);   // 行高累积自 0，复用先清零
             foreach (TableLayoutRow row in m_layoutRows) {
                 foreach (TableCellSlot slot in row.Cells) {
                     if (slot.Cell == null
@@ -691,13 +761,17 @@ namespace Game {
         // Stretch 摊余（spec §5.4）：diff = ActualSize.X − (Σ列宽 + Gap.X×(列数−1))。正差（宿主
         // 实给宽于 shrink-to-fit，部件 HorizontalAlignment=Stretch）按列 max 比例摊满（列可超 max，
         // Stretch 语义）；负差（外部强压 ActualSize<Desired）按列 max 比例缩、每列下限 m_columnMin
-        // （clamp 后 Σ 仍超 ActualSize 就随它去——宿主强压至 Σmin 以下不崩即可）。一次线性写
-        // 新数组返回，不改 m_columnWidth（协商产物保持测量语义）；全 0 列无比例基准退化均摊
-        float[] ComputeArrangedWidths() {
+        // （clamp 后 Σ 仍超 ActualSize 就随它去——宿主强压至 Σmin 以下不崩即可）。一次线性原地写
+        // m_arrangedWidths（帧复用缓冲：长度不变直接覆写；Arrange 与 Draw 共用同一数组，引擎帧序
+        // 保证 Draw 读到本帧产物），不改 m_columnWidth（协商产物保持测量语义）；全 0 列无比例基准退化均摊
+        void ComputeArrangedWidths() {
             int n = m_columnWidth.Length;
-            float[] arranged = new float[n];
+            if (m_arrangedWidths.Length != n) {
+                m_arrangedWidths = new float[n];
+            }
+            float[] arranged = m_arrangedWidths;
             if (n == 0) {
-                return arranged;
+                return;
             }
             Array.Copy(m_columnWidth, arranged, n);
             float sumW = 0f;
@@ -706,7 +780,7 @@ namespace Game {
             }
             float diff = ActualSize.X - (sumW + Gap.X * (n - 1));
             if (diff == 0f) {
-                return arranged;
+                return;
             }
             float sumMax = 0f;
             foreach (float max in m_columnMax) {
@@ -717,14 +791,13 @@ namespace Game {
                 for (int c = 0; c < n; c++) {
                     arranged[c] += sumMax > 0f ? diff * m_columnMax[c] / sumMax : per;
                 }
-                return arranged;
+                return;
             }
             float shrinkPer = diff / n;
             for (int c = 0; c < n; c++) {
                 float shrink = sumMax > 0f ? diff * m_columnMax[c] / sumMax : shrinkPer;
                 arranged[c] = MathUtils.Max(arranged[c] + shrink, m_columnMin[c]);
             }
-            return arranged;
         }
 
         // 照 FlexPanelWidget.IsFinite：Infinity/NaN 视为无界贡献，防污染协商
