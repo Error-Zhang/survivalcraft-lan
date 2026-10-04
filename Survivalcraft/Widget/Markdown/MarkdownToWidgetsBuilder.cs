@@ -319,13 +319,7 @@ namespace Game {
                         }
                     }
                     if (isHeader) {
-                        foreach (TextSpan span in spans) {
-                            span.Style = span.Style switch {
-                                RichTextStyle.Italic => RichTextStyle.BoldItalic,
-                                RichTextStyle.Normal => RichTextStyle.Bold,
-                                _ => span.Style
-                            };
-                        }
+                        BoldCellSpans(spans);
                     }
                     cells.Add(spans);
                 }

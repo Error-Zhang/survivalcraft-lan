@@ -95,7 +95,7 @@ namespace Game {
         protected void AddImageBlock(StackPanelWidget panel, string url, string alt) {
             float width = NestedContentWidth();
             CanvasWidget frame = ImageLoader.CreateImageBlock(url, alt, width, MaxImageHeight);
-            frame.Margin = new Vector2(0f, 4f);
+            frame.Margin = new Vector2(0f, 8f);
             panel.Children.Add(frame);
             if (ContentWidth <= 0f) {
                 ImageBlocks.Add((frame, CurrentIndentX));
@@ -133,7 +133,7 @@ namespace Game {
                 Margin = new Vector2(0f, 4f)
             };
             BevelledRectangleWidget frame = new() {
-                Size = new Vector2(1f, 1f),
+                Size = new Vector2(-1f, -1f),
                 HorizontalAlignment = WidgetAlignment.Stretch,
                 VerticalAlignment = WidgetAlignment.Stretch,
                 CenterColor = CodeCenterColor,
@@ -188,10 +188,22 @@ namespace Game {
             return outer;
         }
 
+        // 表头单元格 span 染粗（Markdown 管道表与 HTML 表共用口径）：斜体升粗斜体、普通升粗体，
+        // 其余（链接色/代码底色等已染样式的）保留
+        protected static void BoldCellSpans(List<TextSpan> spans) {
+            foreach (TextSpan span in spans) {
+                span.Style = span.Style switch {
+                    RichTextStyle.Italic => RichTextStyle.BoldItalic,
+                    RichTextStyle.Normal => RichTextStyle.Bold,
+                    _ => span.Style
+                };
+            }
+        }
+
         // 水平分隔线（hr / Markdown ---）
         protected static RectangleWidget CreateThematicBreak() {
             return new RectangleWidget {
-                Size = new Vector2(1f, 1f),
+                Size = new Vector2(-1f, -1f),
                 HorizontalAlignment = WidgetAlignment.Stretch,
                 FillColor = ThematicBreakColor,
                 OutlineColor = Color.Transparent,

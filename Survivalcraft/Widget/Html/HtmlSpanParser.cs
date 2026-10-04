@@ -39,6 +39,12 @@ namespace Game {
                 AddText("\n", spans, style, defaultColor);
                 return;
             }
+            if (tag == "img") {
+                // 图片升级为图片块由块级遍历拦截（AppendInlineChildren 等）；span 透传路径
+                //（表格 cell、未知标签内）无图片槽，产占位文本（色同 Markdown 行内图占位），不再静默丢
+                spans.Add(new TextSpan("[图片:" + node.GetAttributeValue("alt", string.Empty) + "]", new Color(160, 160, 168)));
+                return;
+            }
             // script/style 体的源码不是可见内容（HasVisibleText 同口径），span 透传会把它渲染成段落
             if (tag is "script" or "style") {
                 return;

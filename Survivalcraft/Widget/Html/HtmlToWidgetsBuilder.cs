@@ -20,8 +20,9 @@ namespace Game {
             BuildHtmlNodes(doc.DocumentNode.ChildNodes, panel, listDepth, colorOverride, depth);
         }
 
-        // 块级 HTML 节点遍历：行内节点累积成段，遇块级标签先冲刷当前段
-        void BuildHtmlNodes(HtmlAgilityPack.HtmlNodeCollection nodes, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth) {
+        // 块级 HTML 节点遍历：行内节点累积成段，遇块级标签先冲刷当前段。
+        // 参数放宽 IEnumerable：li 内块级子节点以单节点数组重入（复用顶层分发口径）
+        void BuildHtmlNodes(IEnumerable<HtmlAgilityPack.HtmlNode> nodes, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth) {
             if (depth > MaxDepth) {
                 return;
             }
@@ -114,6 +115,15 @@ namespace Game {
                         Flush();
                         AddImageBlock(panel, node.GetAttributeValue("src", null), node.GetAttributeValue("alt", null));
                         break;
+                    case "table": {
+                        Flush();
+                        // 空表（无任何行）返回 null 不产部件——零尺寸 widget 仍会靠 Margin 贡献 8px 空白
+                        MarkdownTableWidget table = CreateHtmlTable(node, colorOverride);
+                        if (table != null) {
+                            panel.Children.Add(table);
+                        }
+                        break;
+                    }
                     default:
                         // 未知标签：子树含块级标签（section/article 包裹 pre/列表等）时递归块级遍历，
                         // 否则透传子节点累积为段（b/i/span 等行内标签）
@@ -189,7 +199,9 @@ namespace Game {
                 }
                 foreach (HtmlAgilityPack.HtmlNode child in li.ChildNodes) {
                     bool isBlock = child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
-                        && child.Name.ToLowerInvariant() is "ul" or "ol" or "blockquote" or "pre" or "p" or "div";
+                        && child.Name.ToLowerInvariant() is "ul" or "ol" or "blockquote" or "pre" or "p" or "div"
+                            or "section" or "article" or "table"
+                            or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr";
                     if (isBlock) {
                         FlushLi();
                         switch (child.Name.ToLowerInvariant()) {
@@ -205,10 +217,24 @@ namespace Game {
                                 contentPanel.Children.Add(CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n')));
                                 break;
                             }
-                            default: {
-                                RichTextWidget widget = CreateRichText(colorOverride);
+                            case "h1":
+                            case "h2":
+                            case "h3":
+                            case "h4":
+                            case "h5":
+                            case "h6": {
+                                RichTextWidget widget = CreateHeading(child.Name[1] - '0', colorOverride);
                                 HtmlSpanParser.ParseHtmlNode(child, widget.Spans, default, widget.Color);
                                 contentPanel.Children.Add(widget);
+                                break;
+                            }
+                            case "hr":
+                                contentPanel.Children.Add(CreateThematicBreak());
+                                break;
+                            default: {
+                                // p/div/section/article/table：单节点重入顶层分发（BuildHtmlNodes），
+                                // 与顶层同口径——纯行内整块成段、嵌块递归、li 内 p>img 不再静默丢
+                                BuildHtmlNodes([child], contentPanel, listDepth + 1, colorOverride, depth + 1);
                                 break;
                             }
                         }
@@ -239,6 +265,107 @@ namespace Game {
             BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1);
             CurrentIndentX = prevIndent;
             return outer;
+        }
+
+        // HTML 表格 → MarkdownTableWidget（与 Markdown 管道表同部件：两阶段列宽协商/削峰收缩/横向滚动兜底）。
+        // 行收集：table 直下 tr 与 thead/tbody/tfoot 内 tr 展平（caption/colgroup/col 无对应视觉语义，跳过）；
+        // thead 行或含 th 的行为表头（粗体由 builder 侧染 span，同 Markdown CreateTable 口径）。
+        // cell 只装行内内容：td 内块级标签按 span 透传降级（cell 是 RichTextWidget，无图片/代码块槽），
+        // td 内嵌套 table 同样降级为连排文本
+        MarkdownTableWidget CreateHtmlTable(HtmlAgilityPack.HtmlNode tableNode, Color? colorOverride) {
+            MarkdownTableWidget widget = new() {
+                Font = Font,
+                FontScale = FontScale,
+                DefaultColor = colorOverride ?? DefaultColor
+            };
+            if (LinkClicked != null) {
+                widget.LinkClicked += href => LinkClicked(href);
+            }
+            List<(HtmlAgilityPack.HtmlNode Row, bool FromThead)> rows = [];
+            foreach (HtmlAgilityPack.HtmlNode child in tableNode.ChildNodes) {
+                if (child.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
+                    continue;
+                }
+                string childTag = child.Name.ToLowerInvariant();
+                if (childTag == "tr") {
+                    rows.Add((child, false));
+                }
+                else if (childTag is "thead" or "tbody" or "tfoot") {
+                    foreach (HtmlAgilityPack.HtmlNode tr in child.Elements("tr")) {
+                        rows.Add((tr, childTag == "thead"));
+                    }
+                }
+            }
+            if (rows.Count == 0) {
+                return null;
+            }
+            // 列对齐：格级属性降列级——自上而下取每列第一个出现的对齐（td/th 与 tr 的
+            // align 属性、style text-align 都认），此后该列锚点固定
+            List<MarkdownTableAlignment?> alignments = [];
+            foreach ((HtmlAgilityPack.HtmlNode tr, bool fromThead) in rows) {
+                bool isHeader = fromThead;
+                List<List<TextSpan>> cells = [];
+                int column = 0;
+                foreach (HtmlAgilityPack.HtmlNode cellNode in tr.ChildNodes) {
+                    if (cellNode.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
+                        continue;
+                    }
+                    string cellTag = cellNode.Name.ToLowerInvariant();
+                    if (cellTag is not ("td" or "th")) {
+                        continue;
+                    }
+                    if (cellTag == "th") {
+                        isHeader = true;
+                    }
+                    List<TextSpan> spans = [];
+                    HtmlSpanParser.ParseHtmlNode(cellNode, spans, default, widget.DefaultColor);
+                    cells.Add(spans);
+                    while (alignments.Count <= column) {
+                        alignments.Add(null);
+                    }
+                    alignments[column] ??= ParseCellAlignment(cellNode, tr);
+                    column++;
+                }
+                if (isHeader) {
+                    foreach (List<TextSpan> cellSpans in cells) {
+                        BoldCellSpans(cellSpans);
+                    }
+                }
+                if (cells.Count > 0) {
+                    widget.AddRow(isHeader, cells);
+                }
+            }
+            widget.SetColumnAlignments(alignments);
+            return widget;
+        }
+
+        // 对齐取值顺序：cell 自身 align → 所在行 align → cell style text-align → 行 style text-align；
+        // 皆缺省返回 null（MarkdownTableWidget 左对齐）。justify/inherit 等不识别即左对齐
+        static MarkdownTableAlignment? ParseCellAlignment(HtmlAgilityPack.HtmlNode cell, HtmlAgilityPack.HtmlNode row) {
+            MarkdownTableAlignment? alignment = ParseAlignmentToken(cell.GetAttributeValue("align", null))
+                ?? ParseAlignmentToken(row.GetAttributeValue("align", null));
+            if (alignment != null) {
+                return alignment;
+            }
+            System.Text.RegularExpressions.Match cellMatch = s_textAlignRegex.Match(cell.GetAttributeValue("style", null) ?? string.Empty);
+            if (cellMatch.Success) {
+                return ParseAlignmentToken(cellMatch.Groups[1].Value);
+            }
+            System.Text.RegularExpressions.Match rowMatch = s_textAlignRegex.Match(row.GetAttributeValue("style", null) ?? string.Empty);
+            return rowMatch.Success ? ParseAlignmentToken(rowMatch.Groups[1].Value) : null;
+        }
+
+        // 左边界 lookbehind：防自定义属性（如 --my-text-align）内的 text-align 子串误配（同 HtmlSpanParser 惯例）
+        static readonly System.Text.RegularExpressions.Regex s_textAlignRegex =
+            new("(?<![\\w-])text-align\\s*:\\s*([a-zA-Z]+)", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        static MarkdownTableAlignment? ParseAlignmentToken(string token) {
+            return token?.ToLowerInvariant() switch {
+                "center" => MarkdownTableAlignment.Center,
+                "right" => MarkdownTableAlignment.Right,
+                "left" => MarkdownTableAlignment.Left,
+                _ => null
+            };
         }
 
         // 子树（浅查 4 层够）是否含块级标签：决定未知容器标签走块级递归还是 span 透传
