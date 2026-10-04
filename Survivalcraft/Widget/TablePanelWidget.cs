@@ -122,7 +122,7 @@ namespace Game {
             }
             // floor：每列 min = Max(min, 2 汉字宽)（照 MD 表口径）。TablePanelWidget 无字体属性，
             // 照 MD 表 Relayout 现状用 LabelWidget.BitmapFont 兜底；margin 已由量测侧并入
-            // （MeasureCellExtents），CellPadding 由摆位轮（Task 4）消费
+            // （MeasureCellExtents），CellPadding 由高度轮扣净宽/摆位内缩消费
             BitmapFont font = LabelWidget.BitmapFont ?? BitmapFont.DebugFont;
             float floorW = 2f * font.MeasureText("字", new Vector2(1f), Vector2.Zero).X;
             for (int c = 0; c < m_columnMin.Length; c++) {
@@ -130,12 +130,56 @@ namespace Game {
                 m_columnMax[c] = MathUtils.Max(m_columnMax[c], m_columnMin[c]);
             }
             NegotiateColumns(availX);
+            MeasureRowHeights();                 // 高度轮：列宽定稿，cell 重测拿折行后高（spec §5.3）
             float sumW = 0f;
             foreach (float width in m_columnWidth) {
                 sumW += width;
             }
-            // X=Σ列宽+Gap.X×(列数−1)；Y=高度轮产物（Task 4 落，暂 0）
-            DesiredSize = new Vector2(sumW + Gap.X * MathUtils.Max(m_columnWidth.Length - 1, 0), 0f);
+            float sumH = 0f;
+            foreach (float height in m_rowHeights) {
+                sumH += height;
+            }
+            // X=Σ列宽+Gap.X×(列数−1)；Y=Σ行高+Gap.Y×(行数−1)
+            DesiredSize = new Vector2(
+                sumW + Gap.X * MathUtils.Max(m_columnWidth.Length - 1, 0),
+                sumH + Gap.Y * MathUtils.Max(m_rowHeights.Length - 1, 0));
+        }
+
+        // 摆位（spec §5.4）：行壳 Arrange((0,rowY),(表宽,行高))，rowY=行高前缀和+Gap.Y 累计；cell
+        // 父权摆孙件——合成矩形相对 cell 的父（行壳，裸 cell 父即本表），x=列前缀和+Gap.X、y=rowY−壳 y
+        // （壳行归 0、裸行保持 rowY），rowspan 合成高=Σ覆盖行高+Gap.Y×(span−1)，内缩 CellPadding 后
+        // ArrangeChildWidgetInCell（对齐语义引擎原生）；空槽（补位）跳过。列 x/宽用摊余后宽度——
+        // Stretch 摊余在摆位前一次线性完成，不改 DesiredSize
+        public override void ArrangeOverride() {
+            float[] arranged = ComputeArrangedWidths();
+            float tableWidth = TrackSpanWidth(arranged, 0, arranged.Length);
+            float rowY = 0f;
+            for (int r = 0; r < m_layoutRows.Count; r++) {
+                TableLayoutRow row = m_layoutRows[r];
+                if (row.RowWidget != null) {
+                    row.RowWidget.Arrange(new Vector2(0f, rowY), new Vector2(tableWidth, m_rowHeights[r]));
+                }
+                float rectY = row.RowWidget != null ? 0f : rowY;   // cell 矩形 y 相对 cell 的父（壳行归 0）
+                foreach (TableCellSlot slot in row.Cells) {
+                    if (slot.Cell == null) {
+                        continue;
+                    }
+                    float colX = 0f;
+                    for (int c = 0; c < slot.Col; c++) {
+                        colX += arranged[c] + Gap.X;
+                    }
+                    int spanRows = MathUtils.Max(MathUtils.Min(slot.RowSpan, m_layoutRows.Count - slot.Row), 1);
+                    float spanH = Gap.Y * (spanRows - 1);
+                    for (int rr = slot.Row; rr < slot.Row + spanRows; rr++) {
+                        spanH += m_rowHeights[rr];
+                    }
+                    ArrangeChildWidgetInCell(
+                        new Vector2(colX + CellPadding.X, rectY + CellPadding.Y),
+                        new Vector2(colX + TrackSpanWidth(arranged, slot.Col, slot.ColSpan) - CellPadding.X, rectY + spanH - CellPadding.Y),
+                        slot.Cell);
+                }
+                rowY += m_rowHeights[r] + Gap.Y;
+            }
         }
 
         readonly List<TableLayoutRow> m_layoutRows = [];
@@ -147,6 +191,8 @@ namespace Game {
         float[] m_columnWidth = [];
 
         bool[] m_columnSaturated = [];   // span 均摊用（列已有 ColSpan==1 cell 直测定格），帧内重置
+
+        float[] m_rowHeights = [];       // 高度轮产物：每行总高（含 2×CellPadding.Y），帧内重建
 
         // 收集可见子件成行结构：行壳行的可见 cell 进槽、裸子件=单 cell 单行。IsHeader =
         // 行壳 Header || 行序号 < HeaderRows。每帧 Measure 重算（行数少，直清直建）。
@@ -331,6 +377,111 @@ namespace Game {
             for (int c = 0; c < n; c++) {
                 m_columnWidth[c] = m_columnMin[c] + (m_columnMax[c] - m_columnMin[c]) * room / span;
             }
+        }
+
+        // 高度轮（spec §5.3）：列宽定稿后每 cell 以净宽重测拿折行后真实高度。净宽 = track 跨宽
+        // （测量轮 m_columnWidth 口径，gap 属 track 间距不进 cell）− 2×CellPadding.X − cell 水平
+        // margin（margin 已并入列需求，此处扣出的是内容测量净宽）。第一遍单格 cell 定行高：行高 =
+        // max(cell 内容高) + 2×CellPadding.Y；第二遍 rowspan cell 需求 = 内容高 + 2×CellPadding.Y，
+        // Σ覆盖行高（含行间 Gap.Y）不足 → 差值按覆盖行当前高比例摊（全 0 行均摊）——一轮近似，
+        // 多 rowspan cell 按序叠加不迭代。cell 垂直 margin 不计入行高（v1 简化，与摆位内缩一致）。
+        // 每帧 Measure 全量重算
+        void MeasureRowHeights() {
+            m_rowHeights = new float[m_layoutRows.Count];
+            foreach (TableLayoutRow row in m_layoutRows) {
+                foreach (TableCellSlot slot in row.Cells) {
+                    if (slot.Cell == null
+                        || slot.RowSpan != 1) {
+                        continue;
+                    }
+                    float innerW = TrackSpanWidth(m_columnWidth, slot.Col, 1) - 2f * CellPadding.X - slot.Cell.MarginHorizontalSum;
+                    slot.Cell.Measure(new Vector2(MathUtils.Max(innerW, 0f), float.PositiveInfinity));
+                    slot.Height = IsFinite(slot.Cell.ParentDesiredSize.Y) ? MathUtils.Max(slot.Cell.ParentDesiredSize.Y, 0f) : 0f;
+                    m_rowHeights[slot.Row] = MathUtils.Max(m_rowHeights[slot.Row], slot.Height);
+                }
+            }
+            for (int r = 0; r < m_rowHeights.Length; r++) {
+                m_rowHeights[r] += 2f * CellPadding.Y;
+            }
+            foreach (TableLayoutRow row in m_layoutRows) {
+                foreach (TableCellSlot slot in row.Cells) {
+                    if (slot.Cell == null
+                        || slot.RowSpan == 1) {
+                        continue;
+                    }
+                    float innerW = TrackSpanWidth(m_columnWidth, slot.Col, slot.ColSpan) - 2f * CellPadding.X - slot.Cell.MarginHorizontalSum;
+                    slot.Cell.Measure(new Vector2(MathUtils.Max(innerW, 0f), float.PositiveInfinity));
+                    float contentY = IsFinite(slot.Cell.ParentDesiredSize.Y) ? MathUtils.Max(slot.Cell.ParentDesiredSize.Y, 0f) : 0f;
+                    int spanRows = MathUtils.Max(MathUtils.Min(slot.RowSpan, m_rowHeights.Length - slot.Row), 1);
+                    float covered = 0f;
+                    for (int r = slot.Row; r < slot.Row + spanRows; r++) {
+                        covered += m_rowHeights[r];
+                    }
+                    float deficit = contentY + 2f * CellPadding.Y - covered - Gap.Y * (spanRows - 1);
+                    if (deficit <= 0f) {
+                        continue;
+                    }
+                    if (covered > 0f) {
+                        for (int r = slot.Row; r < slot.Row + spanRows; r++) {
+                            m_rowHeights[r] += deficit * m_rowHeights[r] / covered;
+                        }
+                        continue;
+                    }
+                    float per = deficit / spanRows;   // 全 0 行均摊
+                    for (int r = slot.Row; r < slot.Row + spanRows; r++) {
+                        m_rowHeights[r] += per;
+                    }
+                }
+            }
+        }
+
+        // track 跨宽：Σ宽[col..col+span) + Gap.X×(span−1)（gap 属 track 间距，不进 cell 测量宽）——
+        // 测量轮传 m_columnWidth、摆位轮传摊余数组
+        float TrackSpanWidth(float[] widths, int col, int span) {
+            float sum = Gap.X * MathUtils.Max(span - 1, 0);
+            for (int c = col; c < col + span; c++) {
+                sum += widths[c];
+            }
+            return sum;
+        }
+
+        // Stretch 摊余（spec §5.4）：diff = ActualSize.X − (Σ列宽 + Gap.X×(列数−1))。正差（宿主
+        // 实给宽于 shrink-to-fit，部件 HorizontalAlignment=Stretch）按列 max 比例摊满（列可超 max，
+        // Stretch 语义）；负差（外部强压 ActualSize<Desired）按列 max 比例缩、每列下限 m_columnMin
+        // （clamp 后 Σ 仍超 ActualSize 就随它去——宿主强压至 Σmin 以下不崩即可）。一次线性写
+        // 新数组返回，不改 m_columnWidth（协商产物保持测量语义）；全 0 列无比例基准退化均摊
+        float[] ComputeArrangedWidths() {
+            int n = m_columnWidth.Length;
+            float[] arranged = new float[n];
+            if (n == 0) {
+                return arranged;
+            }
+            Array.Copy(m_columnWidth, arranged, n);
+            float sumW = 0f;
+            foreach (float width in arranged) {
+                sumW += width;
+            }
+            float diff = ActualSize.X - (sumW + Gap.X * (n - 1));
+            if (diff == 0f) {
+                return arranged;
+            }
+            float sumMax = 0f;
+            foreach (float max in m_columnMax) {
+                sumMax += max;
+            }
+            if (diff > 0f) {
+                float per = diff / n;
+                for (int c = 0; c < n; c++) {
+                    arranged[c] += sumMax > 0f ? diff * m_columnMax[c] / sumMax : per;
+                }
+                return arranged;
+            }
+            float shrinkPer = diff / n;
+            for (int c = 0; c < n; c++) {
+                float shrink = sumMax > 0f ? diff * m_columnMax[c] / sumMax : shrinkPer;
+                arranged[c] = MathUtils.Max(arranged[c] + shrink, m_columnMin[c]);
+            }
+            return arranged;
         }
 
         // 照 FlexPanelWidget.IsFinite：Infinity/NaN 视为无界贡献，防污染协商
