@@ -292,15 +292,19 @@ namespace Game {
                 QueueQuad(batch, 0f, 0f, LineThickness, tableHeight, lineColor);
                 QueueQuad(batch, tableWidth - LineThickness, 0f, LineThickness, tableHeight, lineColor);
             }
-            // 内部行列分隔线（位=track 起始边界前缀和，不含外框两条）
+            // 内部行列分隔线（位=track 起始边界前缀和，不含外框两条）：被 span cell 跨越的段
+            // 不画（colspan cell 中间无竖线、rowspan cell 中间无横线，CSS table 语义），连续
+            // 无跨越段合并成一条 quad、跨内 Gap 随段连续（与 cell 底色合成矩形同口径）
             if (InnerBorder) {
                 for (int r = 1; r < rows; r++) {
-                    QueueQuad(batch, 0f, MathUtils.Min(rowTops[r], tableHeight - LineThickness), tableWidth, LineThickness, lineColor);
+                    QueueHorizontalLineSegments(batch, MathUtils.Min(rowTops[r], tableHeight - LineThickness), r, lineColor);
                 }
-                float x = 0f;
                 for (int c = 1; c < columns; c++) {
-                    x += m_arrangedWidths[c - 1] + Gap.X;
-                    QueueQuad(batch, MathUtils.Min(x, tableWidth - LineThickness), 0f, LineThickness, tableHeight, lineColor);
+                    float x = 0f;
+                    for (int cc = 0; cc < c; cc++) {
+                        x += m_arrangedWidths[cc] + Gap.X;
+                    }
+                    QueueVerticalLineSegments(batch, MathUtils.Min(x, tableWidth - LineThickness), c, rowTops, tableHeight, lineColor);
                 }
             }
             // 表头下横线：最末 IsHeader 行下缘（多个表头行只画最末行下）；该分界已被 InnerBorder
@@ -315,7 +319,7 @@ namespace Game {
                 if (lastHeader >= 0
                     && !(InnerBorder && lastHeader < rows - 1)) {
                     float y = MathUtils.Min(rowTops[lastHeader] + m_rowHeights[lastHeader], tableHeight - LineThickness);
-                    QueueQuad(batch, 0f, y, tableWidth, LineThickness, lineColor);
+                    QueueHorizontalLineSegments(batch, y, lastHeader + 1, lineColor);
                 }
             }
         }
@@ -328,6 +332,86 @@ namespace Game {
             Vector2 p3 = Vector2.Transform(new Vector2(x + w, y + h), m);
             Vector2 p4 = Vector2.Transform(new Vector2(x, y + h), m);
             batch.QueueQuad(p1, p2, p3, p4, 0f, color);
+        }
+
+        // 行分界 rowBoundary 上的横线：被 rowspan cell 跨越（slot.Row < rowBoundary <
+        // slot.Row+spanRows）的列段跳过，其余连续列段合并成一条 quad（段宽含段内 Gap.X）。
+        // 表头下横线同口径复用（y 由调用者定：行分界取 rowTops[r]、表头线取表头行下缘）
+        void QueueHorizontalLineSegments(FlatBatch2D batch, float y, int rowBoundary, Color lineColor) {
+            int columns = m_arrangedWidths.Length;
+            bool[] crossed = new bool[columns];
+            foreach (TableLayoutRow row in m_layoutRows) {
+                foreach (TableCellSlot slot in row.Cells) {
+                    if (slot.Cell == null) {
+                        continue;
+                    }
+                    int spanRows = MathUtils.Max(MathUtils.Min(slot.RowSpan, m_layoutRows.Count - slot.Row), 1);
+                    if (slot.Row < rowBoundary && slot.Row + spanRows > rowBoundary) {
+                        for (int c = slot.Col; c < slot.Col + slot.ColSpan; c++) {
+                            crossed[c] = true;
+                        }
+                    }
+                }
+            }
+            int c0 = 0;
+            while (c0 < columns) {
+                if (crossed[c0]) {
+                    c0++;
+                    continue;
+                }
+                int c1 = c0 + 1;
+                while (c1 < columns && !crossed[c1]) {
+                    c1++;
+                }
+                float x = 0f;
+                for (int c = 0; c < c0; c++) {
+                    x += m_arrangedWidths[c] + Gap.X;
+                }
+                float w = Gap.X * (c1 - c0 - 1);
+                for (int c = c0; c < c1; c++) {
+                    w += m_arrangedWidths[c];
+                }
+                QueueQuad(batch, x, y, w, LineThickness, lineColor);
+                c0 = c1;
+            }
+        }
+
+        // 列分界 colBoundary 上的竖线：被 colspan cell 跨越（slot.Col < colBoundary <
+        // slot.Col+ColSpan）的行段跳过，其余连续行段合并成一条 quad（段高含段内 Gap.Y，
+        // 行 y 位用 Draw 期 rowTops 前缀和，已含 Gap）
+        void QueueVerticalLineSegments(FlatBatch2D batch, float x, int colBoundary, float[] rowTops, float tableHeight, Color lineColor) {
+            int rows = m_layoutRows.Count;
+            bool[] crossed = new bool[rows];
+            foreach (TableLayoutRow row in m_layoutRows) {
+                foreach (TableCellSlot slot in row.Cells) {
+                    if (slot.Cell == null
+                        || slot.Col >= colBoundary
+                        || slot.Col + slot.ColSpan <= colBoundary) {
+                        continue;
+                    }
+                    int spanRows = MathUtils.Max(MathUtils.Min(slot.RowSpan, rows - slot.Row), 1);
+                    for (int r = slot.Row; r < slot.Row + spanRows; r++) {
+                        crossed[r] = true;
+                    }
+                }
+            }
+            int r0 = 0;
+            while (r0 < rows) {
+                if (crossed[r0]) {
+                    r0++;
+                    continue;
+                }
+                int r1 = r0 + 1;
+                while (r1 < rows && !crossed[r1]) {
+                    r1++;
+                }
+                float h = Gap.Y * (r1 - r0 - 1);
+                for (int r = r0; r < r1; r++) {
+                    h += m_rowHeights[r];
+                }
+                QueueQuad(batch, x, MathUtils.Min(rowTops[r0], tableHeight - LineThickness), LineThickness, h, lineColor);
+                r0 = r1;
+            }
         }
 
         readonly List<TableLayoutRow> m_layoutRows = [];
