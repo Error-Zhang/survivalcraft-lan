@@ -302,9 +302,11 @@ namespace Game {
 
         // CSS auto 列协商（spec §5.2；线性比例削峰——MD 表瀑布削峰的通用化，case7 收缩态等价性
         // 由 Task 7 裁定）：Σmax ≤ 可用宽 shrink-to-fit 原样保持；Σmin > 可用宽各列定格 min 交
-        // 外层；其余 width = min + (max − min) × (avail − Σmin) / (Σmax − Σmin)
+        // 外层；其余 width = min + (max − min) × (avail − Σmin) / (Σmax − Σmin)。
+        // gap 先扣（DesiredSize 会把 Gap.X×(列数−1) 加回）：三态总宽 desired.X 才不超宿主可用宽
         void NegotiateColumns(float availX) {
             int n = m_columnMax.Length;
+            availX = MathUtils.Max(availX - Gap.X * MathUtils.Max(n - 1, 0), 0f);
             m_columnWidth = new float[n];
             float sumMax = 0f;
             float sumMin = 0f;
