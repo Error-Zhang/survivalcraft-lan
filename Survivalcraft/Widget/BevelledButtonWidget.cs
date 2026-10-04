@@ -3,6 +3,10 @@ using Engine;
 using Engine.Media;
 
 namespace Game {
+    /// <summary>
+    /// 凸起按钮<br/>
+    /// Size 须显式设置，未设置时 DesiredSize 恒 (∞,∞)，不参与任何容器的自然尺寸协商。
+    /// </summary>
     public class BevelledButtonWidget : ButtonWidget {
         public BevelledRectangleWidget m_rectangleWidget;
 

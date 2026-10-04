@@ -439,7 +439,10 @@ namespace Game {
                 minCore = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, 1f);
             }
             else {
-                minCore = maxCore;     // 非文字类不收缩（按钮/图片 CSS 语义本就 min=max）
+                // 非文字类不收缩（按钮/图片 CSS 语义本就 min=max）。注意按钮系（ClickableWidget 无
+                // MeasureOverride）未显式 Size 时 desired=∞，此处按 0+floor 兜底、摆位被 cell 钳满——
+                // 按钮作 cell 请显式 Size（引擎惯例本就如此），不走自然尺寸协商
+                minCore = maxCore;
             }
             return (maxCore + marginX, MathUtils.Max(minCore, 0f) + marginX);
         }
