@@ -117,6 +117,16 @@ namespace Game {
                     inner.Color = RichContentPalette.KbdColor;
                     inner.Background = RichContentPalette.KbdBackgroundColor;
                     break;
+                case "mark":
+                    forceColor = RichContentPalette.MarkColor;
+                    background = RichContentPalette.MarkBackgroundColor;
+                    inner.Color = RichContentPalette.MarkColor;
+                    inner.Background = RichContentPalette.MarkBackgroundColor;
+                    break;
+                case "big":
+                    // big/small 对：用户裁定 ×1.2（CSS 惯例 1.25 弃用），嵌套累乘同 small
+                    inner.Scale = (inner.Scale > 0f ? inner.Scale : 1f) * 1.2f;
+                    break;
                 case "var":
                 case "address":
                     // var（变量）与 address（联系地址）HTML 默认渲染同为斜体

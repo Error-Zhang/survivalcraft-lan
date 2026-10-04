@@ -14,5 +14,10 @@ namespace Game {
         public static readonly Color KbdColor = new(80, 80, 80);
 
         public static readonly Color KbdBackgroundColor = new(240, 240, 240);
+
+        // <mark> 高亮：Chrome 默认黄底黑字
+        public static readonly Color MarkColor = new(0, 0, 0);
+
+        public static readonly Color MarkBackgroundColor = new(255, 255, 0);
     }
 }

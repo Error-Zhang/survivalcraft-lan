@@ -22,8 +22,9 @@ namespace Game {
         }
 
         // 块级 HTML 节点遍历：行内节点累积成段，遇块级标签先冲刷当前段。
-        // 参数放宽 IEnumerable：li 内块级子节点以单节点数组重入（复用顶层分发口径）
-        void BuildHtmlNodes(IEnumerable<HtmlAgilityPack.HtmlNode> nodes, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth) {
+        // 参数放宽 IEnumerable：li 内块级子节点以单节点数组重入（复用顶层分发口径）。
+        // centerContent：居中容器（center/figure/figcaption）内构建——段/标题拉满宽+文本行居中
+        void BuildHtmlNodes(IEnumerable<HtmlAgilityPack.HtmlNode> nodes, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, bool centerContent = false) {
             if (depth > MaxDepth) {
                 return;
             }
@@ -35,6 +36,10 @@ namespace Game {
                         return;
                     }
                     RichTextWidget widget = CreateRichText(colorOverride);
+                    if (centerContent) {
+                        widget.HorizontalAlignment = WidgetAlignment.Stretch;
+                        widget.TextAnchor = TextAnchor.HorizontalCenter;
+                    }
                     widget.Spans.AddRange(pendingSpans);
                     panel.Children.Add(widget);
                     pendingSpans.Clear();
@@ -77,6 +82,10 @@ namespace Game {
                     case "h6": {
                         Flush();
                         RichTextWidget widget = CreateHeading(node.Name[1] - '0', colorOverride);
+                        if (centerContent) {
+                            widget.HorizontalAlignment = WidgetAlignment.Stretch;
+                            widget.TextAnchor = TextAnchor.HorizontalCenter;
+                        }
                         HtmlSpanParser.ParseHtmlNode(node, widget.Spans, default, widget.Color);
                         panel.Children.Add(widget);
                         break;
@@ -94,6 +103,8 @@ namespace Game {
                         break;
                     case "ul":
                     case "ol":
+                    case "menu":
+                        // menu 与 ul 同渲染（HTML 弃用标签，Chrome 按无序列表渲染）
                         Flush();
                         BuildHtmlList(node, node.Name.Equals("ol", StringComparison.Ordinal), panel, listDepth, colorOverride, depth);
                         break;
@@ -118,6 +129,12 @@ namespace Game {
                         break;
                     case "table": {
                         Flush();
+                        // caption（表题）：表上方居中块渲染（CreateHtmlTable 行收集本就跳过 caption，
+                        // 不双渲染）；用户裁定 caption=居中块，与 center/figure 同款
+                        HtmlAgilityPack.HtmlNode captionNode = node.Element("caption");
+                        if (captionNode != null) {
+                            BuildHtmlNodes(captionNode.ChildNodes, panel, listDepth, colorOverride, depth + 1, true);
+                        }
                         // 空表（无任何行）返回 null 不产部件——零尺寸 widget 仍会靠 Margin 贡献 8px 空白
                         TablePanelWidget table = CreateHtmlTable(node, colorOverride, depth);
                         if (table != null) {
@@ -125,6 +142,53 @@ namespace Game {
                         }
                         break;
                     }
+                    case "center":
+                    case "figure":
+                    case "figcaption":
+                    case "caption":
+                        // 居中容器（center 老帖高频 / figure 图容器 / figcaption 题注 / caption 表题，
+                        // 用户裁定同款居中块）：块边界+子节点重入，centerContent 贯穿段/标题行盒居中
+                        // （Chrome text-align 语义）；table 直下 caption 已在 table case 预提取，此处
+                        // 兜 table 外裸 caption
+                        Flush();
+                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, true);
+                        break;
+                    case "dl":
+                    case "details":
+                        // dl 定义列表容器 / details 折叠容器（无折叠交互，按已展开直排——用户裁定）：
+                        // 块边界+子节点重入，dt/dd 各归其位
+                        Flush();
+                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1);
+                        break;
+                    case "dt":
+                        // 术语段：独立成段不加粗（用户裁定），同 p 口径
+                        Flush();
+                        AppendInlineChildren(node, colorOverride);
+                        Flush();
+                        break;
+                    case "dd": {
+                        // 定义描述段：独立容器物理位移 ListIndentPerDepth（CurrentIndentX 只被代码/
+                        // 图片块宽度扣减消费，文字段不读它——缩进须像引用块一样 SetPosition 落地）；
+                        // CurrentIndentX 同步进档让 dd 内代码块/图片按缩进后净宽构建
+                        Flush();
+                        float prevIndentDd = CurrentIndentX;
+                        CurrentIndentX += ListIndentPerDepth;
+                        StackPanelWidget ddPanel = CreatePanel();
+                        BuildHtmlNodes(node.ChildNodes, ddPanel, listDepth, colorOverride, depth + 1, centerContent);
+                        CurrentIndentX = prevIndentDd;
+                        CanvasWidget ddOuter = new() { Size = new Vector2(NestedContentWidth(), -1f) };
+                        ddOuter.Children.Add(ddPanel);
+                        CanvasWidget.SetPosition(ddPanel, new Vector2(ListIndentPerDepth, 0f));
+                        panel.Children.Add(ddOuter);
+                        break;
+                    }
+                    case "summary":
+                        // 折叠标题：开头补 ▼ 代表已展开（用户裁定），余同 p 口径
+                        Flush();
+                        HtmlSpanParser.AddText("▼ ", pendingSpans, default, colorOverride ?? DefaultColor);
+                        AppendInlineChildren(node, colorOverride);
+                        Flush();
+                        break;
                     default:
                         // 未知标签：子树含块级标签（section/article 包裹 pre/列表等）时递归块级遍历，
                         // 否则透传子节点累积为段（b/i/span 等行内标签）
@@ -203,14 +267,17 @@ namespace Game {
                 }
                 foreach (HtmlAgilityPack.HtmlNode child in li.ChildNodes) {
                     bool isBlock = child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
-                        && child.Name.ToLowerInvariant() is "ul" or "ol" or "blockquote" or "pre" or "p" or "div"
+                        && child.Name.ToLowerInvariant() is "ul" or "ol" or "menu" or "blockquote" or "pre" or "p" or "div"
                             or "section" or "article" or "table" or "footer"
+                            or "center" or "dl" or "dt" or "dd" or "figure" or "figcaption" or "details" or "summary"
+                            or "caption"
                             or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr";
                     if (isBlock) {
                         FlushLi();
                         switch (child.Name.ToLowerInvariant()) {
                             case "ul":
                             case "ol":
+                            case "menu":
                                 BuildHtmlList(child, child.Name.Equals("ol", StringComparison.Ordinal), contentPanel, listDepth + 1, colorOverride, depth + 1);
                                 break;
                             case "blockquote":
@@ -461,11 +528,14 @@ namespace Game {
         }
 
         // td 直下块级子标签判定（li 内块级同名单）：命中即整格走块级直装。footer 按用户裁定
-        // 当块级元素（独立成段，无特殊视觉），走 default 单节点重入
+        // 当块级元素（独立成段，无特殊视觉），走 default 单节点重入；center/dl/dt/dd/figure/
+        // figcaption/details/summary 同批块级化（article 本就在名单）
         static bool IsBlockTag(string tag) {
             return tag.ToLowerInvariant() is "p" or "div" or "section" or "article" or "table"
                 or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr" or "pre" or "blockquote"
-                or "ul" or "ol" or "footer";
+                or "ul" or "ol" or "menu" or "footer"
+                or "center" or "dl" or "dt" or "dd" or "figure" or "figcaption" or "details" or "summary"
+                or "caption";
         }
 
         // colspan/rowspan 属性解析：空/非法/≤0 → 1，上限钳 1000（HTML 标准同值）——不可信源
@@ -570,8 +640,10 @@ namespace Game {
                 if (child.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
                     continue;
                 }
-                if (child.Name.ToLowerInvariant() is "pre" or "ul" or "ol" or "blockquote" or "p" or "div" or "hr" or "table"
-                    or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "footer") {
+                if (child.Name.ToLowerInvariant() is "pre" or "ul" or "ol" or "menu" or "blockquote" or "p" or "div" or "hr" or "table"
+                    or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "footer"
+                    or "center" or "dl" or "dt" or "dd" or "figure" or "figcaption" or "details" or "summary"
+                    or "caption") {
                     return true;
                 }
                 if (ContainsBlockChild(child, depth + 1)) {
