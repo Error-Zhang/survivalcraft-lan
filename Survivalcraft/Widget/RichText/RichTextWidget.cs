@@ -18,6 +18,8 @@ namespace Game {
 
         public bool m_wordWrap;
 
+        public TextWordBreak m_wordBreak;
+
         public bool m_ellipsis;
 
         public readonly RichTextLayout m_layout = new();
@@ -84,6 +86,17 @@ namespace Game {
             set {
                 if (value != m_wordWrap) {
                     m_wordWrap = value;
+                    MarkLayoutDirty();
+                }
+            }
+        }
+
+        /// <summary>断行模式：Normal=词边界优先（既有行为），BreakAll=行尾即拆（CSS word-break:break-all）。</summary>
+        public TextWordBreak WordBreak {
+            get => m_wordBreak;
+            set {
+                if (value != m_wordBreak) {
+                    m_wordBreak = value;
                     MarkLayoutDirty();
                 }
             }
@@ -379,6 +392,7 @@ namespace Game {
             m_layout.FontSpacing = FontSpacing;
             m_layout.DefaultFontScale = FontScale;
             m_layout.WordWrap = WordWrap;
+            m_layout.WordBreak = WordBreak;
             m_layout.MaxLines = MaxLines;
             m_layout.Ellipsis = Ellipsis;
             m_layout.Spans = m_spans;

@@ -14,6 +14,9 @@ namespace Game {
 
         public bool WordWrap { get; set; }
 
+        /// <summary>断行模式：Normal=词边界优先（既有行为），BreakAll=行尾即拆（CSS word-break:break-all）。</summary>
+        public TextWordBreak WordBreak { get; set; }
+
         public int MaxLines { get; set; } = int.MaxValue;
 
         public bool Ellipsis { get; set; }
@@ -106,7 +109,7 @@ namespace Game {
                         else {
                             int fitCount = CountFittingCells(paragraph, start, end, availableWidth, reserveEllipsis: false);
                             if (fitCount < end - start) {
-                                int breakPosition = FontTextWidget.FindLineBreakPosition(BuildString(paragraph, start, end), MathUtils.Max(fitCount, 1));
+                                int breakPosition = FontTextWidget.FindLineBreakPosition(BuildString(paragraph, start, end), MathUtils.Max(fitCount, 1), WordBreak);
                                 if (breakPosition <= 0) {
                                     breakPosition = 1;
                                 }
