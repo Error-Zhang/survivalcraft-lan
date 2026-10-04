@@ -223,27 +223,29 @@ namespace Game {
 
         // max+min 一次取（Task 1 探针结论的修正协议：严禁对 cell 直调 Measure((0,∞))——LabelWidget
         // 在可用宽 0 下 FontTextWidget.UpdateLines 零推进死循环 OOM 崩游戏；RichTextWidget (0,∞)
-        // X=单字宽≠最长 token 语义也不成立）。margin 并入返回值（max/min 都 +marginX）
+        // X=单字宽≠最长 token 语义也不成立）。margin 在唯一出口各并入一次（fix round 2：core 值
+        // 全程不含 margin，返回处 maxCore+marginX / minCore+marginX——原实现在非文字分路 min=max
+        // 处用了已含 margin 的 max，返回处再加 → min 双计 margin）
         (float max, float min) MeasureCellExtents(Widget cell) {
             float marginX = cell.MarginHorizontalSum;
             cell.Measure(new Vector2(float.PositiveInfinity, float.PositiveInfinity));
-            float max = cell.ParentDesiredSize.X;
-            if (!IsFinite(max)) {
-                max = 0f;              // ∞（未显式 Size 的 ClickableWidget 系）→ 无自然宽，floor 兜底
+            float maxCore = cell.ParentDesiredSize.X;
+            if (!IsFinite(maxCore)) {
+                maxCore = 0f;          // ∞（未显式 Size 的 ClickableWidget 系）→ 无自然宽，floor 兜底
             }
-            max = MathUtils.Max(max, 0f) + marginX;
-            float min;
+            maxCore = MathUtils.Max(maxCore, 0f);
+            float minCore;
             if (cell is RichTextWidget rich) {
-                min = MeasureSpansMinWidth(rich.Spans, rich.Font, rich.FontScale);   // token 扫描（照 MD 表 MeasureCellMinWidth）
+                minCore = MeasureSpansMinWidth(rich.Spans, rich.Font, rich.FontScale);   // token 扫描（照 MD 表 MeasureCellMinWidth）
             }
             else if (cell is LabelWidget label) {
                 // label 单 span 扫描（v1 忽略 label.FontScale，量级影响可接受）
-                min = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, 1f);
+                minCore = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, 1f);
             }
             else {
-                min = max;             // 非文字类不收缩（按钮/图片 CSS 语义本就 min=max）
+                minCore = maxCore;     // 非文字类不收缩（按钮/图片 CSS 语义本就 min=max）
             }
-            return (max, MathUtils.Max(min, 0f) + marginX);
+            return (maxCore + marginX, MathUtils.Max(minCore, 0f) + marginX);
         }
 
         // cell min 宽：最长不可断 token（拉丁词整词不拆；CJK 字间可断，单字即完整 token）。
