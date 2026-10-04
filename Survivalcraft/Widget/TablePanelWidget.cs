@@ -310,9 +310,11 @@ namespace Game {
                     QueueVerticalLineSegments(batch, MathUtils.Min(x, tableWidth - LineThickness), c, rowTops, tableHeight, lineColor);
                 }
             }
-            // 表头下横线：最末 IsHeader 行下缘（多个表头行只画最末行下）；该分界已被 InnerBorder
-            // 画出（表头非最末行）则不重复叠加；表头即最末行时线位与 OuterBorder 底边完全重合，
-            // 有外框则跳过（底边框已画同一条线，双画 α 叠加变深）；无表头行则 HeaderSeparator 无效果
+            // 表头下横线：线位归一全表"track 起点"口径（横线=下一行顶 rowTops[r]，Gap.Y>0 时与
+            // "本行下缘"差 Gap.Y——原画行下缘与 InnerBorder 分界线位差 Gap.Y 却按同线互斥跳过，
+            // 近似）。多个表头行只画最末行下；该分界已被 InnerBorder 画出（表头非最末行）则不
+            // 重复叠加（归一后两条精确同位）；表头即最末行时无下一行，线位=行下缘（与 OuterBorder
+            // 底边重合，有外框则跳过防双画）；无表头行则 HeaderSeparator 无效果
             if (headerLine) {
                 int lastHeader = -1;
                 for (int r = 0; r < rows; r++) {
@@ -323,7 +325,9 @@ namespace Game {
                 if (lastHeader >= 0
                     && !(InnerBorder && lastHeader < rows - 1)
                     && !(OuterBorder && lastHeader == rows - 1)) {
-                    float y = MathUtils.Min(rowTops[lastHeader] + m_rowHeights[lastHeader], tableHeight - LineThickness);
+                    float y = lastHeader < rows - 1
+                        ? rowTops[lastHeader + 1]
+                        : MathUtils.Min(rowTops[lastHeader] + m_rowHeights[lastHeader], tableHeight - LineThickness);
                     QueueHorizontalLineSegments(batch, y, lastHeader + 1, lineColor);
                 }
             }
@@ -455,6 +459,8 @@ namespace Game {
 
         bool[] m_vCrossed = [];          // 竖线分段 scratch：colspan 跨越的行（长度=行数），每调用清零重填
 
+        readonly HashSet<(int Row, int Col)> m_occupied = [];   // ExpandSlots rowspan 占位表（帧间 Clear 复用）
+
         // 收集可见子件成行结构：行壳行的可见 cell 进槽、裸子件=单 cell 单行。IsHeader =
         // 行壳 Header || 行序号 < HeaderRows。每帧 Measure 重算；行/槽对象归还池复用（单线程
         // UI，帧序 Measure→Arrange→Draw 内 m_layoutRows 仍有效）：AcquireRow 只清 Cells
@@ -533,24 +539,24 @@ namespace Game {
         }
 
         // 槽位展开：列数 = 各行占格（含 span 展开后）最大值。每行 cell 用 cursor 推进定 Col，cursor
-        // 遇被前 rowspan 占住的格跳过（occupied 登记 rowspan 覆盖格）；越界 span 防御钳到
-        // columns − Col（至少 1）。产出协商/摆位数组尺寸与每 slot 的 Row/Col/ColSpan（帧内重算）
+        // 遇被前 rowspan 占住的格跳过（occupied 登记 rowspan 覆盖格，帧间 Clear 复用）；越界 span
+        // 防御钳到 columns − Col（至少 1）。产出协商/摆位数组尺寸与每 slot 的 Row/Col/ColSpan（帧内重算）
         void ExpandSlots() {
             int columns = 0;
-            HashSet<(int Row, int Col)> occupied = [];
+            m_occupied.Clear();
             for (int r = 0; r < m_layoutRows.Count; r++) {
                 TableLayoutRow row = m_layoutRows[r];
                 int cursor = 0;
                 foreach (TableCellSlot slot in row.Cells) {
                     slot.Row = r;
-                    while (occupied.Contains((r, cursor))) {
+                    while (m_occupied.Contains((r, cursor))) {
                         cursor++;
                     }
                     slot.Col = cursor;
                     cursor += slot.ColSpan;
                     for (int rr = r + 1; rr < MathUtils.Min(r + slot.RowSpan, m_layoutRows.Count); rr++) {
                         for (int cc = slot.Col; cc < cursor; cc++) {
-                            occupied.Add((rr, cc));
+                            m_occupied.Add((rr, cc));
                         }
                     }
                     columns = MathUtils.Max(columns, cursor);
