@@ -31,9 +31,10 @@ namespace Game {
         // 也防旧内容的晚到回调动新内容的 frame；ReleaseTextures 后 loader 可继续复用（Markdown 重建场景）。
         int m_generation;
 
-        // 已换上真实纹理的 frame：宿主（MarkdownWidget）测量期只回填未完成 frame 的宽度，
-        // 已完成的 frame 宽=图宽，不能被覆盖（HorizontalAlignment=Center 居中）
-        readonly HashSet<CanvasWidget> m_appliedFrames = [];
+        // 已换上真实纹理的 frame 及其适配参数：宿主（MarkdownWidget）测量期只回填未完成 frame
+        // 的宽度；已完成 frame 宽=图宽不可直改，但格内场景需随格宽重适配（RefitFrame 查此表
+        // 取纹理与高上限）。Alt/Url 仅为条目完整性保留（与 pending 条目同构），重适配不消费
+        readonly Dictionary<CanvasWidget, (RectangleWidget Image, Texture2D Texture, string Alt, string Url, float MaxHeight)> m_appliedFrames = [];
 
         // 纹理就绪但宿主宽未解析（frame.Size.X<=0，跟随父容器的宿主在测量期才回填）的 frame。
         // 挂起到宿主调 ResolvePendingWidths()（测量期回填之后）再适配上屏；
@@ -41,7 +42,19 @@ namespace Game {
         readonly List<(CanvasWidget Frame, RectangleWidget Image, FontTextWidget Status, string Alt, string Url, float MaxHeight)> m_pendingFrames = [];
 
         // frame 是否已换上真实纹理（见 m_appliedFrames）
-        public bool IsFrameApplied(CanvasWidget frame) => m_appliedFrames.Contains(frame);
+        public bool IsFrameApplied(CanvasWidget frame) => m_appliedFrames.ContainsKey(frame);
+
+        // 格内随格宽重适配已加载 frame（网页 max-width:100% 同义）：GetImageDisplaySize 等比且
+        // scale≤1（只缩不放），frame/image Size 重设后宿主 panel 重测 → 行高自动联动。
+        // 未注册（占位/顶层未完成 frame）no-op——宽回填归各宿主测量期分支
+        public void RefitFrame(CanvasWidget frame, float availableWidth) {
+            if (!m_appliedFrames.TryGetValue(frame, out (RectangleWidget Image, Texture2D Texture, string Alt, string Url, float MaxHeight) entry)) {
+                return;
+            }
+            Vector2 size = GetImageDisplaySize(entry.Texture, availableWidth, entry.MaxHeight);
+            frame.Size = size;
+            entry.Image.Size = size;
+        }
 
         // 创建图片块 widget 并触发异步加载。占位宽 <=0（宽度跟随父容器）时由宿主在测量期回填 frame.Size.X。
         // 调用方负责把它挂进内容面板（图片块上方通常需要 spacer，由调用方按各自版式控制）。
@@ -268,7 +281,7 @@ namespace Game {
                 image.Subtexture = new Subtexture(texture, Vector2.Zero, Vector2.One);
                 image.IsVisible = true;
                 status.IsVisible = false;
-                m_appliedFrames.Add(frame);
+                m_appliedFrames[frame] = (image, texture, alt, url, maxHeight);
             }
             catch (Exception ex) {
                 status.Text = FailedToLoadText(alt);

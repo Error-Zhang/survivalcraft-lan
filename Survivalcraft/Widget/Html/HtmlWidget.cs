@@ -95,8 +95,11 @@ namespace Game {
             if (!PreserveImagesOnRebuild) {
                 m_imageLoader.ReleaseTextures();
             }
-            // 缩进栈归零：构建中途异常留下的脏缩进不得传染下一次构建
+            // 缩进栈归零：构建中途异常留下的脏缩进不得传染下一次构建；
+            // CurrentPanel 同族防护——脏 panel 会把下一次构建的顶层块路由进离树格，
+            // 宿主回填循环触不到，shell 宽停留构建期值
             m_builder.CurrentIndentX = 0;
+            m_builder.CurrentPanel = null;
             Children.Clear();
             m_builder.CodeBlocks.Clear();
             m_builder.ImageBlocks.Clear();

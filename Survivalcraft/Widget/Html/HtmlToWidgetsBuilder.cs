@@ -170,6 +170,9 @@ namespace Game {
                 CanvasWidget row = new() {
                     Size = new Vector2(NestedContentWidth(), -1f)
                 };
+                // 格内注册 FlowShell（顶层不注册，行为不变）：li 行框宽归所在格 panel 按格净宽
+                // 回填（IndentX=行框挂载点缩进；消除格内 li 定宽/natural 污染列协商的 D1 源）
+                CurrentPanel?.Shells.Add(new ShellEntry { Frame = row, IndentX = CurrentIndentX, Kind = ShellKind.FlowShell });
                 FontTextWidget markerLabel = new() {
                     Text = HtmlTextUtils.GetListMarker(ordered, number, listDepth + 1),
                     Font = Font,
@@ -261,6 +264,10 @@ namespace Game {
 
         CanvasWidget CreateHtmlQuote(HtmlAgilityPack.HtmlNode quoteNode, int listDepth, Color? colorOverride, int depth) {
             CanvasWidget outer = CreateQuoteFrame(out StackPanelWidget inner);
+            // 格内注册 FlowShell（顶层不注册，行为不变）：quote 外壳宽归所在格 panel 按格净宽
+            // 回填——构建期 NestedContentWidth 是顶层近似值。IndentX=本块挂载点缩进（inner 的
+            // +10 是壳内内容缩进，不进外壳条目）
+            CurrentPanel?.Shells.Add(new ShellEntry { Frame = outer, IndentX = CurrentIndentX, Kind = ShellKind.FlowShell });
             float prevIndent = CurrentIndentX;
             CurrentIndentX += 10f;
             BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1);
@@ -273,7 +280,13 @@ namespace Game {
         // 无对应视觉语义，跳过）；thead 行或含 th 的行为表头（粗体由 builder 侧染 span，同 Markdown
         // CreateTable 口径）。无滚动兜底（包装类超宽横向滚动不随迁）：Σmin 超宿主时底座定格列 min 溢出
         TablePanelWidget CreateHtmlTable(HtmlAgilityPack.HtmlNode tableNode, Color? colorOverride, int depth) {
+            // 格内容相对格左缘定位（spec §5.3）：入口清零外层嵌套缩进——格 shell 的回填扣减基准
+            // 是格净宽，li 内嵌套表格时外层缩进已由挂载位置体现，再计入会双扣；全部出口恢复
+            //（prevIndent 纪律同 CreateHtmlQuote，含两处早退）
+            float prevIndent = CurrentIndentX;
+            CurrentIndentX = 0f;
             if (depth > MaxDepth) {
+                CurrentIndentX = prevIndent;
                 return null;
             }
             // 视觉对齐 MD 表现状：三开关全开+同 padding+同线色（InnerBorder 在场时 HeaderSeparator
@@ -302,6 +315,7 @@ namespace Game {
                 }
             }
             if (rows.Count == 0) {
+                CurrentIndentX = prevIndent;
                 return null;
             }
             // 剔除空行（无 td/th——本方法不产行、底座无对应布局行），使行序号=ExpandSlots 布局行号
@@ -366,6 +380,7 @@ namespace Game {
                     widget.Children.Add(row);
                 }
             }
+            CurrentIndentX = prevIndent;
             return widget;
         }
 
@@ -375,10 +390,10 @@ namespace Game {
         // 单格构建（spec §7.1 cell 内容升级）：纯行内 → RichTextWidget（WordWrap + Stretch 拉满格矩形，
         // Size.X 锚定 自然宽+2×CellPadding——底座 track 即旧列宽，高度轮按 track−2×CellPadding 重测）；
         // 含块级子标签（p/div/section/article/table/h1-h6/hr/pre/blockquote/ul/ol），或有图片管线时
-        // img 为唯一元素内容 → StackPanelWidget（Vertical）直装块：BuildHtmlNodes 整格重入（p/li 内
+        // img 为唯一元素内容 → RichContentPanel 直装块：BuildHtmlNodes 整格重入（p/li 内
         // 块级同口径），img 升级图片块、嵌套 table 递归本方法。纯行内 cell 的 img 照旧 span 占位
-        // （HtmlSpanParser 分支保留）。格内块宽用 ContentWidth 现值近似（协商前格净宽未知，局限见
-        // task-8-report）
+        // （HtmlSpanParser 分支保留）。格内块 shell 宽由所在格 panel 按格净宽回传（本方法 push
+        // CurrentPanel，见 RichContentPanel MeasureOverride）
         Widget CreateHtmlCell(HtmlAgilityPack.HtmlNode cellNode, bool isHeader, Color? colorOverride, int depth) {
             bool hasBlockChild = false;
             bool imgOnly = ImageLoader != null;
@@ -401,10 +416,18 @@ namespace Game {
             }
             if (hasBlockChild
                 || imgOnly) {
-                StackPanelWidget panel = CreatePanel();
+                // 格容器升级 RichContentPanel：本格块级 shell（代码块/图片/引用外壳/列表行框）
+                // 注册进本格 panel，由其 MeasureOverride 在底座高度轮按格净宽回填宽度——构建期
+                // ContentWidth 是顶层近似值，对格内不成立（task-8-report 局限的机制化消解）
+                RichContentPanel panel = new() { ImageLoader = ImageLoader };
                 // 横向拉满格矩形：格内锚点/换行参考系=整格净宽，不随最宽子件塌缩
                 panel.HorizontalAlignment = WidgetAlignment.Stretch;
+                // push/pop：构建本格内容期间 shell 注册路由进本格 panel；逐格 push/pop 使嵌套
+                // 表格（内表格 CreateHtmlCell 再 push）与本格结束后恢复外层上下文正确嵌套
+                RichContentPanel prevPanel = CurrentPanel;
+                CurrentPanel = panel;
                 BuildHtmlNodes(cellNode.ChildNodes, panel, 0, colorOverride, depth + 1);
+                CurrentPanel = prevPanel;
                 if (isHeader) {
                     BoldWidgetSpans(panel);
                 }

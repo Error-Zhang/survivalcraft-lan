@@ -37,6 +37,17 @@ namespace Game {
         // internal：Markdown 前端把 HtmlBlock 委托给 HtmlToWidgetsBuilder 时需要传递
         internal float CurrentIndentX;
 
+        // 当前格内块注册面板（HTML 表格 td 直装的 RichContentPanel）：非 null 时 CreateCodeBlock/
+        // AddImageBlock 的 shell 注册进 CurrentPanel.Shells 而非顶层 CodeBlocks/ImageBlocks——
+        // 格内块的宽度回传方是所在格 panel（按格净宽回填），顶层注册表不触格内 frame。
+        // 栈式 push/pop 纪律同 CurrentIndentX：构建格内容前保存、构建后恢复（归调用方，本类不维护栈）
+        internal RichContentPanel CurrentPanel;
+
+        // 代码块自然宽的水平边距合计：linesPanel Margin.X 5×2 + 外层 ScrollPanel Margin.X 3×2。
+        // CreateCodeBlock 构建期把最长行文本宽累加此项记入 shell 条目 NaturalWidth（格内协商
+        // 首遍的自然宽探测输入，Q1-B 档）
+        const float CodeBlockHorizontalMargin = 16f;
+
         // 标题字号/金色阶梯（PRD 6.3，帖子详情 header 视觉同源）
         static readonly float[] s_headingScales = [1.6f, 1.4f, 1.2f, 1.1f, 1f, 1f];
 
@@ -97,7 +108,16 @@ namespace Game {
             CanvasWidget frame = ImageLoader.CreateImageBlock(url, alt, width, MaxImageHeight);
             frame.Margin = new Vector2(0f, 8f);
             panel.Children.Add(frame);
-            if (ContentWidth <= 0f) {
+            // 注册路由（同 CreateCodeBlock）：格内无条件进所在格 panel——panel 的回填基准是
+            // 格净宽而非顶层 ContentWidth，顶层 ContentWidth 正负不影响格内注册
+            if (CurrentPanel != null) {
+                CurrentPanel.Shells.Add(new ShellEntry {
+                    Frame = frame,
+                    IndentX = CurrentIndentX,
+                    Kind = ShellKind.ImageFrame
+                });
+            }
+            else if (ContentWidth <= 0f) {
                 ImageBlocks.Add((frame, CurrentIndentX));
             }
         }
@@ -128,6 +148,17 @@ namespace Game {
             float codeScale = 0.9f;
             float lineHeight = ((Font?.GlyphHeight ?? 51f) + (Font?.Spacing.Y ?? 0f)) * codeScale * (Font?.Scale ?? 1f) + 1f;
             float contentHeight = lines.Length * lineHeight;
+            // 最长行自然宽（不换行逐行 Label 的渲染宽）：格内协商首遍（∞ 测量）以此作 CodeBlock
+            // 的 desired，列协商才能分到合理宽（ScrollPanel 零贡献，−1 natural 会退化成 ≈0）
+            float naturalWidth = CodeBlockHorizontalMargin;
+            if (Font != null) {
+                foreach (string line in lines) {
+                    naturalWidth = MathUtils.Max(
+                        naturalWidth,
+                        Font.MeasureText(line.Length == 0 ? " " : line, new Vector2(codeScale), Vector2.Zero).X + CodeBlockHorizontalMargin
+                    );
+                }
+            }
             CanvasWidget outer = new() {
                 Size = new Vector2(NestedContentWidth(), contentHeight + 20f),
                 Margin = new Vector2(0f, 4f)
@@ -162,7 +193,19 @@ namespace Game {
             }
             scrollPanel.Children.Add(linesPanel);
             outer.Children.Add(scrollPanel);
-            CodeBlocks.Add((outer, CurrentIndentX));
+            // 注册路由：格内（CurrentPanel 在场）注册进所在格 panel（宽度由格净宽回传）；
+            // 顶层照旧进 CodeBlocks 由宿主 widget MeasureOverride 按顶层可用宽回填
+            if (CurrentPanel != null) {
+                CurrentPanel.Shells.Add(new ShellEntry {
+                    Frame = outer,
+                    IndentX = CurrentIndentX,
+                    Kind = ShellKind.CodeBlock,
+                    NaturalWidth = naturalWidth
+                });
+            }
+            else {
+                CodeBlocks.Add((outer, CurrentIndentX));
+            }
             return outer;
         }
 
