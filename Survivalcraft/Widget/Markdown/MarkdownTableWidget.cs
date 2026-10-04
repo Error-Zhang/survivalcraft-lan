@@ -106,9 +106,11 @@ namespace Game {
             m_table.BorderColor = GridLineColor;   // 静态字段每帧跟随（case 目验调）
             float availX = MathUtils.Max(parentAvailableSize.X, 0f);
             // 先按宿主可用宽测底座：DesiredSize.X 超出可用宽 = 各列压到 min 仍超宽（底座定格 min
-            // 交外层），即旧版滚动兜底信号；其余（自然宽/线性收缩）底座已自行协商完成
+            // 交外层），即旧版滚动兜底信号；其余（自然宽/线性收缩）底座已自行协商完成。
+            // +0.01f 容差：线性收缩态 DesiredSize.X 数学上恰=availX，浮点求和落 +ε 侧会误切滚动
+            // （表格按自然宽渲染+高度多 8px 余量，视觉突变）——对齐旧 CollapseWidths 的 0.01 退出容差
             m_table.Measure(new Vector2(availX, float.PositiveInfinity));
-            m_scrollMode = m_table.DesiredSize.X > availX;
+            m_scrollMode = m_table.DesiredSize.X > availX + 0.01f;
             UpdateChildrenStructure();
             if (m_scrollMode
                 && m_scrollPanel != null) {
