@@ -311,7 +311,8 @@ namespace Game {
                 }
             }
             // 表头下横线：最末 IsHeader 行下缘（多个表头行只画最末行下）；该分界已被 InnerBorder
-            // 画出（表头非最末行）则不重复叠加；无表头行则 HeaderSeparator 无效果
+            // 画出（表头非最末行）则不重复叠加；表头即最末行时线位与 OuterBorder 底边完全重合，
+            // 有外框则跳过（底边框已画同一条线，双画 α 叠加变深）；无表头行则 HeaderSeparator 无效果
             if (headerLine) {
                 int lastHeader = -1;
                 for (int r = 0; r < rows; r++) {
@@ -320,7 +321,8 @@ namespace Game {
                     }
                 }
                 if (lastHeader >= 0
-                    && !(InnerBorder && lastHeader < rows - 1)) {
+                    && !(InnerBorder && lastHeader < rows - 1)
+                    && !(OuterBorder && lastHeader == rows - 1)) {
                     float y = MathUtils.Min(rowTops[lastHeader] + m_rowHeights[lastHeader], tableHeight - LineThickness);
                     QueueHorizontalLineSegments(batch, y, lastHeader + 1, lineColor);
                 }
@@ -586,8 +588,8 @@ namespace Game {
                 minCore = MeasureSpansMinWidth(rich.Spans, rich.Font, rich.FontScale) + 2f * CellPadding.X;
             }
             else if (cell is LabelWidget label) {
-                // label 单 span 扫描（v1 忽略 label.FontScale，量级影响可接受），pad 口径同上
-                minCore = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, 1f) + 2f * CellPadding.X;
+                // label 单 span 扫描（span.FontScale=0 → 回退 label.FontScale），pad 口径同上
+                minCore = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, label.FontScale) + 2f * CellPadding.X;
             }
             else {
                 // 非文字类不收缩（按钮/图片 CSS 语义本就 min=max）。注意按钮系（ClickableWidget 无
