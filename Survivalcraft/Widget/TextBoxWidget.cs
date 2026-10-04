@@ -1116,10 +1116,14 @@ namespace Game {
                     }
                     BitmapFont.Glyph glyph = font.GetGlyph(letter is '\u00a0' ? ' ' : letter);
                     float kerning = i + 1 < text.Length ? font.GetKerning(letter, text[i + 1]) : 0f;
-                    if (currentPosition + (glyph.Width - kerning + spacing.X) / 2 > clickPosition.X) {
+                    // 半宽判据与累积 advance 同口径（同乘 scale）：字内判定点是缩放后 advance 的
+                    // 中点，漏乘时 scale>1 判定点偏早（点击字前半误跳后字）、scale<1 偏晚（点击字
+                    // 后半误留前字），仅 scale=1 的默认场景不暴露
+                    float advance = (glyph.Width - kerning + spacing.X) * scale;
+                    if (currentPosition + advance / 2 > clickPosition.X) {
                         return i;
                     }
-                    currentPosition += (glyph.Width - kerning + spacing.X) * scale;
+                    currentPosition += advance;
                 }
                 return text.Length;
             }
