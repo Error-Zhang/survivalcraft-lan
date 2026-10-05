@@ -320,6 +320,48 @@ namespace Game {
             _ => tokens
         };
 
+        // border-radius 解析（角展开序与 ExpandTrbl 的边展开同构：2 值=TL/BR + TR/BL、
+        // 3 值=TL + TR/BL + BR，正合 CSS 角口径，复用）。出四角 px 愿望值 + 四角百分数
+        //（50=50%），轴序=CSS 角序 (左上,右上,右下,左下)，非 Margin4 边序。单值 %→percents
+        // 对应位（px 位 0）、px/em/rem/pt→px（% 位 0），两 Vector4 各存各的（支持部分角 % 部分
+        // 角 px 混合；% 的 px 值 Draw 期按 min(w,h) 解析）。斜杠椭圆语法（h / v）只取 '/' 前半
+        //（水平半径），垂直半径搁置留档。任一值负/非法 → 整条 false（CSS 简写原子性）；无声明
+        // false；全 0 合法（=直角，语义恒等无半径）。取最后一条声明（TryGetDeclaration 级联口径）
+        public static bool TryParseBorderRadius(string style, out Vector4 corners, out Vector4 percents) {
+            corners = default;
+            percents = default;
+            if (!TryGetDeclaration(style, "border-radius", out string value)) {
+                return false;
+            }
+            // 斜杠椭圆语法：'/' 连同后半整体截去（'/ 4px' 与 '/4px' 同型），前半 trim 后照常切分
+            int slash = value.IndexOf('/');
+            if (slash >= 0) {
+                value = value[..slash].Trim();
+            }
+            string[] tokens = SplitTopLevelTokens(value);
+            if (tokens.Length is < 1 or > 4) {
+                return false;
+            }
+            string[] expanded = ExpandTrbl(tokens);
+            float[] px = new float[4];
+            float[] pct = new float[4];
+            for (int i = 0; i < 4; i++) {
+                // TryParseWidthValue：%→isPercent+百分数、px/em/rem/pt→px、负/未知→false
+                if (!TryParseWidthValue(expanded[i], out bool isPercent, out float number)) {
+                    return false;
+                }
+                if (isPercent) {
+                    pct[i] = number;
+                }
+                else {
+                    px[i] = number;
+                }
+            }
+            corners = new Vector4(px[0], px[1], px[2], px[3]);
+            percents = new Vector4(pct[0], pct[1], pct[2], pct[3]);
+            return true;
+        }
+
         // 简写 token 分类：长度（≥0）→width、颜色→color、线型关键字→启用、none/hidden→禁用、
         // 未知→整条声明丢弃。none/hidden 胜出其余组件（CSS `border: none red` 无边框口径）。
         // 返回=是否有任一边有效写入

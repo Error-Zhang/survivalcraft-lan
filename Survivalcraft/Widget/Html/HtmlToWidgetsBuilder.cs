@@ -88,6 +88,9 @@ namespace Game {
             // opacity：声明有效且 v<1 才参与起壳（v==1 无壳无意义）；壳只承担装饰淡出，
             // 文字淡出走 ctx 递归链（调用点 ResolveOpacityMultiplier 同源解析）
             bool hasOpacity = ParseOpacityStyle(node, out float nodeOpacity) && nodeOpacity < 1f;
+            // border-radius：bg/border 的形状修饰，不参与起壳判定（单独声明无壳不画——壳是
+            // 绘制物本体）；px 愿望 + % 两路存（Draw 期 ActualSize 解析）
+            bool hasRadius = CssStyleParser.TryParseBorderRadius(style, out Vector4 cornerPx, out Vector4 cornerPct);
             // 纯 opacity 不起壳：壳无装饰可淡（文字淡出走 ctx 递归链），白付一层 wrapper+
             // 对齐移交；有 margin/padding/border/background 时壳装饰随 v 淡出
             if (!hasMargin && !hasPadding && !hasBorder && !hasBackground) {
@@ -112,6 +115,10 @@ namespace Game {
             }
             if (hasMargin) {
                 shell.Margin4 = margin;
+            }
+            if (hasRadius) {
+                shell.CornerRadius = cornerPx;
+                shell.CornerPercent = cornerPct;
             }
             // 对齐移交：壳顶替子件原外层对齐位，子件改 Stretch 填壳（Near/Center/Stretch 视觉不变）
             shell.HorizontalAlignment = widget.HorizontalAlignment;
@@ -268,6 +275,8 @@ namespace Game {
             // 钳宽由出口 ApplyBlockSizing 包 sizer 承担；无壳时容器/段落块没有实体件可钳
             //（子块直挂宿主面板）。出口必须配套 ApplyBlockSizing，否则宽度声明被静默丢弃
             bool hasSizing = HasBlockSizing(style);
+            // border-radius：bg/border 的形状修饰，不参与起壳判定（同 WrapInStyleBox 口径）
+            bool hasRadius = CssStyleParser.TryParseBorderRadius(style, out Vector4 cornerPx, out Vector4 cornerPct);
             // 纯 opacity 不起壳：壳无装饰可淡（文字淡出走 ctx 递归链），白付一层 wrapper+
             // 对齐移交；有 margin/padding/border/background 时壳装饰随 v 淡出
             if (!hasMargin && !hasPadding && !hasBorder && !hasBackground && !hasSizing) {
@@ -295,6 +304,10 @@ namespace Game {
             shell = styleShell;
             if (hasMargin) {
                 shell.Margin4 = margin;
+            }
+            if (hasRadius) {
+                styleShell.CornerRadius = cornerPx;
+                styleShell.CornerPercent = cornerPct;
             }
             // 对齐移交：容器壳恒 Stretch 顶替子件原外层对齐位（原直挂 host panel 的子件在
             // center/align 容器里按宿主拉伸排满；Stretch 只影响 arrange 不改 measure，壳内
@@ -590,8 +603,8 @@ namespace Game {
                     case "pre": {
                         Flush();
                         HtmlAgilityPack.HtmlNode code = node.Element("code") ?? node;
-                        ParseCodeTextStyle(node, out Color? codeTextColor, out float? codeScaleOverride);
-                        Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), codeTextColor, codeScaleOverride);
+                        ParseCodeTextStyle(node, out Color? codeTextColor, out float? codeScaleOverride, out float? codeRoundingRadius);
+                        Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), codeTextColor, codeScaleOverride, codeRoundingRadius);
                         // 代码块随 ctx×自身声明淡出（BevelledRect 框+Label 行全子树浸透）
                         codeBlock.ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(node));
                         panel.Children.Add(FinalizeBlock(node, codeBlock, colorOverride));
@@ -990,8 +1003,8 @@ namespace Game {
                             }
                             case "pre": {
                                 HtmlAgilityPack.HtmlNode code = child.Element("code") ?? child;
-                                ParseCodeTextStyle(child, out Color? liCodeTextColor, out float? liCodeScaleOverride);
-                                Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), liCodeTextColor, liCodeScaleOverride);
+                                ParseCodeTextStyle(child, out Color? liCodeTextColor, out float? liCodeScaleOverride, out float? liCodeRoundingRadius);
+                                Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), liCodeTextColor, liCodeScaleOverride, liCodeRoundingRadius);
                                 // 代码块随 ctx×自身声明淡出（同顶层 pre 口径）
                                 codeBlock.ColorTransform = Color.White * (liOpacityCtx * ResolveOpacityMultiplier(child));
                                 contentPanel.Children.Add(WrapInStyleBox(child, codeBlock, colorOverride) ?? codeBlock);
@@ -1808,12 +1821,15 @@ namespace Game {
             return ParseOpacityStyle(node, out float v) ? v : 1f;
         }
 
-        // pre/code style 文字类声明解析（代码块直通便宜档）：color/font-size 经 CreateCodeBlock
-        // 可选参直通 Label 行；其余行内属性不吃（等宽管线不进 span 解析，留档）。code 内层元素
-        // 自带 style 不解析（与 pre 同口径留档）
-        void ParseCodeTextStyle(HtmlAgilityPack.HtmlNode preNode, out Color? textColor, out float? fontScaleOverride) {
+        // pre/code style 直通解析（代码块便宜档）：color/font-size 经 CreateCodeBlock 可选参
+        // 直通 Label 行；border-radius 出四角最大 px 值直通引擎真圆弧（% 忽略、斜杠取前半在
+        // 解析层——引擎 BevelledShapeRenderer 石皮斜切观感 vs CSS 扁平圆角有差，便宜档近似
+        // 留档）。其余行内属性不吃（等宽管线不进 span 解析，留档）。code 内层元素自带 style
+        // 不解析（与 pre 同口径留档）
+        void ParseCodeTextStyle(HtmlAgilityPack.HtmlNode preNode, out Color? textColor, out float? fontScaleOverride, out float? roundingRadius) {
             textColor = null;
             fontScaleOverride = null;
+            roundingRadius = null;
             string style = preNode.GetAttributeValue("style", null);
             if (string.IsNullOrEmpty(style)) {
                 return;
@@ -1825,6 +1841,12 @@ namespace Game {
             if (CssStyleParser.TryGetDeclaration(style, "font-size", out string sizeDecl)
                 && HtmlSpanParser.TryParseCssFontSize(sizeDecl, out float ratio)) {
                 fontScaleOverride = ratio;
+            }
+            // border-radius 直通：true 即取四角 px 最大值——0 → 显式 0（BevelledRectangle 直角，
+            // CSS 口径，引擎 RoundCorner 半径 0 有 >0 守卫安全）；全 % 情形 px 位全 0 同样落
+            // 显式 0（% 近似留档）；无声明 null=引擎缺省 6（Markdown 路径零改）
+            if (CssStyleParser.TryParseBorderRadius(style, out Vector4 cornerPx, out _)) {
+                roundingRadius = MathUtils.Max(MathUtils.Max(cornerPx.X, cornerPx.Y), MathUtils.Max(cornerPx.Z, cornerPx.W));
             }
         }
 

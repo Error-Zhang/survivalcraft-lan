@@ -148,7 +148,10 @@ namespace Game {
         // 便宜档——等宽管线不进 span 解析，行内其余属性不吃留档）。font-size 为整体替换
         // UA 基准 0.9（绝对/相对声明统一为 ×全局基准系数，同 <small style="font-size">
         // 整体替换先例）；null=现状（Markdown 路径零改）
-        protected CanvasWidget CreateCodeBlock(string[] lines, Color? textColor = null, float? fontScaleOverride = null) {
+        // roundingRadius：HTML 侧 pre style border-radius 直通（仅四角最大 px 值便宜档，%
+        // 忽略）——引擎 BevelledShapeRenderer 真圆弧石皮观感 vs CSS 扁平圆角有差（留档）；
+        // null=引擎缺省 6（Markdown 路径零改）
+        protected CanvasWidget CreateCodeBlock(string[] lines, Color? textColor = null, float? fontScaleOverride = null, float? roundingRadius = null) {
             if (lines.Length == 0
                 || (lines.Length == 1 && lines[0].Length == 0)) {
                 lines = [" "];
@@ -175,6 +178,7 @@ namespace Game {
                 Size = new Vector2(-1f, -1f),
                 HorizontalAlignment = WidgetAlignment.Stretch,
                 VerticalAlignment = WidgetAlignment.Stretch,
+                RoundingRadius = roundingRadius ?? 6f,
                 CenterColor = CodeCenterColor,
                 BevelColor = CodeBevelColor,
                 DirectionalLight = 0f,
