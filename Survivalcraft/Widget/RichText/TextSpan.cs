@@ -49,11 +49,16 @@ namespace Game {
         // 调用方自定义载荷（如 markdown 源节点），排版层不解释
         public object Tag { get; set; }
 
+        // 行内透明度（CSS opacity，行内 replace 语义）：1=不透明。Draw 期淡出系数，
+        // 与 RichTextWidget.Opacity（块级 ctx）叠乘；排版/命中不受影响（纯绘制）
+        public float Opacity { get; set; }
+
         public TextSpan() {
             Text = string.Empty;
             // 0 = 继承 widget 的 FontScale（排版层 SpanScale 对 ≤0 回退），显式值优先
             FontScale = 0f;
             Style = RichTextStyle.Normal;
+            Opacity = 1f;
         }
 
         public TextSpan(string text) : this() {

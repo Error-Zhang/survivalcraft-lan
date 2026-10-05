@@ -266,6 +266,34 @@ namespace Game {
                     style.TextTransform = transform.Value;
                 }
             }
+            // opacity：number/% 值域（TryParseCssOpacity，CSS 口径负值/>1 钳 [0,1]、垃圾值整条忽略）。
+            // 置位=replace 语义：v==1 也置（显式 1 撤销继承的 <1，作者声明胜继承的 CSS 级联口径）；
+            // 嵌套再声明不叠乘——叠乘只发生在块级 ctx（HtmlToWidgetsBuilder opacityCtx）
+            if (CssStyleParser.TryGetDeclaration(styleAttribute, "opacity", out string opacityDecl)
+                && TryParseCssOpacity(opacityDecl, out float opacityValue)) {
+                style.HasOpacity = true;
+                style.Opacity = opacityValue;
+            }
+        }
+
+        // opacity 值解析（行内 ApplyInlineStyle 与块级 builder 共用）：number 直取、%（÷100）；
+        // 可解析即钳 [0,1]（CSS computed-value 口径：opacity:-0.5→0、2→1、150%→1）；解析失败=
+        // 垃圾值整条丢弃（返回 false，调用方不动继承值）
+        public static bool TryParseCssOpacity(string value, out float opacity) {
+            string v = value.Trim();
+            bool percent = v.EndsWith("%", StringComparison.Ordinal);
+            if (percent) {
+                v = v[..^1];
+            }
+            if (!float.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float raw)
+                || !float.IsFinite(raw)) {
+                // NaN/Infinity 随 TryParse 穿透（NumberStyles.Float 不拒），Clamp 对 NaN 直通——
+                // 显式拦（CSS 无效声明丢弃口径）
+                opacity = 1f;
+                return false;
+            }
+            opacity = MathUtils.Clamp(percent ? raw / 100f : raw, 0f, 1f);
+            return true;
         }
 
         // font-size 值：px（÷16 基准）、pt（1pt=4/3px）、%（÷100）、em（原值）、rem（=px 口径，
@@ -422,7 +450,9 @@ namespace Game {
                 Underline = style.Underline,
                 BaselineShift = style.BaselineShift,
                 Border = style.Border,
-                LinkUnderlineSuppressed = style.LinkUnderlineSuppressed
+                LinkUnderlineSuppressed = style.LinkUnderlineSuppressed,
+                // 行内 opacity 透传 span（未声明=1f）：Draw 期与 RichTextWidget.Opacity 叠乘淡出
+                Opacity = style.HasOpacity ? style.Opacity : 1f
             });
         }
 

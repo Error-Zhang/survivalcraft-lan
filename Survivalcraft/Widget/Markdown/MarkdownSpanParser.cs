@@ -46,6 +46,19 @@ namespace Game {
 
         // 文本大小写变换（CSS text-transform，随嵌套继承；AddText 出口处施加）
         public TextTransform TextTransform;
+
+        // 行内透明度（CSS opacity）：HasOpacity=false=未声明（struct default 即此态，span.Opacity
+        // 留 1f）；opacity:0 也经 HasOpacity=true + Opacity=0 表达。随结构复制天然继承嵌套；
+        // 再声明=替换不叠乘（显式 1 撤销继承的 <1），叠乘语义只存在于块级 ctx（builder 侧）
+        public bool HasOpacity;
+
+        public float Opacity = 1f;
+
+        // CS8983：带字段初始值设定项的 struct 必须显式声明构造函数（空体即可，初始化由字段
+        // 初始值承担）。注意 default(MarkdownSpanStyle) 绕过 ctor：HasOpacity=false、Opacity=0，
+        // 消费端（AddText）以 HasOpacity 为准，default 态安全
+        public MarkdownSpanStyle() {
+        }
     }
 
     // Markdig inline 序列 → List<TextSpan>；HtmlInline 片段委托 HtmlSpanParser（Widget/Html/）

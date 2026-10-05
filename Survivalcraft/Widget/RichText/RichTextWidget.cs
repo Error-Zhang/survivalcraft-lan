@@ -152,6 +152,10 @@ namespace Game {
         // span 未指定颜色时的默认色
         public Color Color { get; set; }
 
+        // 整件透明度（CSS opacity 块级 ctx，builder 递归链传入）：纯 Draw 期淡出系数，与
+        // run.Span.Opacity（行内声明）叠乘。不改排版——不动 layout 脏标（字号/换行与此无关）
+        public float Opacity { get; set; } = 1f;
+
         public bool DropShadow { get; set; }
 
         public bool TextureLinearFilter { get; set; }
@@ -216,7 +220,15 @@ namespace Game {
                     lineX = ActualSize.X - line.Width;
                 }
                 foreach (TextRun run in line.Runs) {
+                    // run 级淡出系数：widget 级（块级 ctx）× span 级（行内 opacity 声明）。
+                    // fade==1 走原路径零改动（既有 rgba 低 alpha span 渲染行为逐位不变——范围红线）
+                    float fade = Opacity * run.Span.Opacity;
                     Color color = (run.Span.Color ?? Color) * GlobalColorTransform;
+                    if (fade < 1f) {
+                        // 全通道（含 A）×fade＝预乘淡出：AlphaBlend(One, InvSrcAlpha) 语义下
+                        // 等价真透明度，参照 BevelledRectangleWidget.PremultiplyAlpha 先例
+                        color *= fade;
+                    }
                     if (color.A == 0
                         && !run.Span.IsLink
                         && run.Span.BackgroundColor == null
@@ -249,8 +261,11 @@ namespace Game {
                     TextAnchor anchor = TextAnchor.Default | TextAnchor.DisableSnapToPixels;
                     if (flatBatch2D != null
                         && run.Span.BackgroundColor is Color background) {
-                        // 背景＝run 自身字号的 em 高矩形（同下划线基准）
+                        // 背景＝run 自身字号的 em 高矩形（同下划线基准）；fade<1 时随 run 淡出
                         Color backgroundColor = background * GlobalColorTransform;
+                        if (fade < 1f) {
+                            backgroundColor *= fade;
+                        }
                         if (backgroundColor.A != 0) {
                             QueueTransformedQuad(
                                 flatBatch2D,
@@ -277,16 +292,16 @@ namespace Game {
                             float boxWidth = bl + run.Width + br;
                             float boxHeight = line.Height;
                             if (bt > 0f) {
-                                QueueTransformedQuad(flatBatch2D, boxLeft, boxTop, boxWidth, bt, BorderColor(border.Top, run.Span));
+                                QueueTransformedQuad(flatBatch2D, boxLeft, boxTop, boxWidth, bt, BorderColor(border.Top, run.Span, fade));
                             }
                             if (bb > 0f) {
-                                QueueTransformedQuad(flatBatch2D, boxLeft, boxTop + boxHeight - bb, boxWidth, bb, BorderColor(border.Bottom, run.Span));
+                                QueueTransformedQuad(flatBatch2D, boxLeft, boxTop + boxHeight - bb, boxWidth, bb, BorderColor(border.Bottom, run.Span, fade));
                             }
                             if (bl > 0f) {
-                                QueueTransformedQuad(flatBatch2D, boxLeft, boxTop, bl, boxHeight, BorderColor(border.Left, run.Span));
+                                QueueTransformedQuad(flatBatch2D, boxLeft, boxTop, bl, boxHeight, BorderColor(border.Left, run.Span, fade));
                             }
                             if (br > 0f) {
-                                QueueTransformedQuad(flatBatch2D, boxLeft + boxWidth - br, boxTop, br, boxHeight, BorderColor(border.Right, run.Span));
+                                QueueTransformedQuad(flatBatch2D, boxLeft + boxWidth - br, boxTop, br, boxHeight, BorderColor(border.Right, run.Span, fade));
                             }
                         }
                     }
@@ -386,8 +401,12 @@ namespace Game {
             batch.QueueQuad(p1, p2, p3, p4, 0f, color);
         }
 
-        // 边框色解析：side null=currentColor（span 自身色回退 widget 色），×GlobalColorTransform 同其他 quad
-        Color BorderColor(Color? side, TextSpan span) => (side ?? span.Color ?? Color) * GlobalColorTransform;
+        // 边框色解析：side null=currentColor（span 自身色回退 widget 色），×GlobalColorTransform 同其他
+        // quad；fade<1 时叠乘 run 淡出系数（行内边框随 opacity 淡出——fade==1 路径色值逐位不变）
+        Color BorderColor(Color? side, TextSpan span, float fade) {
+            Color color = (side ?? span.Color ?? Color) * GlobalColorTransform;
+            return fade < 1f ? color * fade : color;
+        }
 
         // 斜体切变矩阵：x' = x − k·(y − em 中点)，k = tan(12°) ≈ 0.21，顶部右倾。
         // 绕 em 中点而非基线（Pericles 基线未单独暴露）；emHeight = GlyphHeight×span 字号×Font.Scale
