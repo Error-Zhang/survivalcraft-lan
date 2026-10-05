@@ -11,6 +11,12 @@ namespace Game {
         // 构建入口重置
         Color? m_bodyBackground;
 
+        // body text=/link=：整页默认文字色/链接色（老帖源码常带）。vlink/alink 无访问状态追踪，
+        // 静默忽略。构建入口重置
+        Color? m_bodyTextColor;
+
+        Color? m_bodyLinkColor;
+
         // HTML 片段入口：解析为 DOM 后做块级遍历，块收进自建面板返回（HtmlWidget 壳用）
         public StackPanelWidget BuildHtml(string html, int listDepth, Color? colorOverride, int depth) {
             StackPanelWidget panel = CreatePanel();
@@ -21,9 +27,24 @@ namespace Game {
         // 平铺入口：块直接追加进调用方面板（Markdown HtmlBlock 转发用，避免多包一层嵌套面板）
         public void BuildHtmlInto(string html, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth) {
             m_bodyBackground = null;
+            m_bodyTextColor = null;
+            m_bodyLinkColor = null;
             HtmlAgilityPack.HtmlDocument doc = new();
             doc.LoadHtml(html ?? string.Empty);
             BuildHtmlNodes(doc.DocumentNode.ChildNodes, panel, listDepth, colorOverride, depth);
+        }
+
+        // 默认文字色口径：显式 colorOverride > body text= > 调色板 DefaultColor
+        Color EffectiveTextColor(Color? colorOverride) => colorOverride ?? m_bodyTextColor ?? DefaultColor;
+
+        // base.CreateHeading 走虚分发回到这里：标题色由 HeadingColor 固定（产品配色，非 body
+        // text= 语义——浏览器标题继承 body 色是另一口径，留档不跟）
+        protected override RichTextWidget CreateRichText(Color? colorOverride) {
+            RichTextWidget widget = base.CreateRichText(colorOverride);
+            if (colorOverride == null && m_bodyTextColor.HasValue) {
+                widget.Color = m_bodyTextColor.Value;
+            }
+            return widget;
         }
 
         // 块级 HTML 节点遍历：行内节点累积成段，遇块级标签先冲刷当前段。
@@ -64,7 +85,7 @@ namespace Game {
                         AddImageBlockWithAttributes(panel, child);
                         continue;
                     }
-                    HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, inlineColorOverride ?? DefaultColor);
+                    HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, EffectiveTextColor(inlineColorOverride), linkColor: m_bodyLinkColor);
                 }
             }
             foreach (HtmlAgilityPack.HtmlNode node in nodes) {
@@ -73,7 +94,12 @@ namespace Game {
                     continue;
                 }
                 if (node.NodeType == HtmlAgilityPack.HtmlNodeType.Text) {
-                    HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
+                    HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, EffectiveTextColor(colorOverride));
+                    continue;
+                }
+                // 全局 hidden 属性：任意值（含空串）都隐藏，块级元素连子树跳过（行内路径在
+                // HtmlSpanParser.ParseHtmlNode 拦）
+                if (node.GetAttributeValue("hidden", null) != null) {
                     continue;
                 }
                 switch (node.Name.ToLowerInvariant()) {
@@ -95,7 +121,7 @@ namespace Game {
                             widget.HorizontalAlignment = WidgetAlignment.Stretch;
                             widget.TextAnchor = headingAlign;
                         }
-                        HtmlSpanParser.ParseHtmlNode(node, widget.Spans, default, widget.Color);
+                        HtmlSpanParser.ParseHtmlNode(node, widget.Spans, default, widget.Color, linkColor: m_bodyLinkColor);
                         panel.Children.Add(widget);
                         break;
                     }
@@ -116,11 +142,18 @@ namespace Game {
                     case "html":
                     case "body": {
                         // 整页包装标签当 div（老帖源码常带 html/body 包裹，浏览器剥离外壳直排内容）；
-                        // body bgcolor 作表格 bgcolor 回退链根
+                        // body bgcolor 作表格 bgcolor 回退链根，text=/link= 作默认文字/链接色
                         Flush();
-                        if (node.Name.Equals("body", StringComparison.OrdinalIgnoreCase)
-                            && CssColorParser.TryParse(node.GetAttributeValue("bgcolor", null), out Color bodyBackground)) {
-                            m_bodyBackground = bodyBackground;
+                        if (node.Name.Equals("body", StringComparison.OrdinalIgnoreCase)) {
+                            if (CssColorParser.TryParse(node.GetAttributeValue("bgcolor", null), out Color bodyBackground)) {
+                                m_bodyBackground = bodyBackground;
+                            }
+                            if (CssColorParser.TryParse(node.GetAttributeValue("text", null), out Color bodyText)) {
+                                m_bodyTextColor = bodyText;
+                            }
+                            if (CssColorParser.TryParse(node.GetAttributeValue("link", null), out Color bodyLink)) {
+                                m_bodyLinkColor = bodyLink;
+                            }
                         }
                         BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, ParseBlockAlignment(node) ?? blockAlign);
                         break;
@@ -222,7 +255,7 @@ namespace Game {
                     case "summary":
                         // 折叠标题：开头补 ▼ 代表已展开（用户裁定），余同 p 口径
                         Flush();
-                        HtmlSpanParser.AddText("▼ ", pendingSpans, default, colorOverride ?? DefaultColor);
+                        HtmlSpanParser.AddText("▼ ", pendingSpans, default, EffectiveTextColor(colorOverride));
                         AppendInlineChildren(node, colorOverride);
                         Flush();
                         break;
@@ -236,7 +269,7 @@ namespace Game {
                             BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, blockAlign);
                         }
                         else {
-                            HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
+                            HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, EffectiveTextColor(colorOverride), linkColor: m_bodyLinkColor);
                         }
                         Flush();
                         break;
@@ -255,7 +288,7 @@ namespace Game {
                             AppendInlineChildren(node, colorOverride);
                         }
                         else {
-                            HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
+                            HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, EffectiveTextColor(colorOverride), linkColor: m_bodyLinkColor);
                         }
                         break;
                 }
@@ -311,7 +344,7 @@ namespace Game {
                 FontTextWidget markerLabel = new() {
                     Text = markers[itemIndex],
                     Font = Font,
-                    Color = colorOverride ?? DefaultColor,
+                    Color = EffectiveTextColor(colorOverride),
                     FontScale = markerScale
                 };
                 row.Children.Add(markerLabel);
@@ -354,6 +387,11 @@ namespace Game {
                             or "caption"
                             or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr" or "html" or "body";
                     if (isBlock) {
+                        // li 直发块不经 BuildHtmlNodes 分发，hidden 在此补拦（default case 重入
+                        // 顶层分发自带拦截，blockquote/pre/hr/h1-6/列表直发只认此处）
+                        if (child.GetAttributeValue("hidden", null) != null) {
+                            continue;
+                        }
                         FlushLi();
                         switch (child.Name.ToLowerInvariant()) {
                             case "ul":
@@ -381,7 +419,7 @@ namespace Game {
                                     widget.HorizontalAlignment = WidgetAlignment.Stretch;
                                     widget.TextAnchor = headingAlign;
                                 }
-                                HtmlSpanParser.ParseHtmlNode(child, widget.Spans, default, widget.Color);
+                                HtmlSpanParser.ParseHtmlNode(child, widget.Spans, default, widget.Color, linkColor: m_bodyLinkColor);
                                 contentPanel.Children.Add(widget);
                                 break;
                             }
@@ -404,7 +442,7 @@ namespace Game {
                         AddImageBlockWithAttributes(contentPanel, child);
                     }
                     else {
-                        HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, colorOverride ?? DefaultColor);
+                        HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, EffectiveTextColor(colorOverride), linkColor: m_bodyLinkColor);
                     }
                 }
                 FlushLi();
@@ -518,6 +556,10 @@ namespace Game {
                 if (child.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
                     continue;
                 }
+                // 行收集路径不经 BuildHtmlNodes 分发，hidden 在此补拦（thead/tbody/tfoot 容器同口径）
+                if (child.GetAttributeValue("hidden", null) != null) {
+                    continue;
+                }
                 string childTag = child.Name.ToLowerInvariant();
                 if (childTag == "tr") {
                     rows.Add((child, false));
@@ -584,6 +626,10 @@ namespace Game {
                     }
                     string cellTag = cellNode.Name.ToLowerInvariant();
                     if (cellTag is not ("td" or "th")) {
+                        continue;
+                    }
+                    // td/th hidden：格收集同走不到 BuildHtmlNodes，补拦（行收集已拦 tr/行组容器）
+                    if (cellNode.GetAttributeValue("hidden", null) != null) {
                         continue;
                     }
                     // colspan/rowspan 属性：空/非法/≤0 → 1（Set 后仅非平凡值登记 attached 状态）
@@ -687,15 +733,20 @@ namespace Game {
             }
             // 纯行内：span 解析（img 命中 HtmlSpanParser 占位分支，照旧保留）
             List<TextSpan> spans = [];
-            HtmlSpanParser.ParseHtmlNode(cellNode, spans, default, colorOverride ?? DefaultColor);
+            HtmlSpanParser.ParseHtmlNode(cellNode, spans, default, EffectiveTextColor(colorOverride), linkColor: m_bodyLinkColor);
             if (isHeader) {
                 BoldCellSpans(spans);
             }
             RichTextWidget widget = new() {
                 Font = Font,
                 FontScale = FontScale,
-                Color = colorOverride ?? DefaultColor,
+                Color = EffectiveTextColor(colorOverride),
                 WordWrap = true,
+                // td nowrap：老版防换行属性 → KeepAll（CJK/单词整体不破，浏览器 white-space:nowrap
+                // 对纯文本格的近似口径）；含块级子件的格不适用（块级各自折行语义），留档不处理
+                WordBreak = cellNode.GetAttributeValue("nowrap", null) != null
+                    ? TextWordBreak.KeepAll
+                    : TextWordBreak.BreakWord,
                 // 拉满格矩形（track−2×CellPadding）：TextAnchor 居中/右对齐按 ActualSize 定偏移，
                 // Near 会塌缩到内容宽
                 HorizontalAlignment = WidgetAlignment.Stretch,

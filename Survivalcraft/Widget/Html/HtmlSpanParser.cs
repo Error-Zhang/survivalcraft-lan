@@ -19,7 +19,7 @@ namespace Game {
             }
         }
 
-        public static void ParseHtmlNode(HtmlAgilityPack.HtmlNode node, List<TextSpan> spans, MarkdownSpanStyle style, Color defaultColor, int depth = 0) {
+        public static void ParseHtmlNode(HtmlAgilityPack.HtmlNode node, List<TextSpan> spans, MarkdownSpanStyle style, Color defaultColor, int depth = 0, Color? linkColor = null) {
             switch (node.NodeType) {
                 case HtmlAgilityPack.HtmlNodeType.Text:
                     // HTML 空白语义：元素间源码换行/缩进是排版噪声，折叠为单空格。
@@ -32,6 +32,10 @@ namespace Game {
                     return;
             }
             if (depth > MaxDepth) {
+                return;
+            }
+            // 全局 hidden 属性：任意值（含空串）都隐藏，整元素连子树跳过（HTML 标准）
+            if (node.GetAttributeValue("hidden", null) != null) {
                 return;
             }
             string tag = node.Name.ToLowerInvariant();
@@ -53,17 +57,19 @@ namespace Game {
                 // <q>：内容前后补英文弯引号（HTML 默认 content 引号随 lang 变，这里固定 “”；
                 // 嵌套 q 不换引号层级——用户裁定简单做）
                 AddText("\u201C", spans, style, defaultColor);
-                MarkdownSpanStyle qInner = ApplyOpenTag(node, style, out _, out _);
-                ParseHtmlChildren(node, spans, qInner, defaultColor, depth);
+                MarkdownSpanStyle qInner = ApplyOpenTag(node, style, out _, out _, linkColor);
+                ParseHtmlChildren(node, spans, qInner, defaultColor, depth, linkColor: linkColor);
                 AddText("\u201D", spans, style, defaultColor);
                 return;
             }
-            MarkdownSpanStyle inner = ApplyOpenTag(node, style, out Color? background, out Color? forceColor);
-            ParseHtmlChildren(node, spans, inner, defaultColor, depth, forceColor, background);
+            MarkdownSpanStyle inner = ApplyOpenTag(node, style, out Color? background, out Color? forceColor, linkColor);
+            ParseHtmlChildren(node, spans, inner, defaultColor, depth, forceColor, background, linkColor);
         }
 
         // 单个开标签对样式上下文的累积效果；background/forceColor 需后刷到生成的 span（code/span 场景）
-        static MarkdownSpanStyle ApplyOpenTag(HtmlAgilityPack.HtmlNode node, MarkdownSpanStyle style, out Color? background, out Color? forceColor) {
+        // linkColor：body link= 属性的链接色覆写（null=用调色板默认）；Markdown 行内路径不传，
+        // 保持调色板口径
+        static MarkdownSpanStyle ApplyOpenTag(HtmlAgilityPack.HtmlNode node, MarkdownSpanStyle style, out Color? background, out Color? forceColor, Color? linkColor = null) {
             background = null;
             forceColor = null;
             MarkdownSpanStyle inner = style;
@@ -100,7 +106,7 @@ namespace Game {
                 }
                 case "a":
                     inner.Href = node.GetAttributeValue("href", null);
-                    inner.Color = RichContentPalette.LinkColor;
+                    inner.Color = linkColor ?? RichContentPalette.LinkColor;
                     break;
                 case "code":
                 case "samp":
@@ -166,7 +172,9 @@ namespace Game {
         }
 
         // 行内上下文的零散 HtmlInline：Markdig 逐标签分发、无配对信息，逐项喂 HAP 会被自动闭合成空节点
-        // （"<b>" 无子节点、"</b>" 被丢弃），样式全静默失效——用标签栈把开/闭标签串起来
+        // （"<b>" 无子节点、"</b>" 被丢弃），样式全静默失效——用标签栈把开/闭标签串起来。
+        // 局限留档：此路径不识别全局 hidden（无 DOM 子树、需跨开/闭标签携带抑制态，成本高），
+        // MD 行内 <span hidden> 照常渲染；hidden 拦截只在 DOM 路径（ParseHtmlNode/BuildHtmlNodes）生效
         public static MarkdownSpanStyle ApplyInlineHtmlTag(string tag, List<TextSpan> spans, MarkdownSpanStyle style, Color defaultColor, Stack<MarkdownSpanStyle> htmlStack, int depth) {
             if (string.IsNullOrEmpty(tag)) {
                 return style;
@@ -217,10 +225,10 @@ namespace Game {
             return match.Success && match.Groups[1].Value.ToLowerInvariant() is "br" or "hr" or "img" or "wbr";
         }
 
-        static void ParseHtmlChildren(HtmlAgilityPack.HtmlNode node, List<TextSpan> spans, MarkdownSpanStyle style, Color defaultColor, int depth, Color? forceColor = null, Color? background = null) {
+        static void ParseHtmlChildren(HtmlAgilityPack.HtmlNode node, List<TextSpan> spans, MarkdownSpanStyle style, Color defaultColor, int depth, Color? forceColor = null, Color? background = null, Color? linkColor = null) {
             int firstNew = spans.Count;
             foreach (HtmlAgilityPack.HtmlNode child in node.ChildNodes) {
-                ParseHtmlNode(child, spans, style, defaultColor, depth + 1);
+                ParseHtmlNode(child, spans, style, defaultColor, depth + 1, linkColor);
             }
             if (forceColor != null || background != null) {
                 for (int i = firstNew; i < spans.Count; i++) {

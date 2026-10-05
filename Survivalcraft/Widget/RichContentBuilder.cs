@@ -83,7 +83,7 @@ namespace Game {
         // 块级嵌套深度上限（引用/列表/HTML 互嵌递归）：防御不可信输入的深嵌套
         protected const int MaxDepth = 64;
 
-        protected RichTextWidget CreateRichText(Color? colorOverride) {
+        protected virtual RichTextWidget CreateRichText(Color? colorOverride) {
             RichTextWidget widget = new() {
                 WordWrap = true,
                 Font = Font,
