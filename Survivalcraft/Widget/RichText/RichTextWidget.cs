@@ -141,6 +141,42 @@ namespace Game {
 
         float m_letterSpacing;
 
+        float m_firstLineIndent;
+
+        float m_firstLineIndentPercent;
+
+        // CSS text-indent（块级首行缩进）：px 声明直落；% 声明落 FirstLineIndentPercent
+        //（50=50%），UpdateLayout 期相对本件排版可用宽解析为有效 px 缓存 m_resolvedFirstLineIndent。
+        // 声明 build 期定死不运行期变，有效值是宽的纯函数，量测缓存键（宽+高）不扩。
+        // 折行预算吃法在 RichTextLayout.Layout（只减整个 layout 第一行），行 x 偏移在
+        // Draw/FindLinkAtPoint（只移首行，两处必须同源同值）
+        public float FirstLineIndent {
+            get => m_firstLineIndent;
+            set {
+                // 规范化：负值（CSS hanging 不支持）与 NaN/∞ 直钳 0——NaN 经 MathF.Max 钳不住
+                // 必须 IsFinite 显式判；规范化后 Draw/命中侧首行 += 偏移无条件安全
+                value = !float.IsFinite(value) || value < 0f ? 0f : value;
+                if (value != m_firstLineIndent) {
+                    m_firstLineIndent = value;
+                    MarkLayoutDirty();
+                }
+            }
+        }
+
+        public float FirstLineIndentPercent {
+            get => m_firstLineIndentPercent;
+            set {
+                value = !float.IsFinite(value) || value < 0f ? 0f : value;
+                if (value != m_firstLineIndentPercent) {
+                    m_firstLineIndentPercent = value;
+                    MarkLayoutDirty();
+                }
+            }
+        }
+
+        // 上次排版解析出的有效首行缩进 px（px 声明 +% 折算；% 无有限正宽基准时只落 px）
+        public float m_resolvedFirstLineIndent;
+
         // CSS letter-spacing（块级继承属性，builder 递归链归一 px 传入）：进 CharacterAdvance
         // 排版宽度——影响测量与折行判定，必须 MarkLayoutDirty；负值合法（CSS 收紧字距）。
         // 默认 0 时 setter 不触发（首建即 0）且 advance +0 浮点无变化，零回归
@@ -222,6 +258,7 @@ namespace Game {
             FontBatch2D fontBatch2D = dc.PrimitivesRenderer2D.FontBatch(Font, 1, DepthStencilState.None, null, null, samplerState);
             int batchStart = fontBatch2D.TriangleVertices.Count;
             float blockY = CalculateBlockY();
+            TextLine firstLine = m_layout.Lines[0];
             foreach (TextLine line in m_layout.Lines) {
                 float lineX = 0f;
                 if ((TextAnchor & TextAnchor.HorizontalCenter) != 0) {
@@ -229,6 +266,12 @@ namespace Game {
                 }
                 else if ((TextAnchor & TextAnchor.Right) != 0) {
                     lineX = ActualSize.X - line.Width;
+                }
+                // text-indent：首行整体右移有效缩进。锚点先按内容宽定位再叠加——居中/右对齐下
+                // 缩进为纯右移近似（严格 CSS 口径缩进占首行盒宽、会再挤压锚点偏移，留档不做）；
+                // 背景/边框/下划线/省略号随 run x 走自动带上
+                if (line == firstLine) {
+                    lineX += m_resolvedFirstLineIndent;
                 }
                 foreach (TextRun run in line.Runs) {
                     // run 级淡出系数：span 级（行内 opacity 声明）。块级整件淡出走 ColorTransform
@@ -528,7 +571,12 @@ namespace Game {
             m_layout.MaxLines = MaxLines;
             m_layout.Ellipsis = Ellipsis;
             m_layout.Spans = m_spans;
-            m_layout.Layout(availableWidth, availableHeight);
+            // 有效缩进解析（% 分母=本件排版可用宽）：超界宽（MaxValue 自测口径/∞）无基准只落 px，
+            // 防 %×巨宽溢出成 ∞ 把首行预算钳到 1px
+            float percentBasis = availableWidth > 0f
+                && availableWidth < 1e7f ? availableWidth : 0f;
+            m_resolvedFirstLineIndent = m_firstLineIndent + m_firstLineIndentPercent / 100f * percentBasis;
+            m_layout.Layout(availableWidth, availableHeight, m_resolvedFirstLineIndent);
             m_layoutSize = m_layout.MeasuredSize;
             m_layoutAvailableWidth = availableWidth;
             m_layoutAvailableHeight = availableHeight;
@@ -542,6 +590,8 @@ namespace Game {
         // sup 内链接上缘、sub 内链接下缘点不中）
         public TextRun FindLinkAtPoint(Vector2 point) {
             float blockY = CalculateBlockY();
+            // 与 Draw 同源：首行 x 叠加有效缩进（命中区间跟随绘制位置，两处口径必须一致）
+            TextLine firstLine = m_layout.Lines.Count > 0 ? m_layout.Lines[0] : null;
             foreach (TextLine line in m_layout.Lines) {
                 float shiftUp = 0f;
                 float shiftDown = 0f;
@@ -564,6 +614,9 @@ namespace Game {
                 }
                 else if ((TextAnchor & TextAnchor.Right) != 0) {
                     lineX = ActualSize.X - line.Width;
+                }
+                if (line == firstLine) {
+                    lineX += m_resolvedFirstLineIndent;
                 }
                 foreach (TextRun run in line.Runs) {
                     if (run.IsLink

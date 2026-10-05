@@ -17,6 +17,18 @@ namespace Game {
 
         Color? m_bodyLinkColor;
 
+        // text-indent 待挂缩进（块级 case 入口 Flush 关边界后挂，Flush 产段落件时消费清零）。
+        // 消费模型=「声明节点的行内内容首个段落吃缩进」：块级子经 Flush 产段时先到先得
+        //（CSS text-indent 继承的近似——子块首段继承吃缩进）。所有权跟踪：m_pendingIndentOwner
+        // 记挂载节点，各挂接 case 在子树递归完成后判所有者回收（ClearUnconsumedTextIndent）——
+        // 空段/仅直建块（标题/pre/table）/仅列表（FlushLi 不读 pending）等未消费情形在块外
+        // 截断，防泄漏给后续兄弟块；被子树内段落消费或被更深声明覆写（所有者已换人/清零）则不动
+        float m_pendingIndentPx;
+
+        float? m_pendingIndentPercent;
+
+        HtmlAgilityPack.HtmlNode m_pendingIndentOwner;
+
         // HTML 片段入口：解析为 DOM 后做块级遍历，块收进自建面板返回（HtmlWidget 壳用）
         public StackPanelWidget BuildHtml(string html, int listDepth, Color? colorOverride, int depth) {
             StackPanelWidget panel = CreatePanel();
@@ -29,6 +41,10 @@ namespace Game {
             m_bodyBackground = null;
             m_bodyTextColor = null;
             m_bodyLinkColor = null;
+            // 待挂缩进同步清零：上次构建尾部残留（如收尾空段未消费）不得流入本次构建
+            m_pendingIndentPx = 0f;
+            m_pendingIndentPercent = null;
+            m_pendingIndentOwner = null;
             HtmlAgilityPack.HtmlDocument doc = new();
             doc.LoadHtml(html ?? string.Empty);
             BuildHtmlNodes(doc.DocumentNode.ChildNodes, panel, listDepth, colorOverride, depth);
@@ -357,6 +373,11 @@ namespace Game {
                 if (pendingSpans.Count > 0) {
                     HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
                     if (pendingSpans.Count == 0) {
+                        // 纯空白段蒸发：随段挂的缩进连同所有者一并清除（防泄漏给相邻块；空边界
+                        // Flush 不消费——pending 属尚未冲刷的挂载点）
+                        m_pendingIndentPx = 0f;
+                        m_pendingIndentPercent = null;
+                        m_pendingIndentOwner = null;
                         return;
                     }
                     RichTextWidget widget = CreateRichText(colorOverride);
@@ -373,6 +394,16 @@ namespace Game {
                     }
                     // letter-spacing：段落级声明覆盖继承（替换语义），无声明=继承 ctx（默认 0）
                     widget.LetterSpacing = paraLs;
+                    // text-indent：块级 case 挂的待挂缩进由首个产段 Flush 消费（先到先得），空
+                    // 边界 Flush 不动
+                    if (m_pendingIndentPx != 0f
+                        || m_pendingIndentPercent.HasValue) {
+                        widget.FirstLineIndent = m_pendingIndentPx;
+                        widget.FirstLineIndentPercent = m_pendingIndentPercent ?? 0f;
+                        m_pendingIndentPx = 0f;
+                        m_pendingIndentPercent = null;
+                        m_pendingIndentOwner = null;
+                    }
                     // CSS opacity：段落件 ColorTransform=White×v（全通道缩放，Arrange 期级联浸透
                     // 子树；只缩 A 是直色×预乘缺陷陷阱，参照 ComponentGui 模态过渡先例）。
                     // 行内 span 级透明度已在 span.Opacity，Draw 期叠乘
@@ -403,6 +434,24 @@ namespace Game {
                         continue;
                     }
                     HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, EffectiveTextColor(inlineColorOverride), linkColor: m_bodyLinkColor);
+                }
+            }
+            // text-indent 挂载（声明节点自身行内内容首段吃缩进）：调用点须在块边界 Flush 之后
+            //——先关上一段边界再挂，防被上一段的收尾 Flush 误消费
+            void PendTextIndent(HtmlAgilityPack.HtmlNode indentNode) {
+                if (TryParseTextIndent(indentNode, out float px, out float? percent)) {
+                    m_pendingIndentPx = px;
+                    m_pendingIndentPercent = percent;
+                    m_pendingIndentOwner = indentNode;
+                }
+            }
+            // 待挂缩进所有权回收：挂接 case 在子树递归完成后、下一块边界 Flush 前调用——
+            // 所有者仍是本节点=子树内无任何段落消费（空段/仅直建块/仅列表等），块外截断
+            void ClearUnconsumedTextIndent(HtmlAgilityPack.HtmlNode owner) {
+                if (m_pendingIndentOwner == owner) {
+                    m_pendingIndentPx = 0f;
+                    m_pendingIndentPercent = null;
+                    m_pendingIndentOwner = null;
                 }
             }
             foreach (HtmlAgilityPack.HtmlNode node in nodes) {
@@ -452,6 +501,7 @@ namespace Game {
                         // p align 属性：本段对齐覆写继承（CSS text-align 元素级口径）；
                         // style 盒属性：段落壳（行内内容+升级 img 块整体入壳）
                         Flush();
+                        PendTextIndent(node);
                         bool styledPara = TryBeginStyleBox(node, colorOverride, out StackPanelWidget paraShell, out Vector4 paraPad);
                         if (styledPara) {
                             flowPanel = paraShell;
@@ -466,6 +516,7 @@ namespace Game {
                                 panel.Children.Add(ApplyBlockSizing(node, paraShell));
                             }
                         }
+                        ClearUnconsumedTextIndent(node);
                         break;
                     }
                     case "div": {
@@ -473,6 +524,7 @@ namespace Game {
                         // 否则 div 内 pre 被当普通元素折叠，代码缩进/换行全毁；align 属性覆写继承。
                         // style 盒属性：子树入壳（容器壳，padding 铺直接子件）
                         Flush();
+                        PendTextIndent(node);
                         bool styledDiv = TryBeginStyleBox(node, colorOverride, out StackPanelWidget divShell, out Vector4 divPad);
                         (TextWordBreak divBreak, bool divNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
                         (float divLhMul, float divLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
@@ -482,6 +534,7 @@ namespace Game {
                         if (styledDiv && EndStyleBox(divShell, divPad)) {
                             panel.Children.Add(ApplyBlockSizing(node, divShell));
                         }
+                        ClearUnconsumedTextIndent(node);
                         break;
                     }
                     case "html":
@@ -525,11 +578,13 @@ namespace Game {
                         break;
                     case "blockquote": {
                         Flush();
+                        PendTextIndent(node);
                         (TextWordBreak quoteBreak, bool quoteNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
                         (float quoteLhMul, float quoteLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
                         float quoteLs = ResolveLetterSpacingCtx(node, letterSpacingCtx);
                         Widget quote = CreateHtmlQuote(node, listDepth, colorOverride, depth, blockAlign, quoteBreak, quoteNoWrap, quoteLhMul, quoteLhPx, opacityCtx * ResolveOpacityMultiplier(node), quoteLs);
                         panel.Children.Add(FinalizeBlock(node, quote, colorOverride));
+                        ClearUnconsumedTextIndent(node);
                         break;
                     }
                     case "pre": {
@@ -586,6 +641,7 @@ namespace Game {
                         // （Chrome text-align 语义，覆写外层继承）；table 直下 caption 已在 table case
                         // 预提取，此处兜 table 外裸 caption。style 盒属性：子树入壳
                         Flush();
+                        PendTextIndent(node);
                         bool styledCenter = TryBeginStyleBox(node, colorOverride, out StackPanelWidget centerShell, out Vector4 centerPad);
                         (TextWordBreak centerBreak, bool centerNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
                         (float centerLhMul, float centerLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
@@ -594,12 +650,14 @@ namespace Game {
                         if (styledCenter && EndStyleBox(centerShell, centerPad)) {
                             panel.Children.Add(ApplyBlockSizing(node, centerShell));
                         }
+                        ClearUnconsumedTextIndent(node);
                         break;
                     case "dl":
                     case "details":
                         // dl 定义列表容器 / details 折叠容器（无折叠交互，按已展开直排——用户裁定）：
                         // 块边界+子节点重入，dt/dd 各归其位。style 盒属性：子树入壳
                         Flush();
+                        PendTextIndent(node);
                         bool styledDl = TryBeginStyleBox(node, colorOverride, out StackPanelWidget dlShell, out Vector4 dlPad);
                         (TextWordBreak dlBreak, bool dlNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
                         (float dlLhMul, float dlLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
@@ -608,10 +666,12 @@ namespace Game {
                         if (styledDl && EndStyleBox(dlShell, dlPad)) {
                             panel.Children.Add(ApplyBlockSizing(node, dlShell));
                         }
+                        ClearUnconsumedTextIndent(node);
                         break;
                     case "dt": {
                         // 术语段：独立成段不加粗（用户裁定），同 p 口径（含段落壳）
                         Flush();
+                        PendTextIndent(node);
                         bool styledDt = TryBeginStyleBox(node, colorOverride, out StackPanelWidget dtShell, out Vector4 dtPad);
                         if (styledDt) {
                             flowPanel = dtShell;
@@ -625,6 +685,7 @@ namespace Game {
                                 panel.Children.Add(ApplyBlockSizing(node, dtShell));
                             }
                         }
+                        ClearUnconsumedTextIndent(node);
                         break;
                     }
                     case "dd": {
@@ -632,6 +693,7 @@ namespace Game {
                         // 图片块宽度扣减消费，文字段不读它——缩进须像引用块一样 SetPosition 落地）；
                         // CurrentIndentX 同步进档让 dd 内代码块/图片按缩进后净宽构建
                         Flush();
+                        PendTextIndent(node);
                         float prevIndentDd = CurrentIndentX;
                         CurrentIndentX += ListIndentPerDepth;
                         StackPanelWidget ddPanel = CreatePanel();
@@ -659,11 +721,13 @@ namespace Game {
                         // style 盒属性：ddOuter 入壳（已知留档：dd 内代码块/图片构建宽不吃 padding，
                         // CurrentIndentX 补偿口径 dd 专属缩进语义纠缠，不做）
                         panel.Children.Add(FinalizeBlock(node, ddOuter, colorOverride));
+                        ClearUnconsumedTextIndent(node);
                         break;
                     }
                     case "summary": {
                         // 折叠标题：开头补 ▼ 代表已展开（用户裁定），余同 p 口径（含段落壳）
                         Flush();
+                        PendTextIndent(node);
                         bool styledSummary = TryBeginStyleBox(node, colorOverride, out StackPanelWidget summaryShell, out Vector4 summaryPad);
                         if (styledSummary) {
                             flowPanel = summaryShell;
@@ -678,6 +742,7 @@ namespace Game {
                                 panel.Children.Add(ApplyBlockSizing(node, summaryShell));
                             }
                         }
+                        ClearUnconsumedTextIndent(node);
                         break;
                     }
                     case "footer":
@@ -687,6 +752,7 @@ namespace Game {
                         //（否则 <footer><p>a</p><p>b</p> 两段被平铺合并）。style 盒属性：
                         // 块级子标签=容器壳，行内形态=段落壳
                         Flush();
+                        PendTextIndent(node);
                         if (ContainsBlockChild(node)) {
                             bool styledFooter = TryBeginStyleBox(node, colorOverride, out StackPanelWidget footerShell, out Vector4 footerPad);
                             (TextWordBreak footerBreak, bool footerNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
@@ -715,6 +781,7 @@ namespace Game {
                                 }
                             }
                         }
+                        ClearUnconsumedTextIndent(node);
                         Flush();
                         break;
                     }
@@ -726,8 +793,12 @@ namespace Game {
                         // 子节点，行内容器标签自带样式被静默跳过）。
                         // style 盒属性：块级子标签=容器壳，img 段形态=段落壳；纯行内形态不做
                         //（行内盒 padding/margin 依赖 advance 计费，与行内 border 同波）
+                        // 不挂点清单（text-indent）：li 直发块/嵌套列表（FlushLi 不读 pending）、
+                        // h1-6/cell 纯行内格/table/img/pre/hr（直建不经 Flush 产段或缩进罕见）、
+                        // 行内容器纯行内形态（Chrome 行内元素 text-indent 无效，挂了会让下段误缩）
                         if (ContainsBlockChild(node)) {
                             Flush();
+                            PendTextIndent(node);
                             bool styledUnknown = TryBeginStyleBox(node, colorOverride, out StackPanelWidget unknownShell, out Vector4 unknownPad);
                             (TextWordBreak unknownBreak, bool unknownNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
                             (float unknownLhMul, float unknownLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
@@ -736,9 +807,11 @@ namespace Game {
                             if (styledUnknown && EndStyleBox(unknownShell, unknownPad)) {
                                 panel.Children.Add(ApplyBlockSizing(node, unknownShell));
                             }
+                            ClearUnconsumedTextIndent(node);
                         }
                         else if (ImageLoader != null
                             && HasElementChild(node, "img")) {
+                            PendTextIndent(node);
                             bool styledImgPara = TryBeginStyleBox(node, colorOverride, out StackPanelWidget imgParaShell, out Vector4 imgParaPad);
                             if (styledImgPara) {
                                 flowPanel = imgParaShell;
@@ -754,6 +827,7 @@ namespace Game {
                                     panel.Children.Add(ApplyBlockSizing(node, imgParaShell));
                                 }
                             }
+                            ClearUnconsumedTextIndent(node);
                         }
                         else {
                             HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, EffectiveTextColor(colorOverride), linkColor: m_bodyLinkColor);
@@ -1646,6 +1720,76 @@ namespace Game {
         // 随块级容器递归链透传（与 word-break/line-height 同链同挂载点）
         static float ResolveLetterSpacingCtx(HtmlAgilityPack.HtmlNode node, float inherited) {
             return ParseLetterSpacingStyle(node, out float px) ? px : inherited;
+        }
+
+        // style text-indent 解析（块级首行缩进，非继承属性——只吃声明节点自身行内内容首段）：
+        // px 直取、pt×4/3、rem/em×16（根字号口径）→ 绝对 px；% → percent=pct 数值（50=50%，
+        // 消费端相对本件排版可用宽折算）；无单位数字按 px（老 HTML 长度宽松口径）。normal/unset
+        // 与负值（hanging 悬挂缩进）不支持 → false 整条忽略。返回=有可用声明
+        static bool TryParseTextIndent(HtmlAgilityPack.HtmlNode node, out float pxIndent, out float? percentIndent) {
+            pxIndent = 0f;
+            percentIndent = null;
+            if (!CssStyleParser.TryGetDeclaration(node.GetAttributeValue("style", null), "text-indent", out string decl)) {
+                return false;
+            }
+            string v = decl.Trim();
+            if (v.Equals("normal", StringComparison.OrdinalIgnoreCase)
+                || v.Equals("unset", StringComparison.OrdinalIgnoreCase)) {
+                return false;
+            }
+            // 值体解析（单位大小写不敏感）；rem 判定须先于 em（"1.5rem" 以 "em" 结尾）。
+            // IsFinite 拒 ∞（1e40px 之类）：∞ resolved 会把首行预算钳 1px 且 Draw 偏移成 ∞
+            bool TryMagnitude(string text, out float value) {
+                return float.TryParse(text.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value)
+                    && float.IsFinite(value);
+            }
+            if (v.EndsWith("%", StringComparison.Ordinal)) {
+                if (TryMagnitude(v[..^1], out float percent)
+                    && percent > 0f) {
+                    percentIndent = percent;
+                    return true;
+                }
+                return false;
+            }
+            if (v.EndsWith("rem", StringComparison.OrdinalIgnoreCase)) {
+                if (TryMagnitude(v[..^3], out float rems)
+                    && rems > 0f) {
+                    pxIndent = rems * 16f;
+                    return true;
+                }
+                return false;
+            }
+            if (v.EndsWith("em", StringComparison.OrdinalIgnoreCase)) {
+                if (TryMagnitude(v[..^2], out float ems)
+                    && ems > 0f) {
+                    pxIndent = ems * 16f;
+                    return true;
+                }
+                return false;
+            }
+            if (v.EndsWith("px", StringComparison.OrdinalIgnoreCase)) {
+                if (TryMagnitude(v[..^2], out float pixels)
+                    && pixels > 0f) {
+                    pxIndent = pixels;
+                    return true;
+                }
+                return false;
+            }
+            if (v.EndsWith("pt", StringComparison.OrdinalIgnoreCase)) {
+                if (TryMagnitude(v[..^2], out float points)
+                    && points > 0f) {
+                    pxIndent = points * 4f / 3f;
+                    return true;
+                }
+                return false;
+            }
+            // 无单位数字：按 px（设计口径）
+            if (TryMagnitude(v, out float number)
+                && number > 0f) {
+                pxIndent = number;
+                return true;
+            }
+            return false;
         }
 
         // 节点 style opacity 声明解析：值域同行内口径（HtmlSpanParser.TryParseCssOpacity——

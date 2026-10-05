@@ -54,7 +54,10 @@ namespace Game {
 
         public float CalculateLineHeight(float fontScale) => (Font.GlyphHeight + Font.Spacing.Y + FontSpacing.Y) * fontScale * Font.Scale;
 
-        public void Layout(float availableWidth, float availableHeight) {
+        // firstLineIndent：CSS text-indent（块级首行缩进，px）。只吃整个 layout 的第一行
+        //（段序列第一段的首行）折行预算；后续 '\n' 段与折行续行不缩进（CSS：<br> 不产生新块首行）。
+        // 行 x 偏移由绘制/命中侧（RichTextWidget）叠加，本方法只管预算口径
+        public void Layout(float availableWidth, float availableHeight, float firstLineIndent = 0f) {
             Lines.Clear();
             MeasuredSize = Vector2.Zero;
             if (Font == null
@@ -92,6 +95,11 @@ namespace Game {
                 sequence++;
             }
             paragraphs.Add(current);
+            // 首行折行预算=可用宽−缩进（下限 1px 防负/零宽死循环）；可用宽无穷时无缩进口径
+            bool hasIndent = firstLineIndent > 0f
+                && float.IsFinite(availableWidth);
+            float firstLineWidth = hasIndent ? MathF.Max(availableWidth - firstLineIndent, 1f) : availableWidth;
+            bool firstLinePending = true;
             int maxLines = MaxLines;
             if (availableHeight < float.PositiveInfinity) {
                 // 约束高→行数换算按行距 pitch（与量测同式）：自然高换算在 line-height>1 时
@@ -105,25 +113,28 @@ namespace Game {
                 }
                 if (paragraph.Count == 0) {
                     AddLine([], false);
+                    // 空段也占行盒：缩进口径按「整个 layout 第一行」计，首空行即耗掉缩进
+                    firstLinePending = false;
                     continue;
                 }
                 int start = 0;
                 while (start < paragraph.Count) {
                     int end = paragraph.Count;
                     bool lineEllipsized = false;
+                    float lineBudget = firstLinePending ? firstLineWidth : availableWidth;
                     if (WordWrap) {
                         if (Ellipsis
                             && Lines.Count + 1 >= maxLines) {
                             // 末行直接按减省略号宽适配剩余内容，放不下才截断补 "..."（与 FontTextWidget flag 路径一致）：
                             // 若先按全宽断行再收缩，断行点空隙≥省略号宽时会静默丢内容且无省略号
-                            int fitCount = CountFittingCells(paragraph, start, end, availableWidth, reserveEllipsis: true);
+                            int fitCount = CountFittingCells(paragraph, start, end, lineBudget, reserveEllipsis: true);
                             if (fitCount < end - start) {
                                 end = start + fitCount;
                                 lineEllipsized = true;
                             }
                         }
                         else {
-                            int fitCount = CountFittingCells(paragraph, start, end, availableWidth, reserveEllipsis: false);
+                            int fitCount = CountFittingCells(paragraph, start, end, lineBudget, reserveEllipsis: false);
                             if (fitCount < end - start) {
                                 int breakPosition = FontTextWidget.FindLineBreakPosition(BuildString(paragraph, start, end), MathUtils.Max(fitCount, 1), WordBreak);
                                 if (breakPosition <= 0) {
@@ -135,7 +146,7 @@ namespace Game {
                     }
                     else if (Ellipsis) {
                         // 非换行：段落超宽即截断补 "..."（与 FontTextWidget 非换行分支一致）
-                        int fitCount = CountFittingCells(paragraph, start, end, availableWidth, reserveEllipsis: true);
+                        int fitCount = CountFittingCells(paragraph, start, end, lineBudget, reserveEllipsis: true);
                         if (fitCount < end - start) {
                             end = start + fitCount;
                             lineEllipsized = true;
@@ -153,6 +164,7 @@ namespace Game {
                         nextStart++;
                     }
                     AddLine(paragraph.GetRange(start, end - start), lineEllipsized);
+                    firstLinePending = false;
                     if (lineEllipsized) {
                         break;
                     }
@@ -181,6 +193,12 @@ namespace Game {
                 // 修剪目标=末行 pitch−字形项（GlyphHeight×末行字号×Font.Scale 与原式同项），
                 // 即剔除纯行间距；pitch<字形项（行高<1）时差值为负=末行向上收（CSS 同义）
                 y -= lastPitch - Font.GlyphHeight * Lines[^1].MaxScale * Font.Scale;
+            }
+            if (Lines.Count > 0
+                && hasIndent) {
+                // 首行缩进计入测量宽（首行实际宽+缩进）：收缩/裁剪宿主下 DesiredSize.X 不再少报，
+                // 首行不越出宿主盒；空首段耗缩进情形首行宽 0，计入的即缩进本身（行盒占位同义）
+                maxWidth = MathUtils.Max(maxWidth, Lines[0].Width + firstLineIndent);
             }
             MeasuredSize = new Vector2(maxWidth, y);
         }
