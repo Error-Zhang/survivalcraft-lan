@@ -74,9 +74,14 @@ namespace Game {
                     break;
                 }
                 case CodeInline code:
+                    // 行内代码只接 Bold（斜体/删除线不接为既有取舍），装饰/缩放三字段随嵌套上下文透传
+                    //（<u><code>、<small><code>、<sub><code> 行内路径不再丢样式）
                     spans.Add(new TextSpan(code.Content, RichContentPalette.CodeColor) {
                         BackgroundColor = RichContentPalette.CodeBackgroundColor,
-                        Style = style.Bold ? RichTextStyle.Bold : RichTextStyle.Normal
+                        Style = style.Bold ? RichTextStyle.Bold : RichTextStyle.Normal,
+                        FontScale = style.Scale,
+                        Underline = style.Underline,
+                        BaselineShift = style.BaselineShift
                     });
                     break;
                 case LinkInline link: {

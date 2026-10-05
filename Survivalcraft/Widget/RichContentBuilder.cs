@@ -225,9 +225,13 @@ namespace Game {
             };
             outer.Children.Add(line);
             inner = CreatePanel();
-            inner.Margin = new Vector2(0f, 2f);
+            // 内容缩进走 MarginLeft 不走 SetPosition：Canvas 对 SetPosition 子件按 desired 尺寸排布
+            //（alignment 被忽略），收缩宽下段级 HorizontalCenter 锚点无居中空间；MarginLeft 走通用
+            // 排布路径，Near 视觉不变（x=MarginLeft=10），居中容器内引用由 HTML 侧置 Stretch 撑满
+            inner.MarginLeft = 10f;
+            inner.MarginTop = 2f;
+            inner.MarginBottom = 2f;
             outer.Children.Add(inner);
-            CanvasWidget.SetPosition(inner, new Vector2(10f, 0f));
             return outer;
         }
 

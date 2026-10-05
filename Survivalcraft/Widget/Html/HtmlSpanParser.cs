@@ -160,14 +160,16 @@ namespace Game {
                 return style;
             }
             if (tag.StartsWith("</", StringComparison.Ordinal)) {
+                // 闭标签：出栈恢复进入前样式；无配对开标签时保持当前样式
+                MarkdownSpanStyle restored = htmlStack.Count > 0 ? htmlStack.Pop() : style;
                 Match closeName = s_htmlCloseTagNameRegex.Match(tag);
                 if (closeName.Success
                     && closeName.Groups[1].Value.ToLowerInvariant() == "q") {
-                    // <q> 闭标签：补尾引号（引号用进入前 style，不吃 q 内容样式）
-                    AddText("\u201D", spans, style, defaultColor);
+                    // <q> 闭标签：补尾引号（用弹出后的进入前 style，不吃 q 内容样式——与 DOM 路径对齐；
+                    // 此处 style 已是 q 内部值，<q style="color:red"> 的闭引号会误染红）
+                    AddText("\u201D", spans, restored, defaultColor);
                 }
-                // 闭标签：出栈恢复进入前样式；无配对开标签时忽略
-                return htmlStack.Count > 0 ? htmlStack.Pop() : style;
+                return restored;
             }
             // void 元素与自闭合写法没有配对闭标签，按完整片段当场生效（<br>→换行等）
             if (IsVoidHtmlTag(tag)) {
@@ -210,7 +212,9 @@ namespace Game {
             }
             if (forceColor != null || background != null) {
                 for (int i = firstNew; i < spans.Count; i++) {
-                    if (forceColor != null) {
+                    // 前景色跳过链接（浏览器 UA 样式：kbd/code/mark 内的链接保持链接色）；底色照刷
+                    if (forceColor != null
+                        && spans[i].Href == null) {
                         spans[i].Color = forceColor;
                     }
                     spans[i].BackgroundColor = background;

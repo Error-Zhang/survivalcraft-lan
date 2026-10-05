@@ -378,7 +378,7 @@ namespace Game {
 
         bool HasBackground {
             get {
-                foreach (TextSpan span in m_spans) {
+                foreach (TextSpan span in Spans) {
                     if (span.BackgroundColor != null) {
                         return true;
                     }
@@ -425,12 +425,25 @@ namespace Game {
 
         float SpanScale(TextSpan span) => span.FontScale > 0f ? span.FontScale : FontScale;
 
-        // 命中测试：坐标为 widget 本地坐标；先按行 y 区间定位行（含垂直锚点偏移，与 Draw 一致），再按行内 run x 区间定位链接 run
+        // 命中测试：坐标为 widget 本地坐标；先按行 y 区间定位行（含垂直锚点偏移，与 Draw 一致），再按行内 run x 区间定位链接 run。
+        // 行 y 区间按行内 sub/sup 的基线偏移外扩（Draw 侧字形整体平移出 line box，命中框不外扩则
+        // sup 内链接上缘、sub 内链接下缘点不中）
         public TextRun FindLinkAtPoint(Vector2 point) {
             float blockY = CalculateBlockY();
             foreach (TextLine line in m_layout.Lines) {
-                if (point.Y < blockY + line.Y
-                    || point.Y >= blockY + line.Y + line.Height) {
+                float shiftUp = 0f;
+                float shiftDown = 0f;
+                foreach (TextRun run in line.Runs) {
+                    float shift = run.Span.BaselineShift * Font.GlyphHeight * FontScale * Font.Scale;
+                    if (shift > 0f) {
+                        shiftDown = MathUtils.Max(shiftDown, shift);
+                    }
+                    else {
+                        shiftUp = MathUtils.Max(shiftUp, -shift);
+                    }
+                }
+                if (point.Y < blockY + line.Y - shiftUp
+                    || point.Y >= blockY + line.Y + line.Height + shiftDown) {
                     continue;
                 }
                 float lineX = 0f;
