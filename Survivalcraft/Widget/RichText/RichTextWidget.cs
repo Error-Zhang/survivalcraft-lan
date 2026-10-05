@@ -139,6 +139,21 @@ namespace Game {
             }
         }
 
+        float m_letterSpacing;
+
+        // CSS letter-spacing（块级继承属性，builder 递归链归一 px 传入）：进 CharacterAdvance
+        // 排版宽度——影响测量与折行判定，必须 MarkLayoutDirty；负值合法（CSS 收紧字距）。
+        // 默认 0 时 setter 不触发（首建即 0）且 advance +0 浮点无变化，零回归
+        public float LetterSpacing {
+            get => m_letterSpacing;
+            set {
+                if (value != m_letterSpacing) {
+                    m_letterSpacing = value;
+                    MarkLayoutDirty();
+                }
+            }
+        }
+
         public int MaxLines {
             get => m_maxLines;
             set {
@@ -236,6 +251,11 @@ namespace Game {
                         continue;
                     }
                     Vector2 scale = new(SpanScale(run.Span));
+                    // 字距折入绘制侧 spacing（QueueLine 推进=glyph.Width−kerning+fullSpacing，
+                    // font 单位经 right 缩放）：除回本 run 的 scale×Font.Scale 还原绝对 px，
+                    // 与排版侧 CharacterAdvance+LetterSpacing 同值——否则 run 宽虚胀、字形紧排，
+                    // 折行/锚点/命中与实画系统性漂移（排版-绘制不变量，文件头自述）
+                    Vector2 drawSpacing = new(FontSpacing.X + LetterSpacing / (scale.X * Font.Scale), FontSpacing.Y);
                     Vector2 position = new(lineX + run.X, blockY + line.Y);
                     // 基线偏移（sub/sup）：先融进 position，背景/文字/删除线/下划线全体跟随；
                     // em 基准=父字号（FontScale=layout DefaultFontScale），不随 span 自身缩小再缩
@@ -316,7 +336,7 @@ namespace Game {
                             new Color((byte)0, (byte)0, (byte)0, color.A),
                             anchor,
                             scale,
-                            FontSpacing
+                            drawSpacing
                         );
                         if (italic) {
                             fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), shadowStart);
@@ -332,7 +352,7 @@ namespace Game {
                             color,
                             anchor,
                             scale,
-                            FontSpacing
+                            drawSpacing
                         );
                         if (italic) {
                             fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), boldStart);
@@ -346,7 +366,7 @@ namespace Game {
                         color,
                         anchor,
                         scale,
-                        FontSpacing
+                        drawSpacing
                     );
                     if (italic) {
                         fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), runStart);
@@ -508,6 +528,7 @@ namespace Game {
             m_layout.WordBreak = WordBreak;
             m_layout.LineHeightMultiplier = LineHeightMultiplier;
             m_layout.LineHeightPx = LineHeightPx;
+            m_layout.LetterSpacing = LetterSpacing;
             m_layout.MaxLines = MaxLines;
             m_layout.Ellipsis = Ellipsis;
             m_layout.Spans = m_spans;

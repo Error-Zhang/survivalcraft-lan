@@ -636,14 +636,14 @@ namespace Game {
                 // 列宽=文字+2pad，Arrange 内缩 pad 后文字恰满——缺补时内容区=文字−2pad 必溢出
                 // （15.8.5 "表头三"出格）。Size.X≥0 显式外框（HTML 纯行内格 Size=自然宽+2pad 锚定）
                 // 已含 pad，补了双计
-                minCore = MeasureSpansMinWidth(rich.Spans, rich.Font, rich.FontScale, rich.WordBreak) + 2f * CellPadding.X;
+                minCore = MeasureSpansMinWidth(rich.Spans, rich.Font, rich.FontScale, rich.WordBreak, rich.LetterSpacing) + 2f * CellPadding.X;
                 if (rich.Size.X < 0f) {
                     maxCore += 2f * CellPadding.X;
                 }
             }
             else if (cell is LabelWidget label) {
                 // label 单 span 扫描（span.FontScale=0 → 回退 label.FontScale），pad 口径同上
-                minCore = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, label.FontScale, label.WordBreak) + 2f * CellPadding.X;
+                minCore = MeasureSpansMinWidth([ new TextSpan(label.Text) ], label.Font, label.FontScale, label.WordBreak, 0f) + 2f * CellPadding.X;
                 if (label.Size.X < 0f) {
                     maxCore += 2f * CellPadding.X;
                 }
@@ -674,7 +674,7 @@ namespace Game {
         // 残留低估：行首禁则未建模——BreakWord/Normal 下渲染会禁掉禁则标点前的 CJK 断点
         // （如"文。"粘连），此处仍按可断计，min 略低于渲染真值（标点级，收缩态边缘可溢出，
         // 量级远小于 KeepAll 失配，不值得为它上禁则表）
-        static float MeasureSpansMinWidth(List<TextSpan> spans, BitmapFont font, float defaultFontScale, TextWordBreak wordBreak) {
+        static float MeasureSpansMinWidth(List<TextSpan> spans, BitmapFont font, float defaultFontScale, TextWordBreak wordBreak, float letterSpacing) {
             float maxWord = 0f;
             float word = 0f;
             bool cjkBreakable = wordBreak != TextWordBreak.KeepAll;
@@ -693,10 +693,10 @@ namespace Game {
                         && FontTextWidget.IsCjkChar(c)) {
                         maxWord = MathUtils.Max(maxWord, word);
                         word = 0f;
-                        maxWord = MathUtils.Max(maxWord, CharacterAdvance(c, scale, font));
+                        maxWord = MathUtils.Max(maxWord, CharacterAdvance(c, scale, font) + letterSpacing);
                         continue;
                     }
-                    word += CharacterAdvance(c, scale, font);
+                    word += CharacterAdvance(c, scale, font) + letterSpacing;
                 }
             }
             maxWord = MathUtils.Max(maxWord, word);

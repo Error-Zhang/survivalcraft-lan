@@ -28,6 +28,12 @@ namespace Game {
         // >0 时优先于乘数；0=无绝对声明（沿用倍率）
         public float LineHeightPx { get; set; }
 
+        // CSS letter-spacing（字符间距，块级继承属性归一 px）：排版宽度唯一出处=CharacterAdvance
+        // 单点 hook——AddLine run 宽与 CountFittingCells 折行判定同吃一个 advance，加字距后两处
+        // 自动同口径。负值合法（CSS 允许负字距收紧）；默认 0 时 advance 公式 +0 浮点无变化，
+        // 既有排版逐位不变
+        public float LetterSpacing { get; set; }
+
         public float DefaultFontScale { get; set; } = 1f;
 
         public List<TextLine> Lines { get; } = [];
@@ -281,7 +287,9 @@ namespace Game {
 
         float SpanScale(TextSpan span) => span.FontScale > 0f ? span.FontScale : DefaultFontScale;
 
-        float CharacterAdvance(char c, float fontScale) => (Font.GetGlyph(c).Width + Font.Spacing.X + FontSpacing.X) * fontScale * Font.Scale;
+        // 字符推进量唯一出处（AddLine run 宽与 CountFittingCells 折行判定共用）：字距是绝对 px，
+        // 不随 span 字号/Font.Scale 缩放（CSS px 口径），kerning 减项保持原样（字距与 kerning 并存）
+        float CharacterAdvance(char c, float fontScale) => (Font.GetGlyph(c).Width + Font.Spacing.X + FontSpacing.X) * fontScale * Font.Scale + LetterSpacing;
 
         float MeasureEllipsisWidth(float fontScale) {
             const string text = "...";
