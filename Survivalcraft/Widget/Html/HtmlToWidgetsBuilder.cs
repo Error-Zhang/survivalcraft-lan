@@ -173,8 +173,10 @@ namespace Game {
         // content-box 补偿：width/max-width 声明=内容宽口径，sizer 最外时内层壳的 pad/border
         // 占 sizer 宽——px 声明加水平 pad/border 合计（与 TryBeginStyleBox 同源解析：
         // TryGetBox+TryGetBorder+MergeBoxEdges），补偿后壳内内容恰=声明值；% 与自身盒边无关不补。
-        // margin 水平 auto（级联后双侧）→ sizer 居中对齐：壳侧 TryGetBox 把含 auto 的 margin
-        // 声明整条丢弃（当 0），居中由 sizer 的宿主对齐承担
+        // margin 水平 auto（级联后）：双侧→sizer 居中；左 auto 右定且带宽度约束
+        //（width/max-width，HasBlockSizing）→靠右（Far，右侧 margin 迁由 sizer 承担，Far
+        // 排位恰扣 MarginRight）；壳侧 TryGetBox 把含 auto 的 margin 声明整条丢弃（当 0），
+        // 对齐由 sizer 的宿主排列承担
         Widget ApplyBlockSizing(HtmlAgilityPack.HtmlNode node, Widget widget) {
             string style = node.GetAttributeValue("style", null);
             if (!HasBlockSizing(style)) {
@@ -188,8 +190,11 @@ namespace Game {
             }
             float horizontalEdges = sizingEdges.X + sizingEdges.Z;
             HtmlBlockSizerWidget sizer = new();
-            if (CssStyleParser.TryGetDeclaration(style, "width", out string widthDecl)
-                && CssStyleParser.TryParseWidthValue(widthDecl, out bool widthIsPercent, out float widthNumber)) {
+            bool widthIsPercent = false;
+            float widthNumber = 0f;
+            bool hasWidth = CssStyleParser.TryGetDeclaration(style, "width", out string widthDecl)
+                && CssStyleParser.TryParseWidthValue(widthDecl, out widthIsPercent, out widthNumber);
+            if (hasWidth) {
                 if (widthIsPercent) {
                     sizer.WidthPercent = widthNumber;
                 }
@@ -206,8 +211,15 @@ namespace Game {
                     sizer.MaxFixedWidth = maxNumber + horizontalEdges;
                 }
             }
-            if (MarginHorizontalAuto(style)) {
+            (bool leftAuto, bool rightAuto) = MarginHorizontalAuto(style);
+            if (leftAuto && rightAuto) {
                 sizer.HorizontalAlignment = WidgetAlignment.Center;
+            }
+            else if (leftAuto && HasBlockSizing(style)) {
+                // 单侧 auto 须 sizer 带宽度约束（width/max-width 任一有效声明，HasBlockSizing
+                // 即本方法入口门）才有剩余空间可归：左 auto→剩余归左盒子靠右，右 auto→靠左
+                // 即默认不设
+                sizer.HorizontalAlignment = WidgetAlignment.Far;
             }
             // sizer 恒最外：内层壳的水平 Margin 迁给 sizer（壳清零）——margin 归宿主排列承担，
             // 不占 sizer 钳制的测量分母（% 分母近似见 sizer 留档），防壳内双重 margin 挤压内容宽
@@ -234,9 +246,11 @@ namespace Game {
 
         // margin 水平 auto 检出（级联 last-wins，镜像 TryGetBox 的简写/长手结构）：margin 简写
         // 按声明序整条重置两侧（任一 token 非法=简写丢弃不重置），margin-left/right 长手覆写
-        // 对应侧（非法值仅丢该条）。最终两侧均 auto 才居中——单侧 auto=剩余空间归该侧、盒子
-        // 靠另一侧（CSS 口径，W7 钉 margin:0 auto 后 margin-left:20px 不居中）
-        static bool MarginHorizontalAuto(string style) {
+        // 对应侧（非法值仅丢该条）。返回级联后两侧 auto 位：双侧=居中；单侧=剩余空间归该侧、
+        // 盒子靠另一侧（CSS 口径，W7 钉 margin:0 auto 后 margin-left:20px 不居中、
+        // W12 钉 margin-left:auto;margin-right:50px 靠右、W14 钉 max-width:300px;
+        // margin-left:auto 靠右）；双侧皆定=无 auto
+        static (bool LeftAuto, bool RightAuto) MarginHorizontalAuto(string style) {
             bool? leftAuto = null;
             bool? rightAuto = null;
             foreach (KeyValuePair<string, string> declaration in CssStyleParser.ParseDeclarations(style)) {
@@ -278,7 +292,7 @@ namespace Game {
                     }
                 }
             }
-            return (leftAuto ?? false) && (rightAuto ?? false);
+            return (leftAuto ?? false, rightAuto ?? false);
         }
 
         static bool IsAutoToken(string token) => token.Equals("auto", StringComparison.OrdinalIgnoreCase);
