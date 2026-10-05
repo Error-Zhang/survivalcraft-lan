@@ -43,6 +43,24 @@ namespace Game {
         // 栈式 push/pop 纪律同 CurrentIndentX：构建格内容前保存、构建后恢复（归调用方，本类不维护栈）
         internal RichContentPanel CurrentPanel;
 
+        // px 定宽 sizer 祖先的子树可用宽约束（HTML 前端 TryBeginStyleBox 播种/EndStyleBox 弹出，
+        // 元组=「种子时可用宽, 种子时缩进」，∞ 宽条目=无 px 声明壳的配对占位）。显式 ContentWidth
+        // 宿主的 img frame 不进 ImageBlocks 回填注册表（注册仅 ContentWidth<=0），构建期钳制是
+        // 这类 frame 的唯一定宽点；消费见 AddImageBlock
+        internal readonly Stack<(float AvailWidth, float IndentX)> WidthConstraints = [];
+
+        // 当前缩进下的约束可用宽：各种子按「种子可用宽−种子后新增缩进」折算取最小（嵌套内层胜；
+        // 折算增量钳非负——表格格等重入点把 CurrentIndentX 归零时外层种子不得反向放宽/过收）
+        internal float ConstrainedContentWidth {
+            get {
+                float width = float.PositiveInfinity;
+                foreach ((float availWidth, float indentX) in WidthConstraints) {
+                    width = MathUtils.Min(width, availWidth - MathUtils.Max(CurrentIndentX - indentX, 0f));
+                }
+                return width;
+            }
+        }
+
         // 代码块自然宽的水平边距合计：linesPanel Margin.X 5×2 + 外层 ScrollPanel Margin.X 3×2。
         // CreateCodeBlock 构建期把最长行文本宽累加此项记入 shell 条目 NaturalWidth（格内协商
         // 首遍的自然宽探测输入，Q1-B 档）
@@ -109,6 +127,12 @@ namespace Game {
         // 返回 frame（挂树由调用方负责——HTML 侧 style 盒属性需把 frame 包进壳后挂）
         protected CanvasWidget AddImageBlock(StackPanelWidget panel, string url, string alt, Vector2? explicitSize = null, Vector2? margin = null, float maxWidth = -1f) {
             float width = NestedContentWidth();
+            // px 定宽 sizer 祖先钳制占位宽（只钳正值：width=-1 为测量期回填哨兵，保持跟随语义
+            // 不被数值比较吞掉）：explicitSize 帧宽=属性值不受占位宽影响（CSS 显式宽胜祖先约束），
+            // 自适应帧在加载/重适配路径同源此宽
+            if (width > 0f && width > ConstrainedContentWidth) {
+                width = MathUtils.Max(ConstrainedContentWidth, 50f);
+            }
             CanvasWidget frame = ImageLoader.CreateImageBlock(url, alt, width, MaxImageHeight, explicitSize, maxWidth);
             frame.Margin = margin ?? new Vector2(0f, 8f);
             // 注册路由（同 CreateCodeBlock）：格内无条件进所在格 panel——panel 的回填基准是

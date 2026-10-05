@@ -11,8 +11,9 @@ namespace Game {
     // margin:auto 居中不由本件承担（builder 检出后设 HorizontalAlignment=Center，宿主排列期
     // 居中）；margin/padding/border/background 归壳层 WrapInStyleBox，本件不管。
     // 已知限制（留档）：
-    // - 回填击穿：子树含 pre/img 自适应 frame 时，宿主测量回填（HtmlWidget 壳与格 panel 按
-    //   根容器净宽强制铺满 frame 宽）不知本件存在，壳内自适应块 width 失效（待回填感知 sizer）
+    // - 回填击穿：子树含 pre/img 自适应 frame 时，宿主测量回填按根容器净宽强制铺满 frame 宽
+    //   不知本件存在——px 声明的顶层回填已感知本件（HtmlWidget.ResolveSizedAncestorWidth），
+    //   格 panel 回填与 % 声明仍击穿（留档）
     // - FixedWidth 超宿主可用宽：引擎 Arrange 把本件钳到宿主格宽裁切（故意保持绝对值语义，
     //   不随宿主缩放）
     // - % 分母含自身 margin 近似：水平 margin 迁到本件后，宿主测量扣 margin 再传入，% 实际
