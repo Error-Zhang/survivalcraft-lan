@@ -70,9 +70,11 @@ namespace Game {
             foreach ((CanvasWidget codeBlock, float indentX) in m_builder.CodeBlocks) {
                 codeBlock.Size = new Vector2(MathUtils.Max(contentWidth - indentX, 50f), codeBlock.Size.Y);
             }
-            // 图片块同机制；已加载完成的 frame 宽=图宽，不覆盖（HorizontalAlignment=Center 居中）
+            // 图片块同机制；已加载完成的 frame 宽=图宽、width/height 属性帧宽=属性值，均不覆盖
+            //（HorizontalAlignment=Center 居中）
             foreach ((CanvasWidget imageBlock, float indentX) in m_builder.ImageBlocks) {
-                if (!m_imageLoader.IsFrameApplied(imageBlock)) {
+                if (!m_imageLoader.IsFrameApplied(imageBlock)
+                    && !m_imageLoader.IsFrameExplicit(imageBlock)) {
                     imageBlock.Size = new Vector2(MathUtils.Max(contentWidth - indentX, 50f), imageBlock.Size.Y);
                 }
             }

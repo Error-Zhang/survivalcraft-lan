@@ -7,6 +7,10 @@ namespace Game {
     // 产出的块注册表（CodeBlocks/ImageBlocks）由转发方合并回自己的集合供宿主测量期回填宽度。
     // 行内内容走 HtmlSpanParser
     public class HtmlToWidgetsBuilder : RichContentBuilder {
+        // body bgcolor 根回退（cell>row>table>body 链最外级）：表格格/行/表均无 bgcolor 时回退到此。
+        // 构建入口重置
+        Color? m_bodyBackground;
+
         // HTML 片段入口：解析为 DOM 后做块级遍历，块收进自建面板返回（HtmlWidget 壳用）
         public StackPanelWidget BuildHtml(string html, int listDepth, Color? colorOverride, int depth) {
             StackPanelWidget panel = CreatePanel();
@@ -16,6 +20,7 @@ namespace Game {
 
         // 平铺入口：块直接追加进调用方面板（Markdown HtmlBlock 转发用，避免多包一层嵌套面板）
         public void BuildHtmlInto(string html, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth) {
+            m_bodyBackground = null;
             HtmlAgilityPack.HtmlDocument doc = new();
             doc.LoadHtml(html ?? string.Empty);
             BuildHtmlNodes(doc.DocumentNode.ChildNodes, panel, listDepth, colorOverride, depth);
@@ -23,23 +28,25 @@ namespace Game {
 
         // 块级 HTML 节点遍历：行内节点累积成段，遇块级标签先冲刷当前段。
         // 参数放宽 IEnumerable：li 内块级子节点以单节点数组重入（复用顶层分发口径）。
-        // centerContent：居中容器（center/figure/figcaption）内构建——段/标题拉满宽+文本行居中，
-        // 全部重入点（div/dl/列表/引用/表格格/未知容器）透传（Chrome text-align 继承口径）
-        void BuildHtmlNodes(IEnumerable<HtmlAgilityPack.HtmlNode> nodes, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, bool centerContent = false) {
+        // blockAlign：容器块级文本对齐（center/figure/figcaption = HorizontalCenter，div/p/h 的
+        // align 属性可再覆写），TextAnchor.Default=继承外层——全部重入点（div/dl/列表/引用/表格格/
+        // 未知容器）透传（Chrome text-align 继承口径；显式 left 属性映射 Default=Left 同值，天然覆盖）
+        void BuildHtmlNodes(IEnumerable<HtmlAgilityPack.HtmlNode> nodes, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default) {
             if (depth > MaxDepth) {
                 return;
             }
             List<TextSpan> pendingSpans = [];
-            void Flush() {
+            void Flush(TextAnchor? alignOverride = null) {
+                TextAnchor effectiveAlign = alignOverride ?? blockAlign;
                 if (pendingSpans.Count > 0) {
                     HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
                     if (pendingSpans.Count == 0) {
                         return;
                     }
                     RichTextWidget widget = CreateRichText(colorOverride);
-                    if (centerContent) {
+                    if (effectiveAlign != TextAnchor.Default) {
                         widget.HorizontalAlignment = WidgetAlignment.Stretch;
-                        widget.TextAnchor = TextAnchor.HorizontalCenter;
+                        widget.TextAnchor = effectiveAlign;
                     }
                     widget.Spans.AddRange(pendingSpans);
                     panel.Children.Add(widget);
@@ -54,7 +61,7 @@ namespace Game {
                         && child.Name.Equals("img", StringComparison.OrdinalIgnoreCase)
                         && ImageLoader != null) {
                         Flush();
-                        AddImageBlock(panel, child.GetAttributeValue("src", null), child.GetAttributeValue("alt", null));
+                        AddImageBlockWithAttributes(panel, child);
                         continue;
                     }
                     HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, inlineColorOverride ?? DefaultColor);
@@ -83,35 +90,51 @@ namespace Game {
                     case "h6": {
                         Flush();
                         RichTextWidget widget = CreateHeading(node.Name[1] - '0', colorOverride);
-                        if (centerContent) {
+                        TextAnchor headingAlign = ParseBlockAlignment(node) ?? blockAlign;
+                        if (headingAlign != TextAnchor.Default) {
                             widget.HorizontalAlignment = WidgetAlignment.Stretch;
-                            widget.TextAnchor = TextAnchor.HorizontalCenter;
+                            widget.TextAnchor = headingAlign;
                         }
                         HtmlSpanParser.ParseHtmlNode(node, widget.Spans, default, widget.Color);
                         panel.Children.Add(widget);
                         break;
                     }
-                    case "p":
+                    case "p": {
+                        // p align 属性：本段对齐覆写继承（CSS text-align 元素级口径）
                         Flush();
                         AppendInlineChildren(node, colorOverride);
-                        Flush();
+                        Flush(ParseBlockAlignment(node));
                         break;
-                    case "div":
+                    }
+                    case "div": {
                         // 容器标签递归块级遍历（子级 p/pre/列表各归其位），不做 span 平铺——
-                        // 否则 div 内 pre 被当普通元素折叠，代码缩进/换行全毁
+                        // 否则 div 内 pre 被当普通元素折叠，代码缩进/换行全毁；align 属性覆写继承
                         Flush();
-                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, centerContent);
+                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, ParseBlockAlignment(node) ?? blockAlign);
                         break;
+                    }
+                    case "html":
+                    case "body": {
+                        // 整页包装标签当 div（老帖源码常带 html/body 包裹，浏览器剥离外壳直排内容）；
+                        // body bgcolor 作表格 bgcolor 回退链根
+                        Flush();
+                        if (node.Name.Equals("body", StringComparison.OrdinalIgnoreCase)
+                            && CssColorParser.TryParse(node.GetAttributeValue("bgcolor", null), out Color bodyBackground)) {
+                            m_bodyBackground = bodyBackground;
+                        }
+                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, ParseBlockAlignment(node) ?? blockAlign);
+                        break;
+                    }
                     case "ul":
                     case "ol":
                     case "menu":
                         // menu 与 ul 同渲染（HTML 弃用标签，Chrome 按无序列表渲染）
                         Flush();
-                        BuildHtmlList(node, node.Name.Equals("ol", StringComparison.Ordinal), panel, listDepth, colorOverride, depth, centerContent);
+                        BuildHtmlList(node, node.Name.Equals("ol", StringComparison.Ordinal), panel, listDepth, colorOverride, depth, blockAlign);
                         break;
                     case "blockquote":
                         Flush();
-                        panel.Children.Add(CreateHtmlQuote(node, listDepth, colorOverride, depth, centerContent));
+                        panel.Children.Add(CreateHtmlQuote(node, listDepth, colorOverride, depth, blockAlign));
                         break;
                     case "pre": {
                         Flush();
@@ -121,12 +144,12 @@ namespace Game {
                     }
                     case "hr":
                         Flush();
-                        panel.Children.Add(CreateThematicBreak());
+                        panel.Children.Add(CreateHtmlThematicBreak(node));
                         break;
                     case "img" when ImageLoader != null:
                         // 块级 <img>：与纯图段落同管线。行内 <img>（p 内）仍被丢弃（范围外）
                         Flush();
-                        AddImageBlock(panel, node.GetAttributeValue("src", null), node.GetAttributeValue("alt", null));
+                        AddImageBlockWithAttributes(panel, node);
                         break;
                     case "table": {
                         Flush();
@@ -134,10 +157,10 @@ namespace Game {
                         // 不双渲染）；用户裁定 caption=居中块，与 center/figure 同款
                         HtmlAgilityPack.HtmlNode captionNode = node.Element("caption");
                         if (captionNode != null) {
-                            BuildHtmlNodes(captionNode.ChildNodes, panel, listDepth, colorOverride, depth + 1, true);
+                            BuildHtmlNodes(captionNode.ChildNodes, panel, listDepth, colorOverride, depth + 1, TextAnchor.HorizontalCenter);
                         }
                         // 空表（无任何行）返回 null 不产部件——零尺寸 widget 仍会靠 Margin 贡献 8px 空白
-                        TablePanelWidget table = CreateHtmlTable(node, colorOverride, depth, centerContent);
+                        TablePanelWidget table = CreateHtmlTable(node, colorOverride, depth, blockAlign);
                         if (table != null) {
                             panel.Children.Add(table);
                         }
@@ -148,18 +171,18 @@ namespace Game {
                     case "figcaption":
                     case "caption":
                         // 居中容器（center 老帖高频 / figure 图容器 / figcaption 题注 / caption 表题，
-                        // 用户裁定同款居中块）：块边界+子节点重入，centerContent 贯穿段/标题行盒居中
-                        // （Chrome text-align 语义）；table 直下 caption 已在 table case 预提取，此处
-                        // 兜 table 外裸 caption
+                        // 用户裁定同款居中块）：块边界+子节点重入，HorizontalCenter 贯穿段/标题行盒居中
+                        // （Chrome text-align 语义，覆写外层继承）；table 直下 caption 已在 table case
+                        // 预提取，此处兜 table 外裸 caption
                         Flush();
-                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, true);
+                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, TextAnchor.HorizontalCenter);
                         break;
                     case "dl":
                     case "details":
                         // dl 定义列表容器 / details 折叠容器（无折叠交互，按已展开直排——用户裁定）：
                         // 块边界+子节点重入，dt/dd 各归其位
                         Flush();
-                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, centerContent);
+                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, blockAlign);
                         break;
                     case "dt":
                         // 术语段：独立成段不加粗（用户裁定），同 p 口径
@@ -175,15 +198,15 @@ namespace Game {
                         float prevIndentDd = CurrentIndentX;
                         CurrentIndentX += ListIndentPerDepth;
                         StackPanelWidget ddPanel = CreatePanel();
-                        if (centerContent) {
-                            // 居中容器内 dd：撑满外壳剩余宽（Margin 左侧缩进扣余），居中锚点生效
+                        if (blockAlign != TextAnchor.Default) {
+                            // 对齐容器内 dd：撑满外壳剩余宽（Margin 左侧缩进扣余），锚点生效
                             ddPanel.HorizontalAlignment = WidgetAlignment.Stretch;
                         }
-                        BuildHtmlNodes(node.ChildNodes, ddPanel, listDepth, colorOverride, depth + 1, centerContent);
+                        BuildHtmlNodes(node.ChildNodes, ddPanel, listDepth, colorOverride, depth + 1, blockAlign);
                         CurrentIndentX = prevIndentDd;
                         CanvasWidget ddOuter = new() { Size = new Vector2(NestedContentWidth(), -1f) };
-                        if (centerContent) {
-                            // 居中容器内 dd：外壳撑满（同引用/列表行框口径）
+                        if (blockAlign != TextAnchor.Default) {
+                            // 对齐容器内 dd：外壳撑满（同引用/列表行框口径）
                             ddOuter.HorizontalAlignment = WidgetAlignment.Stretch;
                         }
                         ddOuter.Children.Add(ddPanel);
@@ -210,7 +233,7 @@ namespace Game {
                         //（否则 <footer><p>a</p><p>b</p> 两段被平铺合并）
                         Flush();
                         if (ContainsBlockChild(node)) {
-                            BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, centerContent);
+                            BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, blockAlign);
                         }
                         else {
                             HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
@@ -225,7 +248,7 @@ namespace Game {
                         // 子节点，行内容器标签自带样式被静默跳过）
                         if (ContainsBlockChild(node)) {
                             Flush();
-                            BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, centerContent);
+                            BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, blockAlign);
                         }
                         else if (ImageLoader != null
                             && HasElementChild(node, "img")) {
@@ -240,41 +263,45 @@ namespace Game {
             Flush();
         }
 
-        void BuildHtmlList(HtmlAgilityPack.HtmlNode listNode, bool ordered, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, bool centerContent = false) {
+        void BuildHtmlList(HtmlAgilityPack.HtmlNode listNode, bool ordered, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default) {
             if (depth > MaxDepth) {
                 return;
             }
             StackPanelWidget listPanel = CreatePanel();
             listPanel.Margin = new Vector2(0f, 2f);
-            if (centerContent) {
-                // 居中容器内列表：列表面板撑满宿主（否则 Near 收缩到内容宽，行框 Stretch 无意义）
+            if (blockAlign != TextAnchor.Default) {
+                // 对齐容器内列表：列表面板撑满宿主（否则 Near 收缩到内容宽，行框 Stretch 无意义）
                 listPanel.HorizontalAlignment = WidgetAlignment.Stretch;
             }
             // <ol start="4">：解析失败回退 1
             int number = int.TryParse(listNode.GetAttributeValue("start", null), out int parsedStart) ? parsedStart : 1;
+            // 列表级 type 属性（li 内同名属性逐项覆写）：ol 取 1/a/A/i/I、ul 取 disc/circle/square
+            char listType = ParseListType(listNode, ordered) ?? '\0';
             // 文字列按全列表最宽 marker 对齐（"10." 比 "1." 宽），保底 marker→文字间隙；
-            // 嵌套列表挂在本级文字列内，缩进节奏恒一档 ListIndentPerDepth
+            // 嵌套列表挂在本级文字列内，缩进节奏恒一档 ListIndentPerDepth。
+            // marker 文本两遍共用一遍算出（li value 重编号/type 覆写逐项生效，宽度扫描吃同一序列）
             List<HtmlAgilityPack.HtmlNode> items = [.. listNode.Elements("li")];
             float markerScale = FontScale;
             float maxMarkerWidth = 0f;
+            string[] markers = new string[items.Count];
             int scanNumber = number;
-            foreach (HtmlAgilityPack.HtmlNode li in items) {
+            for (int i = 0; i < items.Count; i++) {
+                markers[i] = MarkerText(items[i], ordered, listType, scanNumber, listDepth + 1, out int nextNumber);
                 maxMarkerWidth = MathUtils.Max(
                     maxMarkerWidth,
-                    Font.MeasureText(HtmlTextUtils.GetListMarker(ordered, scanNumber, listDepth + 1), new Vector2(markerScale), Vector2.Zero).X
+                    Font.MeasureText(markers[i], new Vector2(markerScale), Vector2.Zero).X
                 );
-                if (ordered) {
-                    scanNumber++;
-                }
+                scanNumber = nextNumber;
             }
             float contentX = MathUtils.Max(ListIndentPerDepth, MarkerOffsetX + maxMarkerWidth + MarkerTextGap);
-            foreach (HtmlAgilityPack.HtmlNode li in items) {
+            for (int itemIndex = 0; itemIndex < items.Count; itemIndex++) {
+                HtmlAgilityPack.HtmlNode li = items[itemIndex];
                 // 行框宽随嵌套收窄（同 MarkdownToWidgetsBuilder.CreateListItem）
                 CanvasWidget row = new() {
                     Size = new Vector2(NestedContentWidth(), -1f)
                 };
-                if (centerContent) {
-                    // 居中容器内列表：行框撑满列表宽（NestedContentWidth()=-1 时 desired 收缩），
+                if (blockAlign != TextAnchor.Default) {
+                    // 对齐容器内列表：行框撑满列表宽（NestedContentWidth()=-1 时 desired 收缩），
                     // 文字列 Stretch+锚点才有居中空间
                     row.HorizontalAlignment = WidgetAlignment.Stretch;
                 }
@@ -282,7 +309,7 @@ namespace Game {
                 // 回填（IndentX=行框挂载点缩进；消除格内 li 定宽/natural 污染列协商的 D1 源）
                 CurrentPanel?.Shells.Add(new ShellEntry { Frame = row, IndentX = CurrentIndentX, Kind = ShellKind.FlowShell });
                 FontTextWidget markerLabel = new() {
-                    Text = HtmlTextUtils.GetListMarker(ordered, number, listDepth + 1),
+                    Text = markers[itemIndex],
                     Font = Font,
                     Color = colorOverride ?? DefaultColor,
                     FontScale = markerScale
@@ -291,10 +318,10 @@ namespace Game {
                 CanvasWidget.SetPosition(markerLabel, new Vector2(MarkerOffsetX, MarkerOffsetY));
                 StackPanelWidget contentPanel = CreatePanel();
                 // 文字列缩进走 MarginLeft 不走 SetPosition（Canvas 对 SetPosition 子件按 desired 排布，
-                // alignment 失效）：居中容器内列表由 Stretch 撑满行框剩余宽，文字列 HorizontalCenter
-                // 才有居中空间；Near 时 x=MarginLeft 视觉不变
+                // alignment 失效）：对齐容器内列表由 Stretch 撑满行框剩余宽，锚点才有居中/靠右空间；
+                // Near 时 x=MarginLeft 视觉不变
                 contentPanel.MarginLeft = contentX;
-                if (centerContent) {
+                if (blockAlign != TextAnchor.Default) {
                     contentPanel.HorizontalAlignment = WidgetAlignment.Stretch;
                 }
                 row.Children.Add(contentPanel);
@@ -309,9 +336,9 @@ namespace Game {
                         HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
                         if (pendingSpans.Count > 0) {
                             RichTextWidget widget = CreateRichText(colorOverride);
-                            if (centerContent) {
+                            if (blockAlign != TextAnchor.Default) {
                                 widget.HorizontalAlignment = WidgetAlignment.Stretch;
-                                widget.TextAnchor = TextAnchor.HorizontalCenter;
+                                widget.TextAnchor = blockAlign;
                             }
                             widget.Spans.AddRange(pendingSpans);
                             contentPanel.Children.Add(widget);
@@ -325,17 +352,17 @@ namespace Game {
                             or "section" or "article" or "table" or "footer" or "address"
                             or "center" or "dl" or "dt" or "dd" or "figure" or "figcaption" or "details" or "summary"
                             or "caption"
-                            or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr";
+                            or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr" or "html" or "body";
                     if (isBlock) {
                         FlushLi();
                         switch (child.Name.ToLowerInvariant()) {
                             case "ul":
                             case "ol":
                             case "menu":
-                                BuildHtmlList(child, child.Name.Equals("ol", StringComparison.Ordinal), contentPanel, listDepth + 1, colorOverride, depth + 1, centerContent);
+                                BuildHtmlList(child, child.Name.Equals("ol", StringComparison.Ordinal), contentPanel, listDepth + 1, colorOverride, depth + 1, blockAlign);
                                 break;
                             case "blockquote":
-                                contentPanel.Children.Add(CreateHtmlQuote(child, listDepth + 1, colorOverride, depth + 1, centerContent));
+                                contentPanel.Children.Add(CreateHtmlQuote(child, listDepth + 1, colorOverride, depth + 1, blockAlign));
                                 break;
                             case "pre": {
                                 HtmlAgilityPack.HtmlNode code = child.Element("code") ?? child;
@@ -349,21 +376,22 @@ namespace Game {
                             case "h5":
                             case "h6": {
                                 RichTextWidget widget = CreateHeading(child.Name[1] - '0', colorOverride);
-                                if (centerContent) {
+                                TextAnchor headingAlign = ParseBlockAlignment(child) ?? blockAlign;
+                                if (headingAlign != TextAnchor.Default) {
                                     widget.HorizontalAlignment = WidgetAlignment.Stretch;
-                                    widget.TextAnchor = TextAnchor.HorizontalCenter;
+                                    widget.TextAnchor = headingAlign;
                                 }
                                 HtmlSpanParser.ParseHtmlNode(child, widget.Spans, default, widget.Color);
                                 contentPanel.Children.Add(widget);
                                 break;
                             }
                             case "hr":
-                                contentPanel.Children.Add(CreateThematicBreak());
+                                contentPanel.Children.Add(CreateHtmlThematicBreak(child));
                                 break;
                             default: {
                                 // p/div/section/article/table：单节点重入顶层分发（BuildHtmlNodes），
                                 // 与顶层同口径——纯行内整块成段、嵌块递归、li 内 p>img 不再静默丢
-                                BuildHtmlNodes([child], contentPanel, listDepth + 1, colorOverride, depth + 1, centerContent);
+                                BuildHtmlNodes([child], contentPanel, listDepth + 1, colorOverride, depth + 1, blockAlign);
                                 break;
                             }
                         }
@@ -373,7 +401,7 @@ namespace Game {
                         && ImageLoader != null) {
                         // li 内行内 <img> 升级为图片块（同 AppendInlineChildren 口径）
                         FlushLi();
-                        AddImageBlock(contentPanel, child.GetAttributeValue("src", null), child.GetAttributeValue("alt", null));
+                        AddImageBlockWithAttributes(contentPanel, child);
                     }
                     else {
                         HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, colorOverride ?? DefaultColor);
@@ -382,15 +410,49 @@ namespace Game {
                 FlushLi();
                 CurrentIndentX = prevIndent;
                 listPanel.Children.Add(row);
-                number++;
+                MarkerText(li, ordered, listType, number, listDepth + 1, out number);
             }
             panel.Children.Add(listPanel);
         }
 
-        CanvasWidget CreateHtmlQuote(HtmlAgilityPack.HtmlNode quoteNode, int listDepth, Color? colorOverride, int depth, bool centerContent = false) {
+        // 列表项 marker 文本与下一项编号（两遍共用口径）：li value 先行重编号（HTML 渲染语义，
+        // 后续项顺延）、li type 覆写列表级 type。next 输出编号已 +1（ordered 与否调用方皆直用）
+        static string MarkerText(HtmlAgilityPack.HtmlNode li, bool ordered, char listType, int number, int depth, out int next) {
+            if (ordered
+                && int.TryParse(li.GetAttributeValue("value", null), out int value)) {
+                number = value;
+            }
+            char type = ParseListType(li, ordered) ?? listType;
+            next = number + 1;
+            return HtmlTextUtils.GetListMarker(ordered, type, number, depth);
+        }
+
+        // list/li type 属性解析：ol 认 1/a/A/i/I（原始大小写敏感——小写化会并掉 A/I 两档），
+        // ul/menu 认 disc/circle/square（映射 marker 字形）。非法/缺省返回 null（回退默认口径）
+        static char? ParseListType(HtmlAgilityPack.HtmlNode node, bool ordered) {
+            string type = node.GetAttributeValue("type", null)?.Trim();
+            if (ordered) {
+                return type switch {
+                    "1" => '1',
+                    "a" => 'a',
+                    "A" => 'A',
+                    "i" => 'i',
+                    "I" => 'I',
+                    _ => null
+                };
+            }
+            return type?.ToLowerInvariant() switch {
+                "disc" => '•',
+                "circle" => '◦',
+                "square" => '▪',
+                _ => null
+            };
+        }
+
+        CanvasWidget CreateHtmlQuote(HtmlAgilityPack.HtmlNode quoteNode, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default) {
             CanvasWidget outer = CreateQuoteFrame(out StackPanelWidget inner);
-            if (centerContent) {
-                // 居中容器内引用：外壳与 inner 双层 Stretch 撑满（HtmlWidget 壳路径 ContentWidth=-1，
+            if (blockAlign != TextAnchor.Default) {
+                // 对齐容器内引用：外壳与 inner 双层 Stretch 撑满（HtmlWidget 壳路径 ContentWidth=-1，
                 // NestedContentWidth()=-1 时外壳 desired 收缩到内容宽，仅 inner Stretch 无居中空间）
                 outer.HorizontalAlignment = WidgetAlignment.Stretch;
                 inner.HorizontalAlignment = WidgetAlignment.Stretch;
@@ -401,7 +463,7 @@ namespace Game {
             CurrentPanel?.Shells.Add(new ShellEntry { Frame = outer, IndentX = CurrentIndentX, Kind = ShellKind.FlowShell });
             float prevIndent = CurrentIndentX;
             CurrentIndentX += 10f;
-            BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1, centerContent);
+            BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1, blockAlign);
             CurrentIndentX = prevIndent;
             return outer;
         }
@@ -411,7 +473,7 @@ namespace Game {
         // 语义，FooterRows 记行数）；caption/colgroup/col 无对应视觉语义，跳过（caption 已在表 case
         // 预提取渲染）。thead 行或含 th 的行为表头（粗体由 builder 侧染 span，同 Markdown CreateTable
         // 口径）。无滚动兜底（包装类超宽横向滚动不随迁）：Σmin 超宿主时底座定格列 min 溢出
-        TablePanelWidget CreateHtmlTable(HtmlAgilityPack.HtmlNode tableNode, Color? colorOverride, int depth, bool centerContent = false) {
+        TablePanelWidget CreateHtmlTable(HtmlAgilityPack.HtmlNode tableNode, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default) {
             // 格内容相对格左缘定位（spec §5.3）：入口清零外层嵌套缩进——格 shell 的回填扣减基准
             // 是格净宽，li 内嵌套表格时外层缩进已由挂载位置体现，再计入会双扣；全部出口恢复
             //（prevIndent 纪律同 CreateHtmlQuote，含两处早退）
@@ -421,10 +483,17 @@ namespace Game {
                 CurrentIndentX = prevIndent;
                 return null;
             }
-            // 视觉对齐 MD 表现状：四开关全开+同 padding+同线色（InnerBorder 在场时 Header/Footer
+            // table cellpadding 属性（px）：CellPadding 横向直挂，纵向保持默认；纯行内格 Size.X
+            // 锚定同参（cellPaddingX 透传 CreateHtmlCell）
+            float cellPaddingX = CellPaddingX;
+            if (int.TryParse(tableNode.GetAttributeValue("cellpadding", null), out int cellPadding)
+                && cellPadding >= 0) {
+                cellPaddingX = cellPadding;
+            }
+            // 视觉对齐 MD 表现状：四开关全开+同线色（InnerBorder 在场时 Header/Footer
             // Separator 不双画，仅 InnerBorder=false 的自定义场景生效；FooterSeparator 对称补齐）
             TablePanelWidget widget = new() {
-                CellPadding = new Vector2(6f, 3f),
+                CellPadding = new Vector2(cellPaddingX, 3f),
                 BorderColor = MarkdownTableWidget.GridLineColor,
                 OuterBorder = true,
                 InnerBorder = true,
@@ -432,6 +501,15 @@ namespace Game {
                 FooterSeparator = true,
                 Margin = new Vector2(0f, 4f)
             };
+            // table align=center：表格块整体居中（desired=Σtracks 非拉伸）；left/right 浮动语义
+            // 不做（文字环绕无对应排版模型）
+            if (ParseBlockAlignment(tableNode) == TextAnchor.HorizontalCenter) {
+                widget.HorizontalAlignment = WidgetAlignment.Center;
+            }
+            // bgcolor 回退链根：table 属性 → body 属性（整页包装场景）
+            Color? tableBackground = CssColorParser.TryParse(tableNode.GetAttributeValue("bgcolor", null), out Color tableBg)
+                ? tableBg
+                : m_bodyBackground;
             List<(HtmlAgilityPack.HtmlNode Row, bool FromThead)> rows = [];
             // tfoot 行收集沉底（HTML 渲染语义：footer 行无论 DOM 位置恒在表尾），行数设
             // FooterRows 驱动底座表尾结构（FooterSeparator 语义对称 HeaderSeparator）
@@ -492,6 +570,12 @@ namespace Game {
                 // 表头行判定行级统一（F3）：thead 行或行内含 th，与 th 的格序无关——原实现随格
                 // 遍历置位，th 前的 td 格以 false 建格漏染粗；整行格统一染粗（同 Markdown CreateTable 口径）
                 bool isHeader = fromThead || HasHeaderCell(tr);
+                // bgcolor 链第二级：tr 属性 → 表/body 根。挂行壳整体铺（覆盖 rowspan 空隙，
+                // 浏览器同视觉），格级属性由 SetCellBackground 覆盖其上
+                Color? rowBackground = CssColorParser.TryParse(tr.GetAttributeValue("bgcolor", null), out Color rowBg)
+                    ? rowBg
+                    : tableBackground;
+                TextAnchor? rowVerticalAlignment = ParseVerticalAlignment(tr, tr);
                 List<Widget> cells = [];
                 int column = 0;
                 foreach (HtmlAgilityPack.HtmlNode cellNode in tr.ChildNodes) {
@@ -505,12 +589,16 @@ namespace Game {
                     // colspan/rowspan 属性：空/非法/≤0 → 1（Set 后仅非平凡值登记 attached 状态）
                     int colSpan = ParseSpanAttribute(cellNode, "colspan");
                     int rowSpan = ParseSpanAttribute(cellNode, "rowspan");
-                    Widget cell = CreateHtmlCell(cellNode, isHeader, colorOverride, depth, centerContent);
+                    Widget cell = CreateHtmlCell(cellNode, isHeader, colorOverride, depth, blockAlign, cellPaddingX);
                     if (colSpan > 1) {
                         TablePanelWidget.SetColSpan(cell, colSpan);
                     }
                     if (rowSpan > 1) {
                         TablePanelWidget.SetRowSpan(cell, rowSpan);
+                    }
+                    // 格级 bgcolor（链最内级）：仅在有显式属性时挂，行壳底色兜其余
+                    if (CssColorParser.TryParse(cellNode.GetAttributeValue("bgcolor", null), out Color cellBg)) {
+                        TablePanelWidget.SetCellBackground(cell, cellBg);
                     }
                     // M1：跳过被前行 rowspan 占住的槽位定真实列号（照 ExpandSlots cursor 口径）
                     while (occupied.Contains((r, column))) {
@@ -520,7 +608,8 @@ namespace Game {
                         alignments.Add(null);
                     }
                     alignments[column] ??= ParseCellAlignment(cellNode, tr);
-                    ApplyCellAnchor(cell, ToTextAnchor(alignments[column]));
+                    // valign：格属性 → 行属性（tr 与格同查；行级传自身节点即行属性直取）
+                    ApplyCellAnchor(cell, ToTextAnchor(alignments[column]), ParseVerticalAlignment(cellNode, tr) ?? rowVerticalAlignment);
                     cells.Add(cell);
                     // rowspan 向后续行登记占格（照 ExpandSlots：行覆盖至 min(r+rowSpan, 行数) 前，
                     // 列覆盖 [column, column+advance)，advance=span 展开钳自然列数与底座同口径）
@@ -533,7 +622,7 @@ namespace Game {
                     column += advance;
                 }
                 if (cells.Count > 0) {
-                    TableRowWidget row = new() { Header = isHeader };
+                    TableRowWidget row = new() { Header = isHeader, BackgroundColor = rowBackground };
                     foreach (Widget cell in cells) {
                         row.Children.Add(cell);
                     }
@@ -557,7 +646,7 @@ namespace Game {
         // 块级同口径），img 升级图片块、嵌套 table 递归本方法。纯行内 cell 的 img 照旧 span 占位
         // （HtmlSpanParser 分支保留）。格内块 shell 宽由所在格 panel 按格净宽回传（本方法 push
         // CurrentPanel，见 RichContentPanel MeasureOverride）
-        Widget CreateHtmlCell(HtmlAgilityPack.HtmlNode cellNode, bool isHeader, Color? colorOverride, int depth, bool centerContent = false) {
+        Widget CreateHtmlCell(HtmlAgilityPack.HtmlNode cellNode, bool isHeader, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, float cellPaddingX = 6f) {
             bool hasBlockChild = false;
             bool imgOnly = ImageLoader != null;
             foreach (HtmlAgilityPack.HtmlNode child in cellNode.ChildNodes) {
@@ -589,7 +678,7 @@ namespace Game {
                 // 表格（内表格 CreateHtmlCell 再 push）与本格结束后恢复外层上下文正确嵌套
                 RichContentPanel prevPanel = CurrentPanel;
                 CurrentPanel = panel;
-                BuildHtmlNodes(cellNode.ChildNodes, panel, 0, colorOverride, depth + 1, centerContent);
+                BuildHtmlNodes(cellNode.ChildNodes, panel, 0, colorOverride, depth + 1, blockAlign);
                 CurrentPanel = prevPanel;
                 if (isHeader) {
                     BoldWidgetSpans(panel);
@@ -613,17 +702,18 @@ namespace Game {
                 VerticalAlignment = WidgetAlignment.Stretch
             };
             widget.Spans.AddRange(spans);
-            if (centerContent) {
-                // 居中容器内的表格格文本（Chrome text-align 继承进 td；列对齐缺省时不覆写，见 ApplyCellAnchor）
-                widget.TextAnchor = TextAnchor.HorizontalCenter;
+            if (blockAlign != TextAnchor.Default) {
+                // 对齐容器内的表格格文本（Chrome text-align 继承进 td；列对齐缺省时不覆写，见 ApplyCellAnchor）
+                widget.TextAnchor = blockAlign;
             }
             if (LinkClicked != null) {
                 widget.LinkClicked += href => LinkClicked(href);
             }
             // 按 float.MaxValue 自测拿自然宽（与旧 scratch Layout(float.MaxValue,∞) 同参对齐），
-            // Size.X 锚定让底座 track=自然宽+2×CellPadding；Size.Y=-1 保持折行高自动
+            // Size.X 锚定让底座 track=自然宽+2×CellPadding（cellpadding 属性时同参）；Size.Y=-1
+            // 保持折行高自动
             widget.Measure(new Vector2(float.MaxValue, float.PositiveInfinity));
-            widget.Size = new Vector2(widget.ParentDesiredSize.X + 2f * CellPaddingX, -1f);
+            widget.Size = new Vector2(widget.ParentDesiredSize.X + 2f * cellPaddingX, -1f);
             return widget;
         }
 
@@ -635,7 +725,7 @@ namespace Game {
                 or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr" or "pre" or "blockquote"
                 or "ul" or "ol" or "menu" or "footer" or "address"
                 or "center" or "dl" or "dt" or "dd" or "figure" or "figcaption" or "details" or "summary"
-                or "caption";
+                or "caption" or "html" or "body";
         }
 
         // colspan/rowspan 属性解析：空/非法/≤0 → 1，上限钳 1000（HTML 标准同值）——不可信源
@@ -681,21 +771,137 @@ namespace Game {
 
         // 格锚点下写：RichTextWidget 直写 TextAnchor 并横向拉满容器（留锚点偏移余量）；容器格递归
         // （CSS text-align 继承口径，嵌套表格一并）。列对齐只补缺省锚点：容器内已显式居中的段/标题
-        //（centerContent）优先于列对齐属性——<td><center> 老帖高频组合，无条件赋值会击穿居中；
-        // 浏览器同款取舍（center 元素自身 text-align 胜过外层 td 属性），left 属性映射 Default 不写
-        static void ApplyCellAnchor(Widget widget, TextAnchor anchor) {
+        //（blockAlign）优先于列对齐属性——<td><center> 老帖高频组合，无条件赋值会击穿居中；
+        // 浏览器同款取舍（center 元素自身 text-align 胜过外层 td 属性），left 属性映射 Default 不写。
+        // valign 走垂直位 OR 合成（HorizontalCenter/Right 与 Top/Bottom 位互不冲突，flags 枚举），
+        // 并确保纵向 Stretch 留锚点偏移余量；块级格（RichContentPanel）内容纵排无法整体居中，
+        // 递归只达内部文本件（单行文本格即全效，多行块近似），留档局限
+        static void ApplyCellAnchor(Widget widget, TextAnchor anchor, TextAnchor? verticalAnchor = null) {
             if (widget is RichTextWidget rich) {
                 if (anchor != TextAnchor.Default
                     && rich.TextAnchor == TextAnchor.Default) {
                     rich.TextAnchor = anchor;
                 }
+                if (verticalAnchor != null) {
+                    rich.TextAnchor |= verticalAnchor.Value;
+                    rich.VerticalAlignment = WidgetAlignment.Stretch;
+                }
                 rich.HorizontalAlignment = WidgetAlignment.Stretch;
             }
             else if (widget is ContainerWidget container) {
                 foreach (Widget child in container.Children) {
-                    ApplyCellAnchor(child, anchor);
+                    ApplyCellAnchor(child, anchor, verticalAnchor);
                 }
             }
+        }
+
+        // valign 属性 → 垂直锚点位：top/middle/bottom/baseline（baseline 近似 top，基线感知排版
+        // 未建模同 sub/sup 留档 P4 TTF）。TextAnchor.Top==0==Default，故返回 nullable——null=无
+        // 属性（不写），Top=显式置顶（OR 0 无副作用但保 Stretch 赋值）。缺省查所在行（tr valign
+        // 行级回退），皆无返回 null
+        static TextAnchor? ParseVerticalAlignment(HtmlAgilityPack.HtmlNode cell, HtmlAgilityPack.HtmlNode row) {
+            string token = cell.GetAttributeValue("valign", null)?.Trim().ToLowerInvariant()
+                ?? row.GetAttributeValue("valign", null)?.Trim().ToLowerInvariant();
+            return token switch {
+                "top" or "baseline" => TextAnchor.Top,
+                "middle" => TextAnchor.VerticalCenter,
+                "bottom" => TextAnchor.Bottom,
+                _ => null
+            };
+        }
+
+        // 块级 align 属性 → 文本锚点（CSS text-align 口径）：center/right/left 三值生效，
+        // justify/char 不识别返回 null（继承外层）。left 显式映射 Default=Left 同值，
+        // nullable 装箱保住"显式 left 覆盖继承的 right"语义（否则 ?? 链会回退到继承值）
+        static TextAnchor? ParseBlockAlignment(HtmlAgilityPack.HtmlNode node) {
+            return node.GetAttributeValue("align", null)?.Trim().ToLowerInvariant() switch {
+                "center" => TextAnchor.HorizontalCenter,
+                "right" => TextAnchor.Right,
+                "left" => TextAnchor.Default,
+                _ => null
+            };
+        }
+
+        // hr 旧属性四件套：width（px / % 相对容器，容器宽未知退全宽）/size（厚度 px）/color/
+        // align（仅定宽时有偏移空间；全宽时 Stretch 已占满无意义）。noshade 忽略（本就纯色平线）
+        RectangleWidget CreateHtmlThematicBreak(HtmlAgilityPack.HtmlNode node) {
+            RectangleWidget line = CreateThematicBreak();
+            if (CssColorParser.TryParse(node.GetAttributeValue("color", null), out Color hrColor)) {
+                line.FillColor = hrColor;
+            }
+            float width = -1f;
+            string widthAttr = node.GetAttributeValue("width", null)?.Trim();
+            if (!string.IsNullOrEmpty(widthAttr)) {
+                if (widthAttr.EndsWith("%", StringComparison.Ordinal)
+                    && float.TryParse(widthAttr[..^1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float percent)
+                    && NestedContentWidth() > 0f) {
+                    width = NestedContentWidth() * MathUtils.Clamp(percent / 100f, 0f, 1f);
+                }
+                else if (float.TryParse(widthAttr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float pixels)) {
+                    width = MathUtils.Max(pixels, 0f);
+                }
+            }
+            float thickness = -1f;
+            if (int.TryParse(node.GetAttributeValue("size", null), out int sizeAttribute)
+                && sizeAttribute > 0) {
+                thickness = MathUtils.Min(sizeAttribute, 100f);
+            }
+            if (width >= 0f
+                || thickness > 0f) {
+                // 显式尺寸：脱离 Stretch 定宽定厚（Rectangle 无内容 -1 缩线惯例，厚度必显式给定）
+                line.HorizontalAlignment = ParseBlockAlignment(node) switch {
+                    TextAnchor.HorizontalCenter => WidgetAlignment.Center,
+                    TextAnchor.Right => WidgetAlignment.Far,
+                    _ => WidgetAlignment.Near
+                };
+                line.Size = new Vector2(width >= 0f ? width : -1f, thickness > 0f ? thickness : 1f);
+            }
+            return line;
+        }
+
+        // <img> 属性口径统一入口（块级/img 直下级/li 行内级三调用点）：width/height 显式尺寸 +
+        // hspace/vspace 外边距（各侧独立计，横向相加得双边距）。其余 align 属性留档不做
+        //（left/right 浮动环绕无对应排版模型）
+        void AddImageBlockWithAttributes(StackPanelWidget target, HtmlAgilityPack.HtmlNode img) {
+            Vector2? explicitSize = ParseImageSize(img);
+            Vector2 margin = new(0f, 8f);
+            if (float.TryParse(img.GetAttributeValue("hspace", null), out float hspace) && hspace > 0f) {
+                margin.X = MathUtils.Min(hspace * 2f, 100f);
+            }
+            if (float.TryParse(img.GetAttributeValue("vspace", null), out float vspace) && vspace > 0f) {
+                margin.Y = MathUtils.Min(vspace * 2f, 100f);
+            }
+            AddImageBlock(target, img.GetAttributeValue("src", null), img.GetAttributeValue("alt", null), explicitSize, margin);
+        }
+
+        // img width/height：px 直取；width 的 % 相对容器（容器宽未知跳过该维）；height 的 %
+        // 不做（无解析基准）。两维均未给返回 null（走自适应管线）。显式值钳 1-4096 防御
+        Vector2? ParseImageSize(HtmlAgilityPack.HtmlNode img) {
+            float width = ParseImageDimension(img.GetAttributeValue("width", null), allowPercent: true);
+            float height = ParseImageDimension(img.GetAttributeValue("height", null), allowPercent: false);
+            if (width <= 0f
+                && height <= 0f) {
+                return null;
+            }
+            return new Vector2(width, height);
+        }
+
+        float ParseImageDimension(string attribute, bool allowPercent) {
+            if (string.IsNullOrWhiteSpace(attribute)) {
+                return -1f;
+            }
+            string trimmed = attribute.Trim();
+            if (trimmed.EndsWith("%", StringComparison.Ordinal)) {
+                if (!allowPercent
+                    || !float.TryParse(trimmed[..^1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float percent)
+                    || NestedContentWidth() <= 0f) {
+                    return -1f;
+                }
+                return MathUtils.Clamp(NestedContentWidth() * percent / 100f, 1f, 4096f);
+            }
+            return float.TryParse(trimmed, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float pixels)
+                ? MathUtils.Clamp(pixels, 1f, 4096f)
+                : -1f;
         }
 
         // MarkdownTableAlignment → TextAnchor（照包装类 AssignAnchors 映射；缺省=左对齐 Default）
@@ -759,7 +965,7 @@ namespace Game {
                 if (child.Name.ToLowerInvariant() is "pre" or "ul" or "ol" or "menu" or "blockquote" or "p" or "div" or "hr" or "table"
                     or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "footer" or "address"
                     or "center" or "dl" or "dt" or "dd" or "figure" or "figcaption" or "details" or "summary"
-                    or "caption") {
+                    or "caption" or "html" or "body") {
                     return true;
                 }
                 if (ContainsBlockChild(child, depth + 1)) {

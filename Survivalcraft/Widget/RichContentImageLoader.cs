@@ -33,13 +33,21 @@ namespace Game {
 
         // 已换上真实纹理的 frame 及其适配参数：宿主（MarkdownWidget）测量期只回填未完成 frame
         // 的宽度；已完成 frame 宽=图宽不可直改，但格内场景需随格宽重适配（RefitFrame 查此表
-        // 取纹理与高上限）。Alt/Url 仅为条目完整性保留（与 pending 条目同构），重适配不消费
-        readonly Dictionary<CanvasWidget, (RectangleWidget Image, Texture2D Texture, string Alt, string Url, float MaxHeight)> m_appliedFrames = [];
+        // 取纹理与高上限）。Alt/Url 仅为条目完整性保留（与 pending 条目同构），重适配不消费。
+        // ExplicitSize=img width/height 属性（null=无属性走自适应；有则显示尺寸以属性为准）
+        readonly Dictionary<CanvasWidget, (RectangleWidget Image, Texture2D Texture, string Alt, string Url, float MaxHeight, Vector2? ExplicitSize)> m_appliedFrames = [];
 
         // 纹理就绪但宿主宽未解析（frame.Size.X<=0，跟随父容器的宿主在测量期才回填）的 frame。
         // 挂起到宿主调 ResolvePendingWidths()（测量期回填之后）再适配上屏；
         // 不挂起就会按兜底宽适配，窄容器/列表项内溢出
-        readonly List<(CanvasWidget Frame, RectangleWidget Image, FontTextWidget Status, string Alt, string Url, float MaxHeight)> m_pendingFrames = [];
+        readonly List<(CanvasWidget Frame, RectangleWidget Image, FontTextWidget Status, string Alt, string Url, float MaxHeight, Vector2? ExplicitSize)> m_pendingFrames = [];
+
+        // img width/height 属性帧登记：宿主测量期宽度回填的豁免依据（显式帧宽=属性值，
+        // 不可被容器宽覆写；RefitFrame 路径仍会按容器钳制防溢出）。ReleaseTextures 清空
+        readonly HashSet<CanvasWidget> m_explicitFrames = [];
+
+        // frame 是否带 width/height 属性显式尺寸（含纹理未就绪的占位期）
+        public bool IsFrameExplicit(CanvasWidget frame) => m_explicitFrames.Contains(frame);
 
         // frame 是否已换上真实纹理（见 m_appliedFrames）
         public bool IsFrameApplied(CanvasWidget frame) => m_appliedFrames.ContainsKey(frame);
@@ -48,22 +56,36 @@ namespace Game {
         // scale≤1（只缩不放），frame/image Size 重设后宿主 panel 重测 → 行高自动联动。
         // 未注册（占位/顶层未完成 frame）no-op——宽回填归各宿主测量期分支
         public void RefitFrame(CanvasWidget frame, float availableWidth) {
-            if (!m_appliedFrames.TryGetValue(frame, out (RectangleWidget Image, Texture2D Texture, string Alt, string Url, float MaxHeight) entry)) {
+            if (!m_appliedFrames.TryGetValue(frame, out (RectangleWidget Image, Texture2D Texture, string Alt, string Url, float MaxHeight, Vector2? ExplicitSize) entry)) {
                 return;
             }
-            Vector2 size = GetImageDisplaySize(entry.Texture, availableWidth, entry.MaxHeight);
+            // 显式尺寸 frame：属性口径随可用宽钳制（防溢出，等比缩，只缩不放）
+            Vector2 size = entry.ExplicitSize.HasValue
+                ? ClampExplicitSize(entry.Texture, ResolveExplicitSize(entry.Texture, entry.ExplicitSize.Value), availableWidth)
+                : GetImageDisplaySize(entry.Texture, availableWidth, entry.MaxHeight);
             frame.Size = size;
             entry.Image.Size = size;
         }
 
         // 创建图片块 widget 并触发异步加载。占位宽 <=0（宽度跟随父容器）时由宿主在测量期回填 frame.Size.X。
+        // explicitSize：img width/height 属性（分量 <=0 视为未给）——该维以属性为准（浏览器同款，
+        // 可放大可变形），加载完成后不再按可用宽自适应（RefitFrame 仍会按容器钳制防溢出）。
         // 调用方负责把它挂进内容面板（图片块上方通常需要 spacer，由调用方按各自版式控制）。
         // 占位态视觉=网页破图样式：1px 灰框紧贴状态字并整体居中于 frame。框不能直接用 Rectangle
         // （无内容，-1 尽量小惯例下缩成线），外包 Canvas 的 desired=文字+边距把框撑起
-        public CanvasWidget CreateImageBlock(string url, string alt, float placeholderWidth, float maxHeight) {
+        public CanvasWidget CreateImageBlock(string url, string alt, float placeholderWidth, float maxHeight, Vector2? explicitSize = null) {
             url = ResolveUrl(url);
             alt = string.IsNullOrWhiteSpace(alt) ? LanguageControl.Get("PostDetailsContentBuilder", "Image") : alt.Trim();
-            CanvasWidget frame = new() { Size = new Vector2(placeholderWidth, -1f), HorizontalAlignment = WidgetAlignment.Center };
+            CanvasWidget frame = new() {
+                Size = new Vector2(
+                    explicitSize is { X: > 0 } v1 ? v1.X : placeholderWidth,
+                    explicitSize is { Y: > 0 } v2 ? v2.Y : -1f
+                ),
+                HorizontalAlignment = WidgetAlignment.Center
+            };
+            if (explicitSize is { X: > 0 } or { Y: > 0 }) {
+                m_explicitFrames.Add(frame);
+            }
             RectangleWidget image = new() {
                 Size = new Vector2(-1f, -1f),
                 HorizontalAlignment = WidgetAlignment.Stretch,
@@ -101,10 +123,10 @@ namespace Game {
             }
             if (m_imageTextureCache.TryGetValue(url, out Texture2D cachedTexture)) {
                 // 缓存命中（内容重建，如自动翻译）：复用已下载纹理，不再重复下载。
-                ApplyImageTexture(cachedTexture, frame, image, status, alt, url, maxHeight);
+                ApplyImageTexture(cachedTexture, frame, image, status, alt, url, maxHeight, explicitSize);
                 return frame;
             }
-            _ = LoadImageAsync(url, alt, frame, image, status, maxHeight);
+            _ = LoadImageAsync(url, alt, frame, image, status, maxHeight, explicitSize);
             return frame;
         }
 
@@ -132,6 +154,7 @@ namespace Game {
             m_imageTextureCache.Clear();
             m_appliedFrames.Clear();
             m_pendingFrames.Clear();
+            m_explicitFrames.Clear();
         }
 
         // 宿主测量期回填 frame 宽度之后调用：宽已解析的挂起 frame 补适配上屏。
@@ -141,12 +164,12 @@ namespace Game {
                 return;
             }
             for (int i = m_pendingFrames.Count - 1; i >= 0; i--) {
-                (CanvasWidget frame, RectangleWidget image, FontTextWidget status, string alt, string url, float maxHeight) = m_pendingFrames[i];
+                (CanvasWidget frame, RectangleWidget image, FontTextWidget status, string alt, string url, float maxHeight, Vector2? explicitSize) = m_pendingFrames[i];
                 if (frame.Size.X <= 0f) {
                     continue;
                 }
                 m_pendingFrames.RemoveAt(i);
-                ApplyImageTexture(m_imageTextureCache.TryGetValue(url, out Texture2D texture) ? texture : null, frame, image, status, alt, url, maxHeight);
+                ApplyImageTexture(m_imageTextureCache.TryGetValue(url, out Texture2D texture) ? texture : null, frame, image, status, alt, url, maxHeight, explicitSize);
             }
         }
 
@@ -155,7 +178,8 @@ namespace Game {
             CanvasWidget frame,
             RectangleWidget image,
             FontTextWidget status,
-            float maxHeight) {
+            float maxHeight,
+            Vector2? explicitSize) {
             int generation = m_generation;
             byte[] data;
             try {
@@ -240,7 +264,7 @@ namespace Game {
                             m_imageTextureCache[url] = texture;
                             m_loadedTextures.Add(texture);
                         }
-                        ApplyImageTexture(texture, frame, image, status, alt, url, maxHeight);
+                        ApplyImageTexture(texture, frame, image, status, alt, url, maxHeight, explicitSize);
                     }
                     catch (Exception ex) {
                         status.Text = FailedToLoadText(alt);
@@ -263,7 +287,8 @@ namespace Game {
             FontTextWidget status,
             string alt,
             string url,
-            float maxHeight) {
+            float maxHeight,
+            Vector2? explicitSize = null) {
             try {
                 if (texture is not { Width: > 0, Height: > 0 }) {
                     status.Text = FailedToLoadText(alt);
@@ -272,16 +297,20 @@ namespace Game {
                 if (frame.Size.X <= 0f) {
                     // 宿主宽未解析（跟随父容器的宿主测量期才回填）：挂起，宽解析后由
                     // ResolvePendingWidths 补适配上屏。现在适配只能按兜底宽，窄容器/列表项内必溢出
-                    m_pendingFrames.Add((frame, image, status, alt, url, maxHeight));
+                    m_pendingFrames.Add((frame, image, status, alt, url, maxHeight, explicitSize));
                     return;
                 }
-                Vector2 size = GetImageDisplaySize(texture, frame.Size.X, maxHeight);
+                // 显式尺寸：width/height 属性口径（缺维按纹理宽高比补），不做可用宽钳制——
+                // 浏览器同款（属性优先），超容器由 RefitFrame 路径（格内回传）钳制
+                Vector2 size = explicitSize.HasValue
+                    ? ResolveExplicitSize(texture, explicitSize.Value)
+                    : GetImageDisplaySize(texture, frame.Size.X, maxHeight);
                 frame.Size = size;
                 image.Size = size;
                 image.Subtexture = new Subtexture(texture, Vector2.Zero, Vector2.One);
                 image.IsVisible = true;
                 status.IsVisible = false;
-                m_appliedFrames[frame] = (image, texture, alt, url, maxHeight);
+                m_appliedFrames[frame] = (image, texture, alt, url, maxHeight, explicitSize);
             }
             catch (Exception ex) {
                 status.Text = FailedToLoadText(alt);
@@ -313,6 +342,25 @@ namespace Game {
                 scale = 1f;
             }
             return new Vector2(texture.Width * scale, texture.Height * scale);
+        }
+
+        // img width/height 属性口径的显示尺寸：缺维按纹理宽高比补（单给 width/height 的老帖
+        // 高频写法），双给按属性值（允许变形与放大——浏览器同款）
+        Vector2 ResolveExplicitSize(Texture2D texture, Vector2 explicitSize) {
+            float aspect = texture.Width / (float)texture.Height;
+            float width = explicitSize.X > 0f ? explicitSize.X : explicitSize.Y * aspect;
+            float height = explicitSize.Y > 0f ? explicitSize.Y : width / aspect;
+            return new Vector2(width, height);
+        }
+
+        // 显式尺寸的容器钳制（RefitFrame 路径）：超可用宽时等比缩（只缩不放），防溢出；
+        // 属性比容器窄则保持原值
+        Vector2 ClampExplicitSize(Texture2D texture, Vector2 size, float availableWidth) {
+            if (size.X > availableWidth
+                && size.X > 0f) {
+                return size * (availableWidth / size.X);
+            }
+            return size;
         }
 
         string ResolveUrl(string url) {

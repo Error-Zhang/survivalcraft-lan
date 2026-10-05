@@ -132,6 +132,18 @@ namespace Game {
                     // var（变量）与 address（联系地址）HTML 默认渲染同为斜体
                     inner.Italic = true;
                     break;
+                case "font": {
+                    // 旧版表现属性三件套：color（CSS 色值全口径）/size（1-7 与 ±N 相对）/face（全仓
+                    // 唯一位图字体 Pericles，无字库可换，静默忽略）。color 直写样式上下文——套在 <a>
+                    // 内时覆盖链接色，浏览器同款（表现属性提示胜过 UA 链接色）
+                    if (CssColorParser.TryParse(node.GetAttributeValue("color", null), out Color fontColor)) {
+                        inner.Color = fontColor;
+                    }
+                    if (TryParseFontSizeAttribute(node.GetAttributeValue("size", null), out float sizeRatio)) {
+                        inner.Scale = (inner.Scale > 0f ? inner.Scale : 1f) * sizeRatio;
+                    }
+                    break;
+                }
                 case "span": {
                     string styleAttr = node.GetAttributeValue("style", null);
                     if (TryParseStyleColor(styleAttr, "color", out Color color)) {
@@ -293,7 +305,34 @@ namespace Game {
             return false;
         }
 
-        static bool TryParseColorValue(string value, out Color color) {
+        // font size 属性倍率表：Chrome 16px medium 基准的绝对字号映射（10/13/16/18/24/32/48px ÷ 16）
+    static readonly float[] s_fontSizeRatios = [0.625f, 0.8125f, 1f, 1.125f, 1.5f, 2f, 3f];
+
+    // font size 属性：绝对 1-7 或 ±N 相对（"+2"/"-1"，int.TryParse 吞掉前导符号得 2/-1）。
+    // 相对值以基准 3 折算后钳 1-7（HTML 规范：不随嵌套累加，浏览器同款）；绝对越界（0/8+）
+    // 规范规定无效果——返回 false 不缩放
+    static bool TryParseFontSizeAttribute(string attribute, out float ratio) {
+        ratio = 1f;
+        if (string.IsNullOrWhiteSpace(attribute)) {
+            return false;
+        }
+        string trimmed = attribute.Trim();
+        if (trimmed[0] is '+' or '-') {
+            if (!int.TryParse(trimmed, out int relative)) {
+                return false;
+            }
+            ratio = s_fontSizeRatios[MathUtils.Clamp(3 + relative, 1, 7) - 1];
+            return true;
+        }
+        if (!int.TryParse(trimmed, out int absolute)
+            || absolute is < 1 or > 7) {
+            return false;
+        }
+        ratio = s_fontSizeRatios[absolute - 1];
+        return true;
+    }
+
+    static bool TryParseColorValue(string value, out Color color) {
             color = default;
             if (value.StartsWith("#")) {
                 string hex = value[1..];

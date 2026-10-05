@@ -61,10 +61,12 @@ namespace Game {
                     if (shell.Kind == ShellKind.ImageFrame
                         && ImageLoader?.IsFrameApplied(shell.Frame) == true) {
                         // 已换纹理的 frame 宽=图宽不可直改：随格宽等比重适配（只缩不放，网页
-                        // max-width:100% 同义）；Size.Y 等比联动 → 行高随本帧测量自动更新
+                        // max-width:100% 同义）；Size.Y 等比联动 → 行高随本帧测量自动更新。
+                        // width/height 属性帧走 RefitFrame 内的显式口径（属性优先+防溢出钳制）
                         ImageLoader.RefitFrame(shell.Frame, width);
                     }
-                    else {
+                    else if (shell.Kind != ShellKind.ImageFrame
+                        || ImageLoader?.IsFrameExplicit(shell.Frame) != true) {
                         shell.Frame.Size = new Vector2(width, shell.Frame.Size.Y);
                     }
                 }
@@ -83,7 +85,8 @@ namespace Game {
                             if (ImageLoader?.IsFrameApplied(shell.Frame) == true) {
                                 ImageLoader.RefitFrame(shell.Frame, float.PositiveInfinity);
                             }
-                            else {
+                            else if (ImageLoader?.IsFrameExplicit(shell.Frame) != true) {
+                                // 属性显式帧保持构建期属性值（协商自然宽=属性宽），不做 -1 还原
                                 shell.Frame.Size = new Vector2(-1f, shell.Frame.Size.Y);
                             }
                             break;
