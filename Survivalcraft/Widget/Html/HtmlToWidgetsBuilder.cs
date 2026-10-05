@@ -47,23 +47,37 @@ namespace Game {
             return widget;
         }
 
-        // style 盒属性（padding/margin）壳方案：带声明时包一层透明 StackPanel 壳——壳 Margin=CSS
-        // margin（壳外距），子件四边距=CSS padding（壳内缘到内容）。浏览器盒子模型同构：border 波
-        // 边框画在壳矩形上时 padding 天然落框内。无相关声明返回 null（零开销直通）。
+        // style 盒属性（padding/margin/background-color）壳方案：带声明时包一层 StackPanel 壳——
+        // 壳 Margin=CSS margin（壳外距），子件四边距=CSS padding（壳内缘到内容），背景/边框由壳
+        // Draw 铺整幅（背景垫边框之下）。浏览器盒子模型同构：border 波边框画在壳矩形上时 padding
+        // 天然落框内。无相关声明返回 null（零开销直通）。
         // 单件版：叶子块（标题/引用/代码块/hr/表格/列表整体）
-        Widget WrapInStyleBox(HtmlAgilityPack.HtmlNode node, Widget widget, Color? colorOverride) {
+        Widget WrapInStyleBox(HtmlAgilityPack.HtmlNode node, Widget widget, Color? colorOverride, bool backgroundViaShell = true) {
             string style = node.GetAttributeValue("style", null);
             bool hasMargin = CssStyleParser.TryGetBox(style, "margin", out Vector4 margin);
             bool hasPadding = CssStyleParser.TryGetBox(style, "padding", out Vector4 padding);
             // TryGetBorder 返回=有声明（含全禁），起壳查 HasAny（全禁=无边框不起壳）
             bool hasBorder = CssStyleParser.TryGetBorder(style, out CssStyleParser.CssBorderSpec border)
                 && border.HasAny;
-            if (!hasMargin && !hasPadding && !hasBorder) {
+            // background-color：TryParse 失败=无效值整条丢弃不起壳（CSS 解析期丢弃口径）。
+            // bgColor 预声明：&& 右侧 out 隔着 bool 变量不保明确赋值（C# 条件调用模式）
+            Color bgColor = default;
+            // backgroundViaShell=false：自绘背景的宿主（table 格链）豁免壳铺底——壳整幅填充
+            // 会与格底双重混色且把 Margin 带染色（CSS margin 区不着色）
+            bool hasBackground = backgroundViaShell
+                && CssStyleParser.TryGetDeclaration(style, "background-color", out string bgDecl)
+                && CssColorParser.TryParse(bgDecl, out bgColor)
+                // transparent（A=0）=无背景：免壳省每帧 Draw 调度
+                && bgColor.A > 0;
+            if (!hasMargin && !hasPadding && !hasBorder && !hasBackground) {
                 return null;
             }
             // CSS border-box：border 宽并入内缩（内容区=壳宽−border−padding），边框画壳外缘不压内容
             ApplyBoxEdges(widget, padding + (hasBorder ? border.Widths : Vector4.Zero), applyTop: true, applyBottom: true);
             HtmlStyleBoxWidget shell = new() { Direction = LayoutDirection.Vertical };
+            if (hasBackground) {
+                shell.BackgroundColor = bgColor;
+            }
             if (hasBorder) {
                 shell.BorderWidths = border.Widths;
                 shell.BorderLeftColor = border.Left;
@@ -93,11 +107,21 @@ namespace Game {
             // TryGetBorder 返回=有声明（含全禁），起壳查 HasAny（全禁=无边框不起壳）
             bool hasBorder = CssStyleParser.TryGetBorder(style, out CssStyleParser.CssBorderSpec border)
                 && border.HasAny;
-            if (!hasMargin && !hasPadding && !hasBorder) {
+            // background-color：TryParse 失败=无效值整条丢弃不起壳（CSS 解析期丢弃口径）。
+            // bgColor 预声明：&& 右侧 out 隔着 bool 变量不保明确赋值（C# 条件调用模式）；
+            // transparent（A=0）=无背景免壳省每帧 Draw 调度
+            Color bgColor = default;
+            bool hasBackground = CssStyleParser.TryGetDeclaration(style, "background-color", out string bgDecl)
+                && CssColorParser.TryParse(bgDecl, out bgColor)
+                && bgColor.A > 0;
+            if (!hasMargin && !hasPadding && !hasBorder && !hasBackground) {
                 shell = null;
                 return false;
             }
             HtmlStyleBoxWidget styleShell = new() { Direction = LayoutDirection.Vertical };
+            if (hasBackground) {
+                styleShell.BackgroundColor = bgColor;
+            }
             if (hasBorder) {
                 styleShell.BorderWidths = border.Widths;
                 styleShell.BorderLeftColor = border.Left;
@@ -276,6 +300,11 @@ namespace Game {
                             if (CssColorParser.TryParse(node.GetAttributeValue("bgcolor", null), out Color bodyBackground)) {
                                 m_bodyBackground = bodyBackground;
                             }
+                            // CSS background-color 声明覆写 bgcolor 属性（同一元素 CSS 胜旧属性）
+                            if (CssStyleParser.TryGetDeclaration(node.GetAttributeValue("style", null), "background-color", out string bodyCssBg)
+                                && CssColorParser.TryParse(bodyCssBg, out Color bodyCssColor)) {
+                                m_bodyBackground = bodyCssColor;
+                            }
                             if (CssColorParser.TryParse(node.GetAttributeValue("text", null), out Color bodyText)) {
                                 m_bodyTextColor = bodyText;
                             }
@@ -330,7 +359,7 @@ namespace Game {
                         // 空表（无任何行）返回 null 不产部件——零尺寸 widget 仍会靠 Margin 贡献 8px 空白
                         TablePanelWidget table = CreateHtmlTable(node, colorOverride, depth, blockAlign);
                         if (table != null) {
-                            panel.Children.Add(WrapInStyleBox(node, table, colorOverride) ?? table);
+                            panel.Children.Add(WrapInStyleBox(node, table, colorOverride, backgroundViaShell: false) ?? table);
                         }
                         break;
                     }
@@ -786,10 +815,14 @@ namespace Game {
             if (ParseBlockAlignment(tableNode) == TextAnchor.HorizontalCenter) {
                 widget.HorizontalAlignment = WidgetAlignment.Center;
             }
-            // bgcolor 回退链根：table 属性 → body 属性（整页包装场景）
-            Color? tableBackground = CssColorParser.TryParse(tableNode.GetAttributeValue("bgcolor", null), out Color tableBg)
-                ? tableBg
-                : m_bodyBackground;
+            // bgcolor 回退链根：table CSS 声明 → table 属性 → body 属性（整页包装场景）。
+            // 同一元素 CSS 声明胜旧属性（与 text-align 同规），链结构不变
+            Color? tableBackground = CssStyleParser.TryGetDeclaration(tableNode.GetAttributeValue("style", null), "background-color", out string tableCssBg)
+                && CssColorParser.TryParse(tableCssBg, out Color tableCssColor)
+                ? tableCssColor
+                : CssColorParser.TryParse(tableNode.GetAttributeValue("bgcolor", null), out Color tableBg)
+                    ? tableBg
+                    : m_bodyBackground;
             List<(HtmlAgilityPack.HtmlNode Row, bool FromThead)> rows = [];
             // tfoot 行收集沉底（HTML 渲染语义：footer 行无论 DOM 位置恒在表尾），行数设
             // FooterRows 驱动底座表尾结构（FooterSeparator 语义对称 HeaderSeparator）
@@ -854,11 +887,15 @@ namespace Game {
                 // 表头行判定行级统一（F3）：thead 行或行内含 th，与 th 的格序无关——原实现随格
                 // 遍历置位，th 前的 td 格以 false 建格漏染粗；整行格统一染粗（同 Markdown CreateTable 口径）
                 bool isHeader = fromThead || HasHeaderCell(tr);
-                // bgcolor 链第二级：tr 属性 → 表/body 根。挂行壳整体铺（覆盖 rowspan 空隙，
-                // 浏览器同视觉），格级属性由 SetCellBackground 覆盖其上
-                Color? rowBackground = CssColorParser.TryParse(tr.GetAttributeValue("bgcolor", null), out Color rowBg)
-                    ? rowBg
-                    : tableBackground;
+                // bgcolor 链第二级：tr CSS 声明 → tr 属性 → 表/body 根（同一元素 CSS 胜旧属性）。
+                // 挂行壳整体铺（覆盖 rowspan 空隙，浏览器同视觉），格级 CSS/属性由 SetCellBackground
+                // 覆盖其上
+                Color? rowBackground = CssStyleParser.TryGetDeclaration(tr.GetAttributeValue("style", null), "background-color", out string rowCssBg)
+                    && CssColorParser.TryParse(rowCssBg, out Color rowCssColor)
+                    ? rowCssColor
+                    : CssColorParser.TryParse(tr.GetAttributeValue("bgcolor", null), out Color rowBg)
+                        ? rowBg
+                        : tableBackground;
                 TextAnchor? rowVerticalAlignment = ParseVerticalAlignment(tr, tr);
                 List<Widget> cells = [];
                 int column = 0;
@@ -884,8 +921,13 @@ namespace Game {
                     if (rowSpan > 1) {
                         TablePanelWidget.SetRowSpan(cell, rowSpan);
                     }
-                    // 格级 bgcolor（链最内级）：仅在有显式属性时挂，行壳底色兜其余
-                    if (CssColorParser.TryParse(cellNode.GetAttributeValue("bgcolor", null), out Color cellBg)) {
+                    // 格级 bgcolor（链最内级）：格 CSS 声明 → 格属性（同一元素 CSS 胜旧属性），
+                    // 均无则不挂（行壳底色兜其余）
+                    if (CssStyleParser.TryGetDeclaration(cellNode.GetAttributeValue("style", null), "background-color", out string cellCssBg)
+                        && CssColorParser.TryParse(cellCssBg, out Color cellCssColor)) {
+                        TablePanelWidget.SetCellBackground(cell, cellCssColor);
+                    }
+                    else if (CssColorParser.TryParse(cellNode.GetAttributeValue("bgcolor", null), out Color cellBg)) {
                         TablePanelWidget.SetCellBackground(cell, cellBg);
                     }
                     // M1：跳过被前行 rowspan 占住的槽位定真实列号（照 ExpandSlots cursor 口径）
