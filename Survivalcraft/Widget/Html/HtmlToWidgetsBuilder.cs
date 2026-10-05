@@ -517,6 +517,22 @@ namespace Game {
                 if (node.GetAttributeValue("hidden", null) != null) {
                     continue;
                 }
+                // display:flex/inline-flex → flex 容器（块级单一判定点：先于标签 switch，覆盖
+                // div/p/span/未知标签等全部元素入口——span 等行内标签声明 flex 按 CSS
+                // blockification 升块，与 flex 子容器拦截同口径；script/style 体源码非可见内容
+                // 须在拦截点显式排除，否则带 display:flex 的 script 会把源码经 flex 路径渲染成
+                // 正文；范围与 transform 同面——li 直发块/td 自身不吃，li 内与格内经重入吃）。
+                // inline-flex 行内态按 flex 块近似（留档）；block/inline-block 等其他值不拦走
+                // 原路（inline-block 留档不做）
+                if (node.Name.ToLowerInvariant() is not ("script" or "style")
+                    && IsFlexDisplay(node)) {
+                    Flush();
+                    Widget flexBlock = CreateFlexContainer(node, listDepth, colorOverride, depth, blockAlign, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, opacityCtx, letterSpacingCtx);
+                    if (flexBlock != null) {
+                        panel.Children.Add(FinalizeBlock(node, flexBlock, colorOverride));
+                    }
+                    continue;
+                }
                 switch (node.Name.ToLowerInvariant()) {
                     case "script":
                     case "style":
@@ -886,6 +902,361 @@ namespace Game {
                 }
             }
             Flush();
+        }
+
+        // display:flex 值检出（style display 声明，级联 last-wins）：flex/inline-flex 两值命中
+        static bool IsFlexDisplay(HtmlAgilityPack.HtmlNode node) {
+            if (!CssStyleParser.TryGetDeclaration(node.GetAttributeValue("style", null), "display", out string displayDecl)) {
+                return false;
+            }
+            return displayDecl.Trim().ToLowerInvariant() is "flex" or "inline-flex";
+        }
+
+        // display:flex 容器构建：FlexPanelWidget 直产 + 容器属性映射（flex-direction/flex-wrap/
+        // flex-flow 简写/gap 简写+长手/justify-content/align-items，声明序迭代：简写重置槽位、
+        // 长手随序覆写，无效值整条丢不回退前条）+ 子项二分（块级元素子=单节点重入顶层分发产
+        // item，空元素子补零尺寸载体件照吃 flex 属性；行内元素子=累积成匿名段落 item，块级
+        // 边界与收尾处冲刷、纯空白蒸发不产件）。返回件走调用方 FinalizeBlock 块级咽喉——
+        // bg/border/margin/padding 壳、width/max-width、transform 同面享受；嵌套 flex 经子树
+        // 重入自然支持。留档近似：inline-flex 行内态按块；align-items 未声明=引擎缺省 Near
+        //（≈flex-start，非 CSS 默认 stretch）；baseline 映 stretch；% gap/basis 拒（引擎布局期
+        // 无主轴尺寸可折算）；flex 简写全值展开见 ApplyFlexItemProps（shrink 预种 1=CSS 初始
+        // 值，`flex:1`≡1 1 0%）；order/align-self 不做（留档）；text-indent 不挂（flex 容器非
+        // 块容器，CSS 缩进不适用于 flex 件）。
+        // opacity：容器 ctx×自身声明落 FlexPanelWidget.ColorTransform 一并浸透子树（quote 外壳
+        // 同款），子项子树 ctx 归一传 1 防双淡，嵌套子块自身声明从 1 起步照吃
+        Widget CreateFlexContainer(HtmlAgilityPack.HtmlNode node, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign, TextWordBreak wordBreakCtx, bool noWrapCtx, float lineHeightMul, float lineHeightPx, float opacityCtx, float letterSpacingCtx) {
+            if (depth > MaxDepth) {
+                return null;
+            }
+            FlexPanelWidget flexPanel = new() {
+                // 块级盒语义：display:flex 占满宿主宽（Near 塌缩内容宽会让 justify-content/
+                // flex-grow 失去可分配空间），对齐移交由壳/sizer 出口按既有链覆盖
+                HorizontalAlignment = WidgetAlignment.Stretch,
+                ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(node))
+            };
+            string style = node.GetAttributeValue("style", null);
+            // 容器属性声明序循环（简写重置槽位、长手随序覆写，CSS 级联口径统一）：
+            // flex-flow=direction+wrap 双槽简写、gap 双轴简写；无效值整条丢不回退前条
+            FlexDirection direction = FlexDirection.Horizontal;
+            FlexWrap wrap = FlexWrap.NoWrap;
+            FlexJustification justify = FlexJustification.Start;
+            WidgetAlignment align = WidgetAlignment.Near;
+            // 轴序：引擎 Gap.X 恒水平=列间距、Y=行间距（CSS gap 首值=row-gap、次值=column-gap）
+            Vector2 gap = Vector2.Zero;
+            foreach (KeyValuePair<string, string> declaration in CssStyleParser.ParseDeclarations(style)) {
+                switch (declaration.Key) {
+                    case "flex-direction":
+                        direction = ParseFlexDirection(declaration.Value) ?? direction;
+                        break;
+                    case "flex-wrap":
+                        wrap = ParseFlexWrap(declaration.Value) ?? wrap;
+                        break;
+                    case "flex-flow": {
+                        // <direction> || <wrap> 双 token 任意序分发（`row wrap`/`column` 单 token
+                        // 合法）；任一 token 不识别整条拒（简写原子性）
+                        FlexDirection flowDirection = direction;
+                        FlexWrap flowWrap = wrap;
+                        bool flowValid = true;
+                        foreach (string flowToken in declaration.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
+                            if (ParseFlexDirection(flowToken) is { } parsedDirection) {
+                                flowDirection = parsedDirection;
+                            }
+                            else if (ParseFlexWrap(flowToken) is { } parsedWrap) {
+                                flowWrap = parsedWrap;
+                            }
+                            else {
+                                flowValid = false;
+                                break;
+                            }
+                        }
+                        if (flowValid) {
+                            direction = flowDirection;
+                            wrap = flowWrap;
+                        }
+                        break;
+                    }
+                    case "gap": {
+                        string[] tokens = declaration.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        // columnGap 预声明防 CS0165：短路与 out 内联变量跨条件赋值不可追踪
+                        float rowGap;
+                        float columnGap = 0f;
+                        if (tokens.Length is < 1 or > 2
+                            || !TryParseFlexGapValue(tokens[0], out rowGap)
+                            || (tokens.Length == 2 && !TryParseFlexGapValue(tokens[1], out columnGap))) {
+                            break;
+                        }
+                        gap = new Vector2(tokens.Length == 2 ? columnGap : rowGap, rowGap);
+                        break;
+                    }
+                    case "row-gap":
+                        if (TryParseFlexGapValue(declaration.Value, out float rowGapOnly)) {
+                            gap = new Vector2(gap.X, rowGapOnly);
+                        }
+                        break;
+                    case "column-gap":
+                        if (TryParseFlexGapValue(declaration.Value, out float columnGapOnly)) {
+                            gap = new Vector2(columnGapOnly, gap.Y);
+                        }
+                        break;
+                    case "justify-content":
+                        justify = ParseFlexJustify(declaration.Value) ?? justify;
+                        break;
+                    case "align-items":
+                        align = ParseFlexAlign(declaration.Value) ?? align;
+                        break;
+                }
+            }
+            flexPanel.Direction = direction;
+            flexPanel.Wrap = wrap;
+            flexPanel.Gap = gap;
+            flexPanel.JustifyContent = justify;
+            flexPanel.AlignItems = align;
+            // 子项继承上下文（容器声明随子树重入链透传，与 div 容器同口径）；容器自身
+            // text-align/align 属性覆写继承（div case 同款 ParseBlockAlignment 链）
+            TextAnchor itemAlign = ParseBlockAlignment(node) ?? blockAlign;
+            (TextWordBreak itemBreak, bool itemNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
+            (float itemLhMul, float itemLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
+            float itemLs = ResolveLetterSpacingCtx(node, letterSpacingCtx);
+            List<TextSpan> pendingSpans = [];
+            // 行内子节点累积 → 匿名段落 item（块级元素子边界与收尾处冲刷；纯空白经
+            // TrimLeadingWhitespace 蒸发不产件，同 Flush 口径）。容器 ctx 已落
+            // flexPanel.ColorTransform 浸透，匿名件不再叠（叠乘即双淡）
+            void FlushAnonymousItem() {
+                if (pendingSpans.Count == 0) {
+                    return;
+                }
+                HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
+                if (pendingSpans.Count == 0) {
+                    pendingSpans.Clear();
+                    return;
+                }
+                RichTextWidget widget = CreateRichText(colorOverride);
+                if (itemAlign != TextAnchor.Default) {
+                    widget.HorizontalAlignment = WidgetAlignment.Stretch;
+                    widget.TextAnchor = itemAlign;
+                }
+                widget.WordBreak = itemBreak;
+                if (itemNoWrap) {
+                    widget.WordWrap = false;
+                }
+                widget.LetterSpacing = itemLs;
+                widget.LineHeightMultiplier = itemLhMul > 0f ? itemLhMul : 1f;
+                if (itemLhPx > 0f) {
+                    widget.LineHeightPx = itemLhPx;
+                }
+                widget.ColorTransform = Color.White;
+                widget.Spans.AddRange(pendingSpans);
+                flexPanel.Children.Add(widget);
+                pendingSpans.Clear();
+            }
+            foreach (HtmlAgilityPack.HtmlNode child in node.ChildNodes) {
+                if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Text) {
+                    HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, EffectiveTextColor(colorOverride));
+                    continue;
+                }
+                if (child.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
+                    continue;
+                }
+                // 全局 hidden 属性（同 BuildHtmlNodes 口径）：任意值隐藏且不断开匿名行内累积
+                //（display:none 不拆匿名行内盒，浏览器同口径）
+                if (child.GetAttributeValue("hidden", null) != null) {
+                    continue;
+                }
+                FlushAnonymousItem();
+                if (child.Name.Equals("img", StringComparison.OrdinalIgnoreCase)
+                    && ImageLoader != null) {
+                    // 行内 img 升级为独立 item（AppendInlineChildren 同款管线；临时面板仅作
+                    // AddImageBlock 挂/摘载体，子树 ctx 归一传 1——容器淡出走 ColorTransform）
+                    StackPanelWidget imgPanel = CreatePanel();
+                    Widget imgItem = AddImageBlockWithAttributes(imgPanel, child, colorOverride, 1f);
+                    ApplyFlexItemProps(child, imgItem);
+                    flexPanel.Children.Add(imgItem);
+                    continue;
+                }
+                if (!IsFlexDisplay(child)
+                    && !IsBlockTag(child.Name)
+                    && !ContainsBlockChild(child)) {
+                    // 行内桶（span/b/i/a 等纯行内标签）：并入匿名行内累积——CSS 匿名 flex item
+                    // 口径，连续行内内容（`<span>x</span>tail` 混合形态）合并单一段落件。
+                    // display:flex 行内标签不入桶（CSS blockification 升块，下方块级路径经顶层
+                    // 拦截产独立 item）；header/main/nav/aside/form/hgroup 等不在 IsBlockTag
+                    // 名单的容器标签含块级子时同走块级路径（与 div case ContainsBlockChild 重入
+                    // 口径一致，防整子树被 span 平铺拆散）
+                    HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, EffectiveTextColor(colorOverride), linkColor: m_bodyLinkColor);
+                    continue;
+                }
+                // 块级元素子（含 display:flex 升块）→ 子树块级构建（单节点重入顶层分发，li 直发
+                // 块 default 同口径）：临时面板收集，单件上提直挂（少一层无谓嵌套），多件（一元素
+                // 拆多块）整面板作一件
+                StackPanelWidget itemPanel = CreatePanel();
+                BuildHtmlNodes([child], itemPanel, listDepth, colorOverride, depth + 1, itemAlign, itemBreak, itemNoWrap, itemLhMul, itemLhPx, 1f, itemLs);
+                if (itemPanel.Children.Count == 0) {
+                    // 空元素子（如 `<div style="flex:1"></div>`）：CSS 口径仍是 flex item（空盒
+                    // 参与 grow 分配）——补零尺寸空载体件承接 attached 属性（CanvasWidget 无子
+                    // 件 desired=(0,0)），无视觉副作用
+                    Widget emptyItem = new CanvasWidget();
+                    ApplyFlexItemProps(child, emptyItem);
+                    flexPanel.Children.Add(emptyItem);
+                    continue;
+                }
+                Widget item = itemPanel.Children.Count == 1 ? itemPanel.Children[0] : itemPanel;
+                ApplyFlexItemProps(child, item);
+                flexPanel.Children.Add(item);
+            }
+            FlushAnonymousItem();
+            // 纯空白子树不产件（零尺寸 widget 仍会靠 Margin 贡献空白，同空壳不产口径）
+            return flexPanel.Children.Count > 0 ? flexPanel : null;
+        }
+
+        // gap/basis 值解析：TryParseWidthValue 收 px/em/rem/pt；% 拒（相对主轴尺寸布局期不可
+        // 得）；∞/NaN 拒（"Infinity"/"1e40" 字面量会经 float.TryParse 通过——∞ gap 无限放大
+        // 行宽、∞ basis 把主轴期望带成 ∞，均毁排）
+        static bool TryParseFlexGapValue(string token, out float px) {
+            return CssStyleParser.TryParseWidthValue(token, out bool isPercent, out px)
+                && !isPercent
+                && float.IsFinite(px);
+        }
+
+        // flex-grow/shrink 数值（CSS 非负 number；负值/垃圾/∞/NaN 拒——grow=∞ 会让
+        // free×grow/Σgrow 除零出 NaN 毁行分配）
+        static bool TryParseFlexNumber(string token, out float value) {
+            return float.TryParse(token.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value)
+                && value >= 0f
+                && float.IsFinite(value);
+        }
+
+        // flex-direction 值解析（无效返回 null 整条丢）
+        static FlexDirection? ParseFlexDirection(string value) {
+            return value.Trim().ToLowerInvariant() switch {
+                "row" => FlexDirection.Horizontal,
+                "row-reverse" => FlexDirection.HorizontalReverse,
+                "column" => FlexDirection.Vertical,
+                "column-reverse" => FlexDirection.VerticalReverse,
+                _ => null
+            };
+        }
+
+        // flex-wrap 值解析（nowrap=引擎缺省；无效返回 null 整条丢）
+        static FlexWrap? ParseFlexWrap(string value) {
+            return value.Trim().ToLowerInvariant() switch {
+                "nowrap" => FlexWrap.NoWrap,
+                "wrap" => FlexWrap.Wrap,
+                "wrap-reverse" => FlexWrap.WrapReverse,
+                _ => null
+            };
+        }
+
+        // justify-content 值解析（start/end 裸值也收；无效返回 null 整条丢）
+        static FlexJustification? ParseFlexJustify(string value) {
+            return value.Trim().ToLowerInvariant() switch {
+                "flex-start" or "start" => FlexJustification.Start,
+                "flex-end" or "end" => FlexJustification.End,
+                "center" => FlexJustification.Center,
+                "space-between" => FlexJustification.SpaceBetween,
+                "space-around" => FlexJustification.SpaceAround,
+                "space-evenly" => FlexJustification.SpaceEvenly,
+                _ => null
+            };
+        }
+
+        // align-items 值解析：stretch 与 baseline（无基线感知排版，近 stretch）；flex-start/
+        // start 显式归引擎缺省 Near；无效返回 null 整条丢
+        static WidgetAlignment? ParseFlexAlign(string value) {
+            return value.Trim().ToLowerInvariant() switch {
+                "stretch" or "baseline" => WidgetAlignment.Stretch,
+                "flex-start" or "start" => WidgetAlignment.Near,
+                "flex-end" or "end" => WidgetAlignment.Far,
+                "center" => WidgetAlignment.Center,
+                _ => null
+            };
+        }
+
+        // flex 子项属性（子元素 style → attached，须落在 flex 面板直接子件上）。CSS 缺省预种：
+        // shrink=1（flex-shrink 初始值——引擎缺省 0 会让超宽行无恢复通道：文本件 basis=auto
+        // ≈整行宽、多件行必溢出即坏主用例）；grow=0；basis 不落=引擎按子件期望（引擎 Basis<0
+        // 为 auto 哨兵，FlexPanelWidget.MainBasis 读码确认 >=0 皆合法定值——0 是合法固定
+        // basis 非哨兵，直接落无歧义）。
+        // flex 简写按 CSS 全值展开（声明序迭代：后置简写重置三槽覆盖先置长手，级联序口径）：
+        // number 形省略 basis 位=0%（flex:1 ≡ 1 1 0%，basis=0+grow 支撑多件等分）；关键字形
+        // none=0 0 auto、auto=1 1 auto、initial=0 1 auto。不认识的关键字 token 跳过不整条拒
+        //（宽松口径）；order/align-self 不做（留档）
+        static void ApplyFlexItemProps(HtmlAgilityPack.HtmlNode node, Widget item) {
+            float grow = 0f;
+            float shrink = 1f;
+            float? basis = null;
+            foreach (KeyValuePair<string, string> declaration in CssStyleParser.ParseDeclarations(node.GetAttributeValue("style", null))) {
+                switch (declaration.Key) {
+                    case "flex": {
+                        // 简写重置三槽（CSS 级联：后置简写覆盖先置长手）再按位填充
+                        grow = 0f;
+                        shrink = 1f;
+                        basis = null;
+                        bool sawNumber = false;
+                        bool basisSeen = false;
+                        foreach (string token in declaration.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
+                            if (TryParseFlexNumber(token, out float number)) {
+                                if (!sawNumber) {
+                                    grow = number;
+                                    sawNumber = true;
+                                }
+                                else {
+                                    shrink = number;
+                                }
+                            }
+                            else if (token.Trim().ToLowerInvariant() == "none") {
+                                grow = 0f;
+                                shrink = 0f;
+                                basisSeen = true;
+                            }
+                            else if (token.Trim().ToLowerInvariant() == "auto") {
+                                grow = 1f;
+                                shrink = 1f;
+                                basisSeen = true;
+                            }
+                            else if (token.Trim().ToLowerInvariant() == "initial") {
+                                grow = 0f;
+                                shrink = 1f;
+                                basisSeen = true;
+                            }
+                            else if (TryParseFlexGapValue(token, out float basisValue)) {
+                                basis = basisValue;
+                                basisSeen = true;
+                            }
+                        }
+                        // number 形省略 basis 位按 CSS 补 0%（flex:1 ≡ 1 1 0%）
+                        if (sawNumber
+                            && !basisSeen) {
+                            basis = 0f;
+                        }
+                        break;
+                    }
+                    case "flex-grow":
+                        if (TryParseFlexNumber(declaration.Value, out float growValue)) {
+                            grow = growValue;
+                        }
+                        break;
+                    case "flex-shrink":
+                        if (TryParseFlexNumber(declaration.Value, out float shrinkValue)) {
+                            shrink = shrinkValue;
+                        }
+                        break;
+                    case "flex-basis":
+                        // % 拒（相对主轴尺寸不可得）；auto/content 重置为按期望（不落=引擎 -1）
+                        if (TryParseFlexGapValue(declaration.Value, out float basisNumber)) {
+                            basis = basisNumber;
+                        }
+                        else if (declaration.Value.Trim().ToLowerInvariant() is "auto" or "content") {
+                            basis = null;
+                        }
+                        break;
+                }
+            }
+            FlexPanelWidget.SetGrow(item, grow);
+            FlexPanelWidget.SetShrink(item, shrink);
+            if (basis.HasValue) {
+                FlexPanelWidget.SetBasis(item, basis.Value);
+            }
         }
 
         // 返回待挂件不直接挂树（调用方统一挂）：顶层 case 出口接 ApplyBlockSizing（CSS width
