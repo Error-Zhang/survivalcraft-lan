@@ -143,12 +143,16 @@ namespace Game {
         // 代码块：BevelledRectangle 框 + 横向 ScrollPanel + 逐行 Label（不换行，保留原始空白）。
         // ScrollPanel 不产出 DesiredSize：不定位的子节点由外层 Canvas 排满整个 cell，
         // 外层高度显式定（行高累计 + 滚动条/内边距余量），文字内边距走 linesPanel Margin
-        protected CanvasWidget CreateCodeBlock(string[] lines) {
+        // textColor/fontScaleOverride：HTML 侧 pre style 文字类声明直通（color/font-size，
+        // 便宜档——等宽管线不进 span 解析，行内其余属性不吃留档）。font-size 为整体替换
+        // UA 基准 0.9（绝对/相对声明统一为 ×全局基准系数，同 <small style="font-size">
+        // 整体替换先例）；null=现状（Markdown 路径零改）
+        protected CanvasWidget CreateCodeBlock(string[] lines, Color? textColor = null, float? fontScaleOverride = null) {
             if (lines.Length == 0
                 || (lines.Length == 1 && lines[0].Length == 0)) {
                 lines = [" "];
             }
-            float codeScale = 0.9f;
+            float codeScale = fontScaleOverride ?? 0.9f;
             float lineHeight = ((Font?.GlyphHeight ?? 51f) + (Font?.Spacing.Y ?? 0f)) * codeScale * (Font?.Scale ?? 1f) + 1f;
             float contentHeight = lines.Length * lineHeight;
             // 最长行自然宽（不换行逐行 Label 的渲染宽）：格内协商首遍（∞ 测量）以此作 CodeBlock
@@ -189,7 +193,7 @@ namespace Game {
                 linesPanel.Children.Add(new FontTextWidget {
                     Text = line.Length == 0 ? " " : line,
                     Font = Font,
-                    Color = CodeTextColor,
+                    Color = textColor ?? CodeTextColor,
                     FontScale = codeScale,
                     WordWrap = false
                 });

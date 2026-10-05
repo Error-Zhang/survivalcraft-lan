@@ -298,8 +298,9 @@ namespace Game {
 
         // font-size 值：px（÷16 基准）、pt（1pt=4/3px）、%（÷100）、em（原值）、rem（=px 口径，
         // 根字号基准 16px）。输出=相对默认字号倍率，钳 [0.25, 8] 防御敌意帖子（超大倍率逐字
-        // 巨 quad 拖垮排版）。负值/0/未知单位无效返回 false
-        static bool TryParseCssFontSize(string value, out float ratio) {
+        // 巨 quad 拖垮排版）。负值/0/未知单位无效返回 false。
+        // internal：HtmlToWidgetsBuilder 代码块文字类声明直通（CreateCodeBlock 便宜档）复用
+        internal static bool TryParseCssFontSize(string value, out float ratio) {
             ratio = 1f;
             string v = value.Trim().ToLowerInvariant();
             float scale;

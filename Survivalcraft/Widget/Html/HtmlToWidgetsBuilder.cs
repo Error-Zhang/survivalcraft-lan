@@ -397,7 +397,8 @@ namespace Game {
                     case "pre": {
                         Flush();
                         HtmlAgilityPack.HtmlNode code = node.Element("code") ?? node;
-                        Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'));
+                        ParseCodeTextStyle(node, out Color? codeTextColor, out float? codeScaleOverride);
+                        Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), codeTextColor, codeScaleOverride);
                         // 代码块随 ctx×自身声明淡出（BevelledRect 框+Label 行全子树浸透）
                         codeBlock.ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(node));
                         panel.Children.Add(WrapInStyleBox(node, codeBlock, colorOverride) ?? codeBlock);
@@ -769,7 +770,8 @@ namespace Game {
                             }
                             case "pre": {
                                 HtmlAgilityPack.HtmlNode code = child.Element("code") ?? child;
-                                Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'));
+                                ParseCodeTextStyle(child, out Color? liCodeTextColor, out float? liCodeScaleOverride);
+                                Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), liCodeTextColor, liCodeScaleOverride);
                                 // 代码块随 ctx×自身声明淡出（同顶层 pre 口径）
                                 codeBlock.ColorTransform = Color.White * (liOpacityCtx * ResolveOpacityMultiplier(child));
                                 contentPanel.Children.Add(WrapInStyleBox(child, codeBlock, colorOverride) ?? codeBlock);
@@ -1514,6 +1516,26 @@ namespace Game {
         // 装饰淡出、ctx 只承担子树 ColorTransform 淡出，同一声明两路消费不双乘
         static float ResolveOpacityMultiplier(HtmlAgilityPack.HtmlNode node) {
             return ParseOpacityStyle(node, out float v) ? v : 1f;
+        }
+
+        // pre/code style 文字类声明解析（代码块直通便宜档）：color/font-size 经 CreateCodeBlock
+        // 可选参直通 Label 行；其余行内属性不吃（等宽管线不进 span 解析，留档）。code 内层元素
+        // 自带 style 不解析（与 pre 同口径留档）
+        void ParseCodeTextStyle(HtmlAgilityPack.HtmlNode preNode, out Color? textColor, out float? fontScaleOverride) {
+            textColor = null;
+            fontScaleOverride = null;
+            string style = preNode.GetAttributeValue("style", null);
+            if (string.IsNullOrEmpty(style)) {
+                return;
+            }
+            if (CssStyleParser.TryGetDeclaration(style, "color", out string colorDecl)
+                && CssColorParser.TryParse(colorDecl, out Color color)) {
+                textColor = color;
+            }
+            if (CssStyleParser.TryGetDeclaration(style, "font-size", out string sizeDecl)
+                && HtmlSpanParser.TryParseCssFontSize(sizeDecl, out float ratio)) {
+                fontScaleOverride = ratio;
+            }
         }
 
         // 段落级覆盖五元组打包（Flush/ApplyParagraphBreakStyle 消费）：word-break/white-space 沿用
