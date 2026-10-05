@@ -681,7 +681,19 @@ namespace Game {
             foreach (TextSpan span in spans) {
                 float scale = span.FontScale > 0f ? span.FontScale : defaultFontScale;
                 string text = span.Text ?? string.Empty;
+                // span 级边框占位：与排版侧 RichTextLayout.AddLine 同口径——每 span（run 片段）
+                // 左右各加一次边宽，不判词边界（词跨 span 时两侧 span 各计，保守侧）。
+                // 缺此则挤压协商下格 min 低估 2×边宽→含边框 run 溢出折行（letter-spacing
+                // 低估同型事故）
+                float padLeft = span.Border != null ? MathF.Max(span.Border.Widths.X, 0f) : 0f;
+                float padRight = span.Border != null ? MathF.Max(span.Border.Widths.Z, 0f) : 0f;
+                int length = text.Length;
+                int index = 0;
                 foreach (char c in text) {
+                    float advance = CharacterAdvance(c, scale, font) + letterSpacing
+                        + (index == 0 ? padLeft : 0f)
+                        + (index == length - 1 ? padRight : 0f);
+                    index++;
                     if (c == '\n'
                         || c == '\r'
                         || char.IsWhiteSpace(c)) {
@@ -693,10 +705,10 @@ namespace Game {
                         && FontTextWidget.IsCjkChar(c)) {
                         maxWord = MathUtils.Max(maxWord, word);
                         word = 0f;
-                        maxWord = MathUtils.Max(maxWord, CharacterAdvance(c, scale, font) + letterSpacing);
+                        maxWord = MathUtils.Max(maxWord, advance);
                         continue;
                     }
-                    word += CharacterAdvance(c, scale, font) + letterSpacing;
+                    word += advance;
                 }
             }
             maxWord = MathUtils.Max(maxWord, word);
