@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 using Engine;
 
 namespace Game {
@@ -10,27 +11,50 @@ namespace Game {
     // 的声明整条丢弃；缺属性=引擎默认（不造浏览器 UA 默认值表——computed-style 口径留给将来
     // 基类 Padding 版本，本类只报"作者写了什么"）
     internal static class CssStyleParser {
-        // 解析 style 串为声明序列（保序，级联=后声明覆盖前声明）：';' 切声明、首个 ':' 切属性值，
-        // 属性名小写、两侧 trim。空段/无冒号/空名空值跳过。值内分号（url data-uri 等）不支持——
-        // 本子集消费的盒属性值不出现分号，留档
+        // 解析 style 串为声明序列（保序，级联=后声明覆盖前声明）：单遍 O(n) 扫描，';' 切声明、
+        // 首个 ':' 切属性值，属性名小写、两侧 trim；扫描时同步剥离 /*…*/ 注释（注释可出现在
+        // 任意位置、可含分号，未闭合注释按吃到串尾处理——CSS 规范同款）。空段/无冒号/空名空值
+        // 跳过。值内分号（url data-uri 等）不支持——本子集消费的盒属性值不出现分号，留档
         public static List<KeyValuePair<string, string>> ParseDeclarations(string style) {
             List<KeyValuePair<string, string>> declarations = [];
             if (string.IsNullOrEmpty(style)) {
                 return declarations;
             }
-            foreach (string part in style.Split(';')) {
-                int colon = part.IndexOf(':');
-                if (colon <= 0) {
+            StringBuilder declaration = new();
+            for (int i = 0; i < style.Length; i++) {
+                char c = style[i];
+                if (c == '/' && i + 1 < style.Length && style[i + 1] == '*') {
+                    int end = style.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                    if (end < 0) {
+                        break;
+                    }
+                    i = end + 1;
                     continue;
                 }
-                string name = part[..colon].Trim().ToLowerInvariant();
-                string value = part[(colon + 1)..].Trim();
-                if (name.Length == 0 || value.Length == 0) {
+                if (c == ';') {
+                    EmitDeclaration(declaration, declarations);
                     continue;
                 }
-                declarations.Add(new KeyValuePair<string, string>(name, value));
+                declaration.Append(c);
             }
+            // 尾段无 ';' 收尾；未闭合注释 break 后同样落到这里（注释前已累积的内容仍生效）
+            EmitDeclaration(declaration, declarations);
             return declarations;
+        }
+
+        private static void EmitDeclaration(StringBuilder text, List<KeyValuePair<string, string>> declarations) {
+            string part = text.ToString();
+            text.Clear();
+            int colon = part.IndexOf(':');
+            if (colon <= 0) {
+                return;
+            }
+            string name = part[..colon].Trim().ToLowerInvariant();
+            string value = part[(colon + 1)..].Trim();
+            if (name.Length == 0 || value.Length == 0) {
+                return;
+            }
+            declarations.Add(new KeyValuePair<string, string>(name, value));
         }
 
         // 盒属性查询：prefix="padding"/"margin"，按级联序合并 `prefix` 1~4 值简写与
