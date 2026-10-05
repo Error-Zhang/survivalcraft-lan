@@ -60,7 +60,7 @@ namespace Game {
                     if (ImageLoader != null
                         && TryGetParagraphImages(paragraph.Inline, out List<LinkInline> images)) {
                         foreach (LinkInline image in images) {
-                            AddImageBlock(panel, image.Url, MarkdownSpanParser.GetInlineText(image));
+                            panel.Children.Add(AddImageBlock(panel, image.Url, MarkdownSpanParser.GetInlineText(image)));
                         }
                         break;
                     }

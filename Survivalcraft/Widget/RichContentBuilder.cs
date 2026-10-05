@@ -105,11 +105,11 @@ namespace Game {
         // 占位宽扣减嵌套缩进（列表项/引用块内图片不占全宽）。
         // explicitSize：img width/height 属性（-1=该维未给，走自适应）；margin：hspace/vspace
         // 外边距（未给走默认 0/8）
-        protected void AddImageBlock(StackPanelWidget panel, string url, string alt, Vector2? explicitSize = null, Vector2? margin = null) {
+        // 返回 frame（挂树由调用方负责——HTML 侧 style 盒属性需把 frame 包进壳后挂）
+        protected CanvasWidget AddImageBlock(StackPanelWidget panel, string url, string alt, Vector2? explicitSize = null, Vector2? margin = null) {
             float width = NestedContentWidth();
             CanvasWidget frame = ImageLoader.CreateImageBlock(url, alt, width, MaxImageHeight, explicitSize);
             frame.Margin = margin ?? new Vector2(0f, 8f);
-            panel.Children.Add(frame);
             // 注册路由（同 CreateCodeBlock）：格内无条件进所在格 panel——panel 的回填基准是
             // 格净宽而非顶层 ContentWidth，顶层 ContentWidth 正负不影响格内注册
             if (CurrentPanel != null) {
@@ -122,6 +122,7 @@ namespace Game {
             else if (ContentWidth <= 0f) {
                 ImageBlocks.Add((frame, CurrentIndentX));
             }
+            return frame;
         }
 
         // 嵌套感知的可用内容宽：显式 ContentWidth 扣减当前缩进（保底防深嵌套负值）；
