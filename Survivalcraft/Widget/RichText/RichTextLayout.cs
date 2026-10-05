@@ -21,6 +21,13 @@ namespace Game {
 
         public bool Ellipsis { get; set; }
 
+        // line-height 语义（CSS）：倍率=number/em/%÷100（字号倍率同义）；绝对值=px/pt×4/3/rem×16
+        // 归一 px。两者同时给时绝对值优先（px 声明不参与继承倍率）
+        public float LineHeightMultiplier { get; set; } = 1f;
+
+        // >0 时优先于乘数；0=无绝对声明（沿用倍率）
+        public float LineHeightPx { get; set; }
+
         public float DefaultFontScale { get; set; } = 1f;
 
         public List<TextLine> Lines { get; } = [];
@@ -81,7 +88,10 @@ namespace Game {
             paragraphs.Add(current);
             int maxLines = MaxLines;
             if (availableHeight < float.PositiveInfinity) {
-                maxLines = MathUtils.Min((int)MathF.Floor(availableHeight / CalculateLineHeight(DefaultFontScale)), maxLines);
+                // 约束高→行数换算按行距 pitch（与量测同式）：自然高换算在 line-height>1 时
+                // 超预算约一倍（Ellipsis 落错行、内容画出约束区）
+                maxLines = MathUtils.Min((int)MathF.Floor(availableHeight
+                    / (LineHeightPx > 0f ? LineHeightPx : CalculateLineHeight(DefaultFontScale) * LineHeightMultiplier)), maxLines);
             }
             foreach (List<Cell> paragraph in paragraphs) {
                 if (Lines.Count >= maxLines) {
@@ -146,18 +156,25 @@ namespace Game {
                     }
                 }
             }
-            // 累计行 y 与测量尺寸；测量时末行不含行尾间距（与 FontTextWidget 一致）
+            // 累计行 y 与测量尺寸；测量时末行不含行尾间距（与 FontTextWidget 一致）。
+            // line-height 行盒=纯推进距（pitch）：不居中字形（无 half-leading），行高>1 的富余
+            // 全落字下方——留档取舍（实现最简、下行不压上行，代价是视觉重心偏上）。
+            // pitch=绝对值优先，否则行盒高×倍率；末行尾距修剪同式改按末行 pitch 计
             float y = 0f;
             float maxWidth = 0f;
+            float lastPitch = 0f;
             for (int i = 0; i < Lines.Count; i++) {
                 TextLine line = Lines[i];
                 line.Y = y;
-                y += line.Height;
+                float pitch = LineHeightPx > 0f ? LineHeightPx : line.Height * LineHeightMultiplier;
+                y += pitch;
+                lastPitch = pitch;
                 maxWidth = MathUtils.Max(maxWidth, line.Width);
             }
             if (Lines.Count > 0) {
-                TextLine last = Lines[^1];
-                y -= last.Height - Font.GlyphHeight * last.MaxScale * Font.Scale;
+                // 修剪目标=末行 pitch−字形项（GlyphHeight×末行字号×Font.Scale 与原式同项），
+                // 即剔除纯行间距；pitch<字形项（行高<1）时差值为负=末行向上收（CSS 同义）
+                y -= lastPitch - Font.GlyphHeight * Lines[^1].MaxScale * Font.Scale;
             }
             MeasuredSize = new Vector2(maxWidth, y);
         }

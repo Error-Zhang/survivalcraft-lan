@@ -22,6 +22,10 @@ namespace Game {
 
         public bool m_ellipsis;
 
+        float m_lineHeightMultiplier = 1f;
+
+        float m_lineHeightPx;
+
         public readonly RichTextLayout m_layout = new();
 
         public Vector2? m_layoutSize;
@@ -107,6 +111,29 @@ namespace Game {
             set {
                 if (value != m_ellipsis) {
                     m_ellipsis = value;
+                    MarkLayoutDirty();
+                }
+            }
+        }
+
+        // line-height 倍率（CSS number/em/% 同义，1=默认单倍）；HTML builder 侧段落级声明
+        // 覆盖容器继承后直设（默认 1，0 会算出零行距——消费侧保证 >0 才写）
+        public float LineHeightMultiplier {
+            get => m_lineHeightMultiplier;
+            set {
+                if (value != m_lineHeightMultiplier) {
+                    m_lineHeightMultiplier = value;
+                    MarkLayoutDirty();
+                }
+            }
+        }
+
+        // line-height 绝对值 px（px/pt/rem 归一结果）；>0 优先于倍率，0=无绝对声明
+        public float LineHeightPx {
+            get => m_lineHeightPx;
+            set {
+                if (value != m_lineHeightPx) {
+                    m_lineHeightPx = value;
                     MarkLayoutDirty();
                 }
             }
@@ -372,11 +399,14 @@ namespace Game {
             return m;
         }
 
-        // 文字块顶部相对 widget 的 y 偏移（垂直锚点）；绘制与命中测试必须共用同一计算
+        // 文字块顶部相对 widget 的 y 偏移（垂直锚点）；绘制与命中测试必须共用同一计算。
+        // 总高按行距 pitch 累加（与 Layout 量测同式），line-height≠1 时垂直居中/沉底与盒一致
         float CalculateBlockY() {
             float totalHeight = 0f;
             foreach (TextLine line in m_layout.Lines) {
-                totalHeight += line.Height;
+                totalHeight += m_layout.LineHeightPx > 0f
+                    ? m_layout.LineHeightPx
+                    : line.Height * m_layout.LineHeightMultiplier;
             }
             if ((TextAnchor & TextAnchor.VerticalCenter) != 0) {
                 return (ActualSize.Y - totalHeight) / 2f;
@@ -457,6 +487,8 @@ namespace Game {
             m_layout.DefaultFontScale = FontScale;
             m_layout.WordWrap = WordWrap;
             m_layout.WordBreak = WordBreak;
+            m_layout.LineHeightMultiplier = LineHeightMultiplier;
+            m_layout.LineHeightPx = LineHeightPx;
             m_layout.MaxLines = MaxLines;
             m_layout.Ellipsis = Ellipsis;
             m_layout.Spans = m_spans;
