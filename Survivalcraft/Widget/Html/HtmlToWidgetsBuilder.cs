@@ -133,9 +133,37 @@ namespace Game {
         // ApplyBlockSizing 原样直通（零回归）。仅用于 WrapInStyleBox 出口（h1-6/blockquote/
         // pre/hr/table/dd）；TryBeginStyleBox 容器/段落壳出口的盒已被壳消费，直接
         // ApplyBlockSizing（壳作内层，同归 sizer 最外，不再重包壳防二次吃盒属性）
+        // transform 壳也由本出口收口（ApplyBlockSizing 尾部统一 ApplyBlockTransform）：
+        // 变换壳恒最外（sizer/盒壳之上），CSS transform 作用于整个盒含 margin 效果近似
         Widget FinalizeBlock(HtmlAgilityPack.HtmlNode node, Widget widget, Color? colorOverride, bool backgroundViaShell = true) {
             Widget shell = WrapInStyleBox(node, widget, colorOverride, backgroundViaShell);
             return ApplyBlockSizing(node, shell ?? widget);
+        }
+
+        // 块级 CSS transform 出口（ApplyBlockSizing 尾部统一入口，块级 img case 单独调用）：
+        // transform 声明有效（TryParseTransform 通过，matrix/skew/3d 整条拒同解析口径）则包
+        // HtmlTransformBoxWidget（恒最外），transform-origin 同源解析（无效/缺失回落默认
+        // 50%,50%，不拒整条 transform）。无声明/解析失败原样直通（零回归）。
+        // 范围与 width 同面：顶层块级 case +块级 img；li 直发块/td 自身声明不吃，li 内、
+        // 格内 p/div/table 经重入吃（span 行内盒变换依赖 advance 计费，留档不做）。
+        // 对齐移交同 WrapInStyleBox：变换壳顶替子件原外层对齐位，子件改 Stretch
+        //（Near/Center/Stretch 视觉不变）
+        Widget ApplyBlockTransform(HtmlAgilityPack.HtmlNode node, Widget widget) {
+            string style = node.GetAttributeValue("style", null);
+            if (!CssStyleParser.TryGetDeclaration(style, "transform", out string transformDecl)
+                || !CssTransformParser.TryParseTransform(transformDecl, out List<CssTransformFunc> funcs)) {
+                return widget;
+            }
+            HtmlTransformBoxWidget box = new() { Transforms = funcs };
+            if (CssStyleParser.TryGetDeclaration(style, "transform-origin", out string originDecl)
+                && CssTransformParser.TryParseTransformOrigin(originDecl, out Vector2 originRatios, out Vector2 originPx)) {
+                box.OriginRatios = originRatios;
+                box.OriginPx = originPx;
+            }
+            box.HorizontalAlignment = widget.HorizontalAlignment;
+            widget.HorizontalAlignment = WidgetAlignment.Stretch;
+            box.Children.Add(widget);
+            return box;
         }
 
         // width/max-width 声明 → 包 HtmlBlockSizerWidget（% 与 max 的测量期钳制见该件）。
@@ -148,7 +176,9 @@ namespace Game {
         Widget ApplyBlockSizing(HtmlAgilityPack.HtmlNode node, Widget widget) {
             string style = node.GetAttributeValue("style", null);
             if (!HasBlockSizing(style)) {
-                return widget;
+                // transform 壳统一收口：无 sizing 声明的块也吃 transform（两族出口共用本方法，
+                // 变换壳恒最外）
+                return ApplyBlockTransform(node, widget);
             }
             CssStyleParser.TryGetBox(style, "padding", out Vector4 sizingEdges);
             if (CssStyleParser.TryGetBorder(style, out CssStyleParser.CssBorderSpec sizingBorder)) {
@@ -188,7 +218,8 @@ namespace Game {
             // 子件撑满钳后宽（Arrange 期 Stretch），原对齐语义（Near 段落/Near 壳）在钳宽内不变
             widget.HorizontalAlignment = WidgetAlignment.Stretch;
             sizer.Children.Add(widget);
-            return sizer;
+            // 变换壳包最外（sizer 之上）：CSS transform 作用于整个盒含 margin 效果近似
+            return ApplyBlockTransform(node, sizer);
         }
 
         // 块级 sizing 声明检出：width/max-width 任一有效（解析通过）即 true
@@ -275,11 +306,16 @@ namespace Game {
             // 钳宽由出口 ApplyBlockSizing 包 sizer 承担；无壳时容器/段落块没有实体件可钳
             //（子块直挂宿主面板）。出口必须配套 ApplyBlockSizing，否则宽度声明被静默丢弃
             bool hasSizing = HasBlockSizing(style);
+            // CSS transform：纯变换声明也起壳（同 hasSizing 口径——纯 transform 容器/段落块
+            // 没有实体件可包，壳只作子树收集器）；壳本身无装饰，变换由出口 ApplyBlockTransform
+            // 包 HtmlTransformBoxWidget 承担（解析两处同源同结果，重复解析无害）
+            bool hasTransform = CssStyleParser.TryGetDeclaration(style, "transform", out string transformDecl)
+                && CssTransformParser.TryParseTransform(transformDecl, out _);
             // border-radius：bg/border 的形状修饰，不参与起壳判定（同 WrapInStyleBox 口径）
             bool hasRadius = CssStyleParser.TryParseBorderRadius(style, out Vector4 cornerPx, out Vector4 cornerPct);
             // 纯 opacity 不起壳：壳无装饰可淡（文字淡出走 ctx 递归链），白付一层 wrapper+
             // 对齐移交；有 margin/padding/border/background 时壳装饰随 v 淡出
-            if (!hasMargin && !hasPadding && !hasBorder && !hasBackground && !hasSizing) {
+            if (!hasMargin && !hasPadding && !hasBorder && !hasBackground && !hasSizing && !hasTransform) {
                 shell = null;
                 return false;
             }
@@ -622,10 +658,11 @@ namespace Game {
                     }
                     case "img" when ImageLoader != null:
                         // 块级 <img>：与纯图段落同管线。行内 <img>（p 内）仍被丢弃（范围外）。
-                        // 图片块随 ctx 淡出（img 自身声明工厂内落 frame）
+                        // 图片块随 ctx 淡出（img 自身声明工厂内落 frame）。
+                        // 块级 img 也吃 transform（顶层 img case 出口接线，变换壳恒最外）
                         Flush();
                         Widget imgBlock = AddImageBlockWithAttributes(panel, node, colorOverride, opacityCtx);
-                        panel.Children.Add(imgBlock);
+                        panel.Children.Add(ApplyBlockTransform(node, imgBlock));
                         break;
                     case "table": {
                         Flush();
