@@ -605,7 +605,9 @@ namespace Game {
             }
             foreach (TableLayoutRow row in m_layoutRows) {
                 foreach (TableCellSlot slot in row.Cells) {
-                    slot.ColSpan = MathUtils.Max(MathUtils.Min(slot.ColSpan, columns - slot.Col), 1);
+                    // 二遍钳用 naturalColumns 基准：rowspan 占格把后行格推出自然列界时 columns 可超
+                    // naturalColumns，按 columns 钳会让大 span 格回包占格矩形（跨行重叠互盖）
+                    slot.ColSpan = MathUtils.Max(MathUtils.Min(slot.ColSpan, naturalColumns - slot.Col), 1);
                 }
             }
             if (m_columnMax.Length != columns) {

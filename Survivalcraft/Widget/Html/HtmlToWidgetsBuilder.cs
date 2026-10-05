@@ -204,25 +204,32 @@ namespace Game {
                         Flush();
                         break;
                     case "footer":
-                        // 页脚：块级=独立成段（用户裁定），无特殊视觉。前照会合并不了本段
-                        Flush();
-                        HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
-                        Flush();
-                        break;
                     case "address":
-                        // 联系地址：块级=独立成段（HTML 块级语义），斜体由 ParseHtmlNode→ApplyOpenTag 自带
-                        //（此前块级上下文只透传子节点，斜体静默丢失）
+                        // 页脚/联系地址：独立成段（footer 用户裁定无特殊视觉；address 斜体由
+                        // ParseHtmlNode→ApplyOpenTag 自带）。含块级子标签时块边界优先走子树递归
+                        //（否则 <footer><p>a</p><p>b</p> 两段被平铺合并）
                         Flush();
-                        HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
+                        if (ContainsBlockChild(node)) {
+                            BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, centerContent);
+                        }
+                        else {
+                            HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
+                        }
                         Flush();
                         break;
                     default:
-                        // 未知标签：子树含块级标签（section/article 包裹 pre/列表等）时递归块级遍历，
-                        // 否则整节点进 span 解析——ApplyOpenTag/引号/色底后刷全生效。此前只透传子节点，
-                        // 行内容器标签（b/i/q/kbd/span、裸置块级层的 br/img）自带样式被静默跳过
+                        // 未知标签：子树含块级标签（section/article 包裹 pre/列表等）时递归块级遍历；
+                        // 含直接 img 子级时走逐子拦截（img 升级图片块——<a><img> 帖图最高频包装，
+                        // 整节点 span 解析会把图片退化成占位文本；容器行内样式对图片块无意义）；
+                        // 其余整节点进 span 解析——ApplyOpenTag/引号/色底后刷全生效（此前只透传
+                        // 子节点，行内容器标签自带样式被静默跳过）
                         if (ContainsBlockChild(node)) {
                             Flush();
                             BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, centerContent);
+                        }
+                        else if (ImageLoader != null
+                            && HasElementChild(node, "img")) {
+                            AppendInlineChildren(node, colorOverride);
                         }
                         else {
                             HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, colorOverride ?? DefaultColor);
@@ -673,9 +680,9 @@ namespace Game {
         }
 
         // 格锚点下写：RichTextWidget 直写 TextAnchor 并横向拉满容器（留锚点偏移余量）；容器格递归
-        // （CSS text-align 继承口径，嵌套表格一并）。列对齐只补缺省锚点：centerContent 已设
-        // HorizontalCenter 的段/标题不被列缺省锚点覆写回 Default（<td><center> 老帖高频组合，
-        // 无条件赋值会击穿居中；元素自身设置优先于继承）
+        // （CSS text-align 继承口径，嵌套表格一并）。列对齐只补缺省锚点：容器内已显式居中的段/标题
+        //（centerContent）优先于列对齐属性——<td><center> 老帖高频组合，无条件赋值会击穿居中；
+        // 浏览器同款取舍（center 元素自身 text-align 胜过外层 td 属性），left 属性映射 Default 不写
         static void ApplyCellAnchor(Widget widget, TextAnchor anchor) {
             if (widget is RichTextWidget rich) {
                 if (anchor != TextAnchor.Default
@@ -727,6 +734,17 @@ namespace Game {
                 "left" => MarkdownTableAlignment.Left,
                 _ => null
             };
+        }
+
+        // 直接子级是否含指定元素（浅查一层）：default 行内容器分支的 img 升级判据
+        static bool HasElementChild(HtmlAgilityPack.HtmlNode node, string tag) {
+            foreach (HtmlAgilityPack.HtmlNode child in node.ChildNodes) {
+                if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
+                    && child.Name.Equals(tag, StringComparison.OrdinalIgnoreCase)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         // 子树（浅查 4 层够）是否含块级标签：决定未知容器标签走块级递归还是 span 透传
