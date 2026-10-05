@@ -167,10 +167,6 @@ namespace Game {
         // span 未指定颜色时的默认色
         public Color Color { get; set; }
 
-        // 整件透明度（CSS opacity 块级 ctx，builder 递归链传入）：纯 Draw 期淡出系数，与
-        // run.Span.Opacity（行内声明）叠乘。不改排版——不动 layout 脏标（字号/换行与此无关）
-        public float Opacity { get; set; } = 1f;
-
         public bool DropShadow { get; set; }
 
         public bool TextureLinearFilter { get; set; }
@@ -235,9 +231,9 @@ namespace Game {
                     lineX = ActualSize.X - line.Width;
                 }
                 foreach (TextRun run in line.Runs) {
-                    // run 级淡出系数：widget 级（块级 ctx）× span 级（行内 opacity 声明）。
-                    // fade==1 走原路径零改动（既有 rgba 低 alpha span 渲染行为逐位不变——范围红线）
-                    float fade = Opacity * run.Span.Opacity;
+                    // run 级淡出系数：span 级（行内 opacity 声明）。块级整件淡出走 ColorTransform
+                    //（builder 落 White×v，经 GlobalColorTransform 级联）；fade==1 走原路径零改动
+                    float fade = run.Span.Opacity;
                     Color color = (run.Span.Color ?? Color) * GlobalColorTransform;
                     if (fade < 1f) {
                         // 全通道（含 A）×fade＝预乘淡出：AlphaBlend(One, InvSrcAlpha) 语义下

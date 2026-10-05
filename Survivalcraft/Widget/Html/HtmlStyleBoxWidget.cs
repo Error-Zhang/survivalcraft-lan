@@ -24,11 +24,6 @@ namespace Game {
 
         public Color CurrentColor = Color.White;
 
-        // CSS opacity 淡出系数（builder 侧 v<1 才置值）：只作用壳自身装饰（背景/四边边框）。
-        // 真子树透明（渲染到纹理）引擎不支持——子树文字的淡出由 builder 经 ctx 传给内部
-        // RichTextWidget.Opacity；非文字子件（图片/表格格底/代码块）不随壳淡出（已知限制）
-        public float Opacity = 1f;
-
         // Widget.Draw 只在 IsDrawRequired 时调度（Widget.cs DrawWidgetsHierarchy 过滤），边框壳
         // 每帧都画（照 TablePanelWidget.MeasureOverride 先例）
         public override void MeasureOverride(Vector2 parentAvailableSize) {
@@ -52,11 +47,10 @@ namespace Game {
             FlatBatch2D batch = dc.PrimitivesRenderer2D.FlatBatch(-1, DepthStencilState.None);
             float width = ActualSize.X;
             float height = ActualSize.Y;
-            // 背景整幅先入批（FlatBatch 同层按入批序：背景垫在同壳边框之下）；
-            // Opacity<1 时装饰色 ×Opacity＝预乘淡出（==1 走原式零改动）
+            // 背景整幅先入批（FlatBatch 同层按入批序：背景垫在同壳边框之下）；opacity 淡出
+            // 由 builder 侧把 v 乘进装饰色（预乘，与 GlobalColorTransform 乘法交换）
             if (HasBackground) {
-                Color backgroundColor = BackgroundColor.Value * GlobalColorTransform;
-                QueueQuad(batch, 0f, 0f, width, height, Opacity < 1f ? backgroundColor * Opacity : backgroundColor);
+                QueueQuad(batch, 0f, 0f, width, height, BackgroundColor.Value * GlobalColorTransform);
             }
             if (top > 0f) {
                 QueueQuad(batch, 0f, 0f, width, top, EdgeColor(BorderTopColor));
@@ -72,10 +66,7 @@ namespace Game {
             }
         }
 
-        Color EdgeColor(Color? color) {
-            Color edge = (color ?? CurrentColor) * GlobalColorTransform;
-            return Opacity < 1f ? edge * Opacity : edge;
-        }
+        Color EdgeColor(Color? color) => (color ?? CurrentColor) * GlobalColorTransform;
 
         // 背景成立判定：有值且非全透明
         bool HasBackground => BackgroundColor.HasValue && BackgroundColor.Value.A > 0;

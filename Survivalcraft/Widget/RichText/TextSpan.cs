@@ -50,7 +50,7 @@ namespace Game {
         public object Tag { get; set; }
 
         // 行内透明度（CSS opacity，行内 replace 语义）：1=不透明。Draw 期淡出系数，
-        // 与 RichTextWidget.Opacity（块级 ctx）叠乘；排版/命中不受影响（纯绘制）
+        // 与宿主 ColorTransform（块级 ctx）叠乘；排版/命中不受影响（纯绘制）
         public float Opacity { get; set; }
 
         public TextSpan() {

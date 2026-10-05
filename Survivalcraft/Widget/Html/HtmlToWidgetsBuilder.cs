@@ -73,26 +73,26 @@ namespace Game {
             // 文字淡出走 ctx 递归链（调用点 ResolveOpacityMultiplier 同源解析）
             bool hasOpacity = ParseOpacityStyle(node, out float nodeOpacity) && nodeOpacity < 1f;
             // 纯 opacity 不起壳：壳无装饰可淡（文字淡出走 ctx 递归链），白付一层 wrapper+
-            // 对齐移交；有 margin/padding/border/background 时壳仍消费 Opacity 淡自身装饰
+            // 对齐移交；有 margin/padding/border/background 时壳装饰随 v 淡出
             if (!hasMargin && !hasPadding && !hasBorder && !hasBackground) {
                 return null;
             }
             // CSS border-box：border 宽并入内缩（内容区=壳宽−border−padding），边框画壳外缘不压内容
             ApplyBoxEdges(widget, padding + (hasBorder ? border.Widths : Vector4.Zero), applyTop: true, applyBottom: true);
             HtmlStyleBoxWidget shell = new() { Direction = LayoutDirection.Vertical };
-            if (hasOpacity) {
-                shell.Opacity = nodeOpacity;
-            }
+            // 壳装饰色乘 v（预乘淡出，与 GlobalColorTransform 乘法交换；==1 恒等零回归）——
+            // 壳不走 ColorTransform：Arrange 会级联浸透子树，与 ctx 落点双淡
+            Color? Decoration(Color? c) => hasOpacity && c.HasValue ? c.Value * nodeOpacity : c;
             if (hasBackground) {
-                shell.BackgroundColor = bgColor;
+                shell.BackgroundColor = Decoration(bgColor);
             }
             if (hasBorder) {
                 shell.BorderWidths = border.Widths;
-                shell.BorderLeftColor = border.Left;
-                shell.BorderTopColor = border.Top;
-                shell.BorderRightColor = border.Right;
-                shell.BorderBottomColor = border.Bottom;
-                shell.CurrentColor = EffectiveTextColor(colorOverride);
+                shell.BorderLeftColor = Decoration(border.Left);
+                shell.BorderTopColor = Decoration(border.Top);
+                shell.BorderRightColor = Decoration(border.Right);
+                shell.BorderBottomColor = Decoration(border.Bottom);
+                shell.CurrentColor = Decoration(EffectiveTextColor(colorOverride)).Value;
             }
             if (hasMargin) {
                 shell.Margin4 = margin;
@@ -126,25 +126,25 @@ namespace Game {
             // 由调用点把同源系数乘进递归 ctx（ResolveOpacityMultiplier），两处不双乘——壳只管壳装饰
             bool hasOpacity = ParseOpacityStyle(node, out float nodeOpacity) && nodeOpacity < 1f;
             // 纯 opacity 不起壳：壳无装饰可淡（文字淡出走 ctx 递归链），白付一层 wrapper+
-            // 对齐移交；有 margin/padding/border/background 时壳仍消费 Opacity 淡自身装饰
+            // 对齐移交；有 margin/padding/border/background 时壳装饰随 v 淡出
             if (!hasMargin && !hasPadding && !hasBorder && !hasBackground) {
                 shell = null;
                 return false;
             }
             HtmlStyleBoxWidget styleShell = new() { Direction = LayoutDirection.Vertical };
-            if (hasOpacity) {
-                styleShell.Opacity = nodeOpacity;
-            }
+            // 壳装饰色乘 v（预乘淡出，与 GlobalColorTransform 乘法交换；==1 恒等零回归）——
+            // 壳不走 ColorTransform：Arrange 会级联浸透子树，与 ctx 落点双淡
+            Color? Decoration(Color? c) => hasOpacity && c.HasValue ? c.Value * nodeOpacity : c;
             if (hasBackground) {
-                styleShell.BackgroundColor = bgColor;
+                styleShell.BackgroundColor = Decoration(bgColor);
             }
             if (hasBorder) {
                 styleShell.BorderWidths = border.Widths;
-                styleShell.BorderLeftColor = border.Left;
-                styleShell.BorderTopColor = border.Top;
-                styleShell.BorderRightColor = border.Right;
-                styleShell.BorderBottomColor = border.Bottom;
-                styleShell.CurrentColor = EffectiveTextColor(colorOverride);
+                styleShell.BorderLeftColor = Decoration(border.Left);
+                styleShell.BorderTopColor = Decoration(border.Top);
+                styleShell.BorderRightColor = Decoration(border.Right);
+                styleShell.BorderBottomColor = Decoration(border.Bottom);
+                styleShell.CurrentColor = Decoration(EffectiveTextColor(colorOverride)).Value;
                 padding += border.Widths;
             }
             shell = styleShell;
@@ -196,8 +196,10 @@ namespace Game {
         // wordBreak/noWrap/lineHeight：CSS 继承属性上下文（lineHeight 0=未声明，解析归一见
         // ResolveLineHeightCtx）——与 word-break 同链同挂载点透传。
         // opacityCtx：CSS opacity 继承上下文（叠乘语义，见 ResolveOpacityMultiplier）——各容器
-        // 挂载点把「ctx × 本节点壳系数」传给递归，Flush 落到段落件 RichTextWidget.Opacity；
-        // 壳装饰淡出走壳自身 Opacity，两路同源解析不双乘
+        // 挂载点把「ctx × 本节点系数」传给递归，Flush 落到段落件 ColorTransform（White×v 全通道
+        // 缩放，Arrange 期级联浸透子树；只缩 A 是直色×预乘缺陷陷阱）；壳装饰淡出=壳色乘
+        //（不走 ColorTransform 防子树双淡），引用框/表格根/图片块/代码块/hr/marker 在各自
+        // 挂载点或出口直设 ColorTransform
         // letterSpacingCtx：CSS letter-spacing 继承上下文（长度替换语义，见 ResolveLetterSpacingCtx）
         // ——与 word-break/line-height 同链同挂载点透传，Flush 落到段落件 RichTextWidget.LetterSpacing
         void BuildHtmlNodes(IEnumerable<HtmlAgilityPack.HtmlNode> nodes, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, TextWordBreak wordBreakCtx = TextWordBreak.BreakWord, bool noWrapCtx = false, float lineHeightMul = 0f, float lineHeightPx = 0f, float opacityCtx = 1f, float letterSpacingCtx = 0f) {
@@ -237,9 +239,10 @@ namespace Game {
                     }
                     // letter-spacing：段落级声明覆盖继承（替换语义），无声明=继承 ctx（默认 0）
                     widget.LetterSpacing = paraLs;
-                    // CSS opacity：段落件透明度=继承 ctx（段落类自身声明经 opacityOverride 叠入）。
-                    // 行内 span 级透明度已在 span.Opacity，Draw 期两层叠乘
-                    widget.Opacity = opacityOverride ?? opacityCtx;
+                    // CSS opacity：段落件 ColorTransform=White×v（全通道缩放，Arrange 期级联浸透
+                    // 子树；只缩 A 是直色×预乘缺陷陷阱，参照 ComponentGui 模态过渡先例）。
+                    // 行内 span 级透明度已在 span.Opacity，Draw 期叠乘
+                    widget.ColorTransform = Color.White * (opacityOverride ?? opacityCtx);
                     // line-height：段落级声明覆盖继承，倍率缺省 1；绝对 px>0 优先于倍数（layout 侧同规）
                     widget.LineHeightMultiplier = paraLhMul > 0f ? paraLhMul : 1f;
                     if (paraLhPx > 0f) {
@@ -260,7 +263,9 @@ namespace Game {
                         // img 升级前预冲刷带本节点 opacity（否则 img 前段按外层 ctx、后段按叠加
                         // 值，同段淡出断裂）
                         Flush(null, null, opacityOverride);
-                        flowPanel.Children.Add(AddImageBlockWithAttributes(flowPanel, child, inlineColorOverride));
+                        // 图片块随段淡出：ctx 进工厂分层落点（img 声明落 frame、ctx 落壳/并入 frame）
+                        Widget imgBlock = AddImageBlockWithAttributes(flowPanel, child, inlineColorOverride, opacityOverride ?? opacityCtx);
+                        flowPanel.Children.Add(imgBlock);
                         continue;
                     }
                     HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, EffectiveTextColor(inlineColorOverride), linkColor: m_bodyLinkColor);
@@ -303,8 +308,8 @@ namespace Game {
                         (float headingLhMul, float headingLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
                         float headingLs = ResolveLetterSpacingCtx(node, letterSpacingCtx);
                         ApplyParagraphBreakStyle(widget, (headingBreak, headingNoWrap, headingLhMul, headingLhPx, headingLs));
-                        // CSS opacity：标题文字件=ctx × 本节点声明（壳若有，装饰淡出走壳自身 Opacity）
-                        widget.Opacity = opacityCtx * ResolveOpacityMultiplier(node);
+                        // CSS opacity：标题文字件 ColorTransform=White×(ctx × 本节点声明)
+                        widget.ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(node));
                         HtmlSpanParser.ParseHtmlNode(node, widget.Spans, default, widget.Color, linkColor: m_bodyLinkColor);
                         panel.Children.Add(WrapInStyleBox(node, widget, colorOverride) ?? widget);
                         break;
@@ -393,19 +398,25 @@ namespace Game {
                         Flush();
                         HtmlAgilityPack.HtmlNode code = node.Element("code") ?? node;
                         Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'));
+                        // 代码块随 ctx×自身声明淡出（BevelledRect 框+Label 行全子树浸透）
+                        codeBlock.ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(node));
                         panel.Children.Add(WrapInStyleBox(node, codeBlock, colorOverride) ?? codeBlock);
                         break;
                     }
                     case "hr": {
                         Flush();
                         Widget thematicBreak = CreateHtmlThematicBreak(node);
+                        // hr 线随 ctx×自身声明淡出（RectangleWidget 填充×GlobalColorTransform）
+                        thematicBreak.ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(node));
                         panel.Children.Add(WrapInStyleBox(node, thematicBreak, colorOverride) ?? thematicBreak);
                         break;
                     }
                     case "img" when ImageLoader != null:
-                        // 块级 <img>：与纯图段落同管线。行内 <img>（p 内）仍被丢弃（范围外）
+                        // 块级 <img>：与纯图段落同管线。行内 <img>（p 内）仍被丢弃（范围外）。
+                        // 图片块随 ctx 淡出（img 自身声明工厂内落 frame）
                         Flush();
-                        panel.Children.Add(AddImageBlockWithAttributes(panel, node, colorOverride));
+                        Widget imgBlock = AddImageBlockWithAttributes(panel, node, colorOverride, opacityCtx);
+                        panel.Children.Add(imgBlock);
                         break;
                     case "table": {
                         Flush();
@@ -417,8 +428,8 @@ namespace Game {
                             BuildHtmlNodes(captionNode.ChildNodes, panel, listDepth, colorOverride, depth + 1, TextAnchor.HorizontalCenter, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, opacityCtx * ResolveOpacityMultiplier(captionNode), letterSpacingCtx);
                         }
                         // 空表（无任何行）返回 null 不产部件——零尺寸 widget 仍会靠 Margin 贡献 8px 空白。
-                        // 表节点自身 opacity 叠进 ctx：格内文字件经 CreateHtmlCell 两路消费
-                        //（格线/格底不随淡出——非壳非文字，已知限制）
+                        // 表节点自身 opacity 落表根 ColorTransform（表线/格底/格内容全子树浸透
+                        // ——缺口闭合），格内 ctx 归一防格内落点双淡（嵌套子块自身声明从 1 起步照吃）
                         TablePanelWidget table = CreateHtmlTable(node, colorOverride, depth, blockAlign, opacityCtx * ResolveOpacityMultiplier(node));
                         if (table != null) {
                             panel.Children.Add(WrapInStyleBox(node, table, colorOverride, backgroundViaShell: false) ?? table);
@@ -625,8 +636,8 @@ namespace Game {
             lineHeightMul = listLhMul;
             lineHeightPx = listLhPx;
             letterSpacingCtx = ResolveLetterSpacingCtx(listNode, letterSpacingCtx);
-            // 列表节点自身 opacity 同在此 Resolve（叠乘语义）：marker 标签/壳装饰不吃 ctx
-            //（非文字件不淡出，已知限制），li 内容文字经 liCtx 传导
+            // 列表节点自身 opacity 同在此 Resolve（叠乘语义）：marker 标签随列表声明淡出
+            //（ColorTransform 浸透，li 内容文字经 liCtx 各段落件自担）
             opacityCtx *= ResolveOpacityMultiplier(listNode);
             StackPanelWidget listPanel = CreatePanel();
             listPanel.Margin = new Vector2(0f, 2f);
@@ -675,6 +686,9 @@ namespace Game {
                     Color = EffectiveTextColor(colorOverride),
                     FontScale = markerScale
                 };
+                // marker 随列表 opacity 声明淡出（FontTextWidget 色×GlobalColorTransform；
+                // 不含 li 自身声明——li 声明只管 li 内容，marker 归列表级）
+                markerLabel.ColorTransform = Color.White * opacityCtx;
                 row.Children.Add(markerLabel);
                 CanvasWidget.SetPosition(markerLabel, new Vector2(MarkerOffsetX, MarkerOffsetY));
                 StackPanelWidget contentPanel = CreatePanel();
@@ -696,7 +710,7 @@ namespace Game {
                 (float liLhMul, float liLhPx) = ResolveLineHeightCtx(li, lineHeightMul, lineHeightPx);
                 float liLs = ResolveLetterSpacingCtx(li, letterSpacingCtx);
                 // li 自身 opacity 叠进子树 ctx：行内段落（FlushLi）与内嵌块级递归同吃；
-                // li 壳装饰（WrapInStyleBox）走壳自身 Opacity，两路同源不双乘
+                // li 壳装饰（WrapInStyleBox）走壳色乘，两路同源不双乘
                 float liOpacityCtx = opacityCtx * ResolveOpacityMultiplier(li);
                 void FlushLi() {
                     if (pendingSpans.Count > 0) {
@@ -718,7 +732,7 @@ namespace Game {
                             }
                             // letter-spacing：li 级声明覆盖列表继承（Resolve 已并入，替换语义）
                             widget.LetterSpacing = liLs;
-                            widget.Opacity = liOpacityCtx;
+                            widget.ColorTransform = Color.White * liOpacityCtx;
                             widget.Spans.AddRange(pendingSpans);
                             contentPanel.Children.Add(widget);
                         }
@@ -756,6 +770,8 @@ namespace Game {
                             case "pre": {
                                 HtmlAgilityPack.HtmlNode code = child.Element("code") ?? child;
                                 Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'));
+                                // 代码块随 ctx×自身声明淡出（同顶层 pre 口径）
+                                codeBlock.ColorTransform = Color.White * (liOpacityCtx * ResolveOpacityMultiplier(child));
                                 contentPanel.Children.Add(WrapInStyleBox(child, codeBlock, colorOverride) ?? codeBlock);
                                 break;
                             }
@@ -775,14 +791,16 @@ namespace Game {
                                 (float liHeadingLhMul, float liHeadingLhPx) = ResolveLineHeightCtx(child, liLhMul, liLhPx);
                                 float liHeadingLs = ResolveLetterSpacingCtx(child, liLs);
                                 ApplyParagraphBreakStyle(widget, (liHeadingBreak, liHeadingNoWrap, liHeadingLhMul, liHeadingLhPx, liHeadingLs));
-                                // CSS opacity：li 内标题同主链口径（ctx × 自身声明）
-                                widget.Opacity = liOpacityCtx * ResolveOpacityMultiplier(child);
+                                // CSS opacity：li 内标题同主链口径（ctx × 自身声明）→ ColorTransform
+                                widget.ColorTransform = Color.White * (liOpacityCtx * ResolveOpacityMultiplier(child));
                                 HtmlSpanParser.ParseHtmlNode(child, widget.Spans, default, widget.Color, linkColor: m_bodyLinkColor);
                                 contentPanel.Children.Add(WrapInStyleBox(child, widget, colorOverride) ?? widget);
                                 break;
                             }
                             case "hr": {
                                 Widget thematicBreak = CreateHtmlThematicBreak(child);
+                                // hr 线随 ctx×自身声明淡出（同顶层 hr 口径）
+                                thematicBreak.ColorTransform = Color.White * (liOpacityCtx * ResolveOpacityMultiplier(child));
                                 contentPanel.Children.Add(WrapInStyleBox(child, thematicBreak, colorOverride) ?? thematicBreak);
                                 break;
                             }
@@ -799,7 +817,8 @@ namespace Game {
                         && ImageLoader != null) {
                         // li 内行内 <img> 升级为图片块（同 AppendInlineChildren 口径）
                         FlushLi();
-                        contentPanel.Children.Add(AddImageBlockWithAttributes(contentPanel, child, colorOverride));
+                        Widget imgBlock = AddImageBlockWithAttributes(contentPanel, child, colorOverride, liOpacityCtx);
+                        contentPanel.Children.Add(imgBlock);
                     }
                     else {
                         HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, EffectiveTextColor(colorOverride), linkColor: m_bodyLinkColor);
@@ -878,8 +897,11 @@ namespace Game {
             CurrentPanel?.Shells.Add(new ShellEntry { Frame = outer, IndentX = CurrentIndentX, Kind = ShellKind.FlowShell });
             float prevIndent = CurrentIndentX;
             CurrentIndentX += 10f;
-            // ctx 原值透传（引用节点自身 opacity 已由调用点叠进；引用框竖条非壳非文字不淡出，已知限制）
-            BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1, blockAlign, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, opacityCtx, letterSpacingCtx);
+            // opacity 落外壳 ColorTransform（竖条+子树全浸透——竖条 RectangleWidget 非
+            // 文字件缺口随之闭合）；子树 ctx 归一防双淡：外壳已担 v，内部段落件落点按 1
+            // 恒等，嵌套子块自身声明从 1 起步照吃
+            outer.ColorTransform = Color.White * opacityCtx;
+            BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1, blockAlign, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, 1f, letterSpacingCtx);
             CurrentIndentX = prevIndent;
             return outer;
         }
@@ -922,6 +944,9 @@ namespace Game {
             if (ParseBlockAlignment(tableNode) == TextAnchor.HorizontalCenter) {
                 widget.HorizontalAlignment = WidgetAlignment.Center;
             }
+            // 祖先 ctx×表节点自身声明落表根 ColorTransform：表线/格底（Draw 全×GlobalColorTransform）
+            // 与格内子树一次性浸透；格内 ctx 传 1 防格内落点双淡（见 CreateHtmlCell 调用点）
+            widget.ColorTransform = Color.White * opacityCtx;
             // bgcolor 回退链根：table CSS 声明 → table 属性 → body 属性（整页包装场景）。
             // 同一元素 CSS 声明胜旧属性（与 text-align 同规），链结构不变
             Color? tableBackground = CssStyleParser.TryGetDeclaration(tableNode.GetAttributeValue("style", null), "background-color", out string tableCssBg)
@@ -1021,8 +1046,9 @@ namespace Game {
                     // colspan/rowspan 属性：空/非法/≤0 → 1（Set 后仅非平凡值登记 attached 状态）
                     int colSpan = ParseSpanAttribute(cellNode, "colspan");
                     int rowSpan = ParseSpanAttribute(cellNode, "rowspan");
-                    // 格两路消费 ctx：块级格递归传、纯行内格直设（CreateHtmlCell 内注释）
-                    Widget cell = CreateHtmlCell(cellNode, isHeader, colorOverride, depth, blockAlign, cellPaddingX, opacityCtx);
+                    // 格内 ctx 恒传 1：表 ctx 已落表根 ColorTransform 浸透全子树，格内再叠即
+                    // 双淡；格自身声明由 CreateHtmlCell 内 Resolve 从 1 起步照吃
+                    Widget cell = CreateHtmlCell(cellNode, isHeader, colorOverride, depth, blockAlign, cellPaddingX, 1f);
                     if (colSpan > 1) {
                         TablePanelWidget.SetColSpan(cell, colSpan);
                     }
@@ -1084,9 +1110,9 @@ namespace Game {
         // 块级同口径），img 升级图片块、嵌套 table 递归本方法。纯行内 cell 的 img 照旧 span 占位
         // （HtmlSpanParser 分支保留）。格内块 shell 宽由所在格 panel 按格净宽回传（本方法 push
         // CurrentPanel，见 RichContentPanel MeasureOverride）。
-        // opacityCtx：祖先链叠乘透明度（表节点自身声明已由 table case 叠入后传入）——
-        // 块级格递归传、纯行内格直设（格自身声明走行内 span 路径已落 span.Opacity，widget
-        // 只补祖先 ctx，避免双乘）；格底/格线不淡出（已知限制）
+        // opacityCtx：格内继承透明度（表 ctx 已落表根 ColorTransform，调用点恒传 1——格内只
+        // 吃格自身及更深层声明：块级格递归乘 cellNode 声明、纯行内格直设 widget ColorTransform；
+        // 格自身声明走行内 span 路径已落 span.Opacity，widget 只补祖先 ctx，避免双乘）
         Widget CreateHtmlCell(HtmlAgilityPack.HtmlNode cellNode, bool isHeader, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, float cellPaddingX = 6f, float opacityCtx = 1f) {
             bool hasBlockChild = false;
             bool imgOnly = ImageLoader != null;
@@ -1169,7 +1195,7 @@ namespace Game {
             widget.LetterSpacing = ResolveLetterSpacingCtx(cellNode, 0f);
             // 纯行内格 opacity：widget 只补祖先 ctx——格自身声明已经行内 span 路径
             //（ParseHtmlNode→ApplyOpenTag→ApplyInlineStyle）落到 span.Opacity，此处再乘会双淡出
-            widget.Opacity = opacityCtx;
+            widget.ColorTransform = Color.White * opacityCtx;
             widget.Spans.AddRange(spans);
             if (blockAlign != TextAnchor.Default) {
                 // 对齐容器内的表格格文本（Chrome text-align 继承进 td；列对齐缺省时不覆写，见 ApplyCellAnchor）
@@ -1484,8 +1510,8 @@ namespace Game {
 
         // 节点 opacity 叠乘系数：有有效声明=声明值，否则 1。Resolve 语义=乘进 ctx（opacity 可
         // 叠乘嵌套，与 word-break/line-height 的替换语义不同——CSS opacity 是可组合数值，嵌套
-        // 元素各施各的 0..1 相乘得合成透明度，浏览器同款）。与壳 Opacity 同源解析：壳只承担
-        // 装饰淡出、ctx 只承担文字淡出，同一声明两路消费不双乘
+        // 元素各施各的 0..1 相乘得合成透明度，浏览器同款）。与壳装饰色乘同源解析：壳只承担
+        // 装饰淡出、ctx 只承担子树 ColorTransform 淡出，同一声明两路消费不双乘
         static float ResolveOpacityMultiplier(HtmlAgilityPack.HtmlNode node) {
             return ParseOpacityStyle(node, out float v) ? v : 1f;
         }
@@ -1558,8 +1584,12 @@ namespace Game {
         //（left/right 浮动环绕无对应排版模型）
         // 返回待挂树 widget（调用方统一 Children.Add）：无 style 盒属性=frame 本体，
         // 有=透明壳（frame 包入壳，壳 Margin=CSS margin、frame 四边距=CSS padding；
-        // 图片块升级为块级，块级元素 style 盒属性同权适用——审查 P2 补接）
-        Widget AddImageBlockWithAttributes(StackPanelWidget target, HtmlAgilityPack.HtmlNode img, Color? colorOverride) {
+        // 图片块升级为块级，块级元素 style 盒属性同权适用——审查 P2 补接）。
+        // opacityCtx（祖先链叠乘系数）分层落点：img 自身声明恒落内层 frame（壳装饰
+        // Decoration 与之同源解析不双乘）；祖先 ctx 落壳 ColorTransform 浸透子树（装饰
+        // 与内容各恰一次），无壳时并入 frame 一并承担——审查 P0：CT 设在包装返回值上
+        // 会与壳装饰 Decoration 叠成装饰 v²
+        Widget AddImageBlockWithAttributes(StackPanelWidget target, HtmlAgilityPack.HtmlNode img, Color? colorOverride, float opacityCtx = 1f) {
             Vector2? explicitSize = ParseImageSize(img);
             Vector2 margin = new(0f, 8f);
             if (float.TryParse(img.GetAttributeValue("hspace", null), out float hspace) && hspace > 0f) {
@@ -1571,7 +1601,14 @@ namespace Game {
             CanvasWidget frame = AddImageBlock(target, img.GetAttributeValue("src", null), img.GetAttributeValue("alt", null), explicitSize, margin);
             // AddImageBlock 已挂树；摘回统一由调用方挂（摘下重挂同位追加，顺序不变）
             target.Children.Remove(frame);
-            return WrapInStyleBox(img, frame, colorOverride) ?? frame;
+            frame.ColorTransform = Color.White * ResolveOpacityMultiplier(img);
+            Widget shell = WrapInStyleBox(img, frame, colorOverride);
+            if (shell != null) {
+                shell.ColorTransform = Color.White * opacityCtx;
+                return shell;
+            }
+            frame.ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(img));
+            return frame;
         }
 
         // img width/height：px 直取；width 的 % 相对容器（容器宽未知跳过该维）；height 的 %

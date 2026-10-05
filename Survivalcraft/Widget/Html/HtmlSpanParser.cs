@@ -451,7 +451,7 @@ namespace Game {
                 BaselineShift = style.BaselineShift,
                 Border = style.Border,
                 LinkUnderlineSuppressed = style.LinkUnderlineSuppressed,
-                // 行内 opacity 透传 span（未声明=1f）：Draw 期与 RichTextWidget.Opacity 叠乘淡出
+                // 行内 opacity 透传 span（未声明=1f）：Draw 期与宿主 ColorTransform 叠乘淡出
                 Opacity = style.HasOpacity ? style.Opacity : 1f
             });
         }
