@@ -73,6 +73,9 @@ namespace Game {
             background = null;
             forceColor = null;
             MarkdownSpanStyle inner = style;
+            // 进入时字号累计（UA 标签 small/big/sub/sup/font 置位前的父级口径）：同元素上作者
+            // font-size 声明按 CSS 级联整体替换标签置位，% / em 以父级为基准重算
+            float inheritedScale = inner.Scale;
             // border-* style 对所有行内标签生效（b/i/a/code 与 span 同享；未知标签透传分支同口径）。
             // 嵌套带边框标签：内层替换外层（同片段只画一框），与嵌套 color 覆盖同语义
             if (CssStyleParser.TryGetBorder(node.GetAttributeValue("style", null), out CssStyleParser.CssBorderSpec borderSpec)) {
@@ -179,7 +182,155 @@ namespace Game {
                     }
                     break;
             }
+            // 行内 CSS 字体/装饰族：对所有行内标签生效。置于标签 switch 后——显式 normal 值
+            // 撤销 b/u 的标签置位（作者样式>UA 样式，CSS 级联口径）
+            ApplyInlineStyle(node.GetAttributeValue("style", null), ref inner, inheritedScale);
             return inner;
+        }
+
+        // 行内 style 声明 → 字体/装饰族样式累积（ref：显式 normal/baseline 0 需覆盖继承值）。
+        // inheritedScale=进入本元素时的父级字号累计。各属性独立消费：非法值仅丢该条
+        //（不污染其他属性，也不反噬——无效 font-weight/text-transform 保留继承值，CSS 口径）
+        static void ApplyInlineStyle(string styleAttribute, ref MarkdownSpanStyle style, float inheritedScale) {
+            if (string.IsNullOrEmpty(styleAttribute)) {
+                return;
+            }
+            // font-size：px/pt（÷16 基准，同 font size 属性 16px medium 口径）、%与 em（父字号
+            // 倍率）、rem（根字号=px 口径）。基准=inheritedScale：同元素上作者声明整体替换
+            // UA 标签置位（<small style="font-size:24px">=1.5 非 0.8×1.5，CSS 级联）；子元素
+            // 继承的累计值经 inheritedScale 传导，跨标签嵌套仍累乘。负值/0/未知单位无效
+            if (CssStyleParser.TryGetDeclaration(styleAttribute, "font-size", out string fontSize)
+                && TryParseCssFontSize(fontSize, out float sizeRatio)) {
+                style.Scale = (inheritedScale > 0f ? inheritedScale : 1f) * sizeRatio;
+            }
+            // font-weight：bold/bolder/数值≥600 加粗（双权字库只有"有/无粗体"两档，400 档即
+            // normal）；normal/lighter/数值<600 撤销继承粗体；无效值不动（不反噬继承）
+            if (CssStyleParser.TryGetDeclaration(styleAttribute, "font-weight", out string fontWeight)
+                && ParseFontWeightBold(fontWeight) is bool weightBold) {
+                style.Bold = weightBold;
+            }
+            // font-style：italic/oblique（合成切变）；normal 撤销继承斜体
+            if (CssStyleParser.TryGetDeclaration(styleAttribute, "font-style", out string fontStyle)) {
+                string f = fontStyle.ToLowerInvariant();
+                if (f is "italic" or "oblique") {
+                    style.Italic = true;
+                }
+                else if (f == "normal") {
+                    style.Italic = false;
+                }
+            }
+            // text-decoration：多值空格分隔，underline/line-through 叠加；none 双清（可撤销
+            // 继承的 u/del）；overline 无对应绘制支持，吞掉忽略
+            if (CssStyleParser.TryGetDeclaration(styleAttribute, "text-decoration", out string textDecoration)) {
+                bool sawNone = false;
+                foreach (string token in textDecoration.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
+                    switch (token.ToLowerInvariant()) {
+                        case "underline":
+                            style.Underline = true;
+                            break;
+                        case "line-through":
+                            style.Strikethrough = true;
+                            break;
+                        case "none":
+                            sawNone = true;
+                            break;
+                    }
+                }
+                if (sawNone) {
+                    style.Underline = false;
+                    style.Strikethrough = false;
+                    style.LinkUnderlineSuppressed = true;
+                }
+            }
+            // vertical-align：sub/super/middle 三关键字，比率同 sub/sup 标签（嵌套累加语义一致；
+            // em 基准=父字号，绘制期换算）。长度值不支持，忽略
+            if (CssStyleParser.TryGetDeclaration(styleAttribute, "vertical-align", out string verticalAlign)) {
+                style.BaselineShift += verticalAlign.ToLowerInvariant() switch {
+                    "sub" => 0.25f,
+                    "super" => -0.33f,
+                    "middle" => -0.25f,
+                    _ => 0f
+                };
+            }
+            // text-transform：枚举直写（struct 复制天然随嵌套继承，显式 none 可撤销继承变换）；
+            // 无效值不动（保留继承变换）
+            if (CssStyleParser.TryGetDeclaration(styleAttribute, "text-transform", out string textTransform)) {
+                TextTransform? transform = textTransform.ToLowerInvariant() switch {
+                    "uppercase" => TextTransform.Uppercase,
+                    "lowercase" => TextTransform.Lowercase,
+                    "capitalize" => TextTransform.Capitalize,
+                    "none" => TextTransform.None,
+                    _ => null
+                };
+                if (transform.HasValue) {
+                    style.TextTransform = transform.Value;
+                }
+            }
+        }
+
+        // font-size 值：px（÷16 基准）、pt（1pt=4/3px）、%（÷100）、em（原值）、rem（=px 口径，
+        // 根字号基准 16px）。输出=相对默认字号倍率，钳 [0.25, 8] 防御敌意帖子（超大倍率逐字
+        // 巨 quad 拖垮排版）。负值/0/未知单位无效返回 false
+        static bool TryParseCssFontSize(string value, out float ratio) {
+            ratio = 1f;
+            string v = value.Trim().ToLowerInvariant();
+            float scale;
+            if (v.EndsWith("px", StringComparison.Ordinal)) {
+                if (!float.TryParse(v.AsSpan(0, v.Length - 2), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out scale)
+                    || scale <= 0f) {
+                    return false;
+                }
+                scale /= 16f;
+            }
+            else if (v.EndsWith("pt", StringComparison.Ordinal)) {
+                if (!float.TryParse(v.AsSpan(0, v.Length - 2), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out scale)
+                    || scale <= 0f) {
+                    return false;
+                }
+                scale /= 12f;
+            }
+            else if (v.EndsWith("%", StringComparison.Ordinal)) {
+                if (!float.TryParse(v.AsSpan(0, v.Length - 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out scale)
+                    || scale <= 0f) {
+                    return false;
+                }
+                scale /= 100f;
+            }
+            else if (v.EndsWith("rem", StringComparison.Ordinal)) {
+                if (!float.TryParse(v.AsSpan(0, v.Length - 3), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out scale)
+                    || scale <= 0f) {
+                    return false;
+                }
+            }
+            else if (v.EndsWith("em", StringComparison.Ordinal)) {
+                if (!float.TryParse(v.AsSpan(0, v.Length - 2), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out scale)
+                    || scale <= 0f) {
+                    return false;
+                }
+            }
+            else {
+                // 无单位数值非法（CSS font-size 不收 number）
+                return false;
+            }
+            ratio = MathUtils.Clamp(scale, 0.25f, 8f);
+            return true;
+        }
+
+        // font-weight 值 → 有/无粗体：bold/bolder 与数值 ≥600 加粗；normal/lighter 与数值 <600
+        // 撤销；无效值返回 null（调用方不动继承值——不反噬 <b> 的标签置位，CSS 口径）。
+        // 粗体是合成双绘，无多字重字库，600 阈值即浏览器 semibold 起粗的近似
+        static bool? ParseFontWeightBold(string value) {
+            string v = value.Trim().ToLowerInvariant();
+            if (v is "bold" or "bolder") {
+                return true;
+            }
+            if (v is "normal" or "lighter") {
+                return false;
+            }
+            if (float.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float weight)) {
+                return weight >= 600f;
+            }
+            return null;
         }
 
         // 行内上下文的零散 HtmlInline：Markdig 逐标签分发、无配对信息，逐项喂 HAP 会被自动闭合成空节点
@@ -258,6 +409,8 @@ namespace Game {
             if (string.IsNullOrEmpty(text)) {
                 return;
             }
+            // text-transform 出口施加：变换后的文本进排版（测宽/换行按变换后字形算，浏览器同款）
+            text = ApplyTextTransform(text, style.TextTransform);
             // 粗斜体并存时用 BoldItalic（原三目链 Bold 优先会丢斜体）
             RichTextStyle richStyle = style.Bold
                 ? (style.Italic ? RichTextStyle.BoldItalic : RichTextStyle.Bold)
@@ -268,8 +421,37 @@ namespace Game {
                 FontScale = style.Scale,
                 Underline = style.Underline,
                 BaselineShift = style.BaselineShift,
-                Border = style.Border
+                Border = style.Border,
+                LinkUnderlineSuppressed = style.LinkUnderlineSuppressed
             });
+        }
+
+        // text-transform 施加：Capitalize=每词首字母大写、其余原样（CSS 口径，不做
+        // ToTitleCase 的"其余转小写"）；词边界=前一字符非字母
+        static string ApplyTextTransform(string text, TextTransform transform) {
+            if (transform == TextTransform.None) {
+                return text;
+            }
+            if (transform == TextTransform.Uppercase) {
+                return text.ToUpperInvariant();
+            }
+            if (transform == TextTransform.Lowercase) {
+                return text.ToLowerInvariant();
+            }
+            char[] chars = text.ToCharArray();
+            bool atWordStart = true;
+            for (int i = 0; i < chars.Length; i++) {
+                if (char.IsLetter(chars[i])) {
+                    if (atWordStart) {
+                        chars[i] = char.ToUpperInvariant(chars[i]);
+                        atWordStart = false;
+                    }
+                }
+                else {
+                    atWordStart = true;
+                }
+            }
+            return new string(chars);
         }
 
         static readonly Regex s_whitespaceRegex = new("[^\\S\u00A0]+", RegexOptions.Compiled);

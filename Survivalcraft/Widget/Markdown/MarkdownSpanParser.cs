@@ -3,6 +3,18 @@ using Engine;
 using Markdig.Syntax.Inlines;
 
 namespace Game {
+    // text-transform 值域（CSS 属性子集）：Capitalize=每词首字母大写、其余字符原样
+    //（浏览器同款，不做 ToTitleCase 的"其余转小写"）
+    public enum TextTransform {
+        None,
+
+        Uppercase,
+
+        Lowercase,
+
+        Capitalize
+    }
+
     // 行内样式上下文：粗斜体/颜色/链接随嵌套深入累积
     public struct MarkdownSpanStyle {
         public bool Bold;
@@ -23,11 +35,17 @@ namespace Game {
 
         public bool Underline;
 
+        // text-decoration:none（CSS 显式撤销）：抑制链接默认下划线
+        public bool LinkUnderlineSuppressed;
+
         // 基线偏移比例累积（sub +0.25 / sup −0.33），语义同 TextSpan.BaselineShift
         public float BaselineShift;
 
         // 行内边框（HTML border-* style），引用类型随结构复制共享，null=无边框
         public SpanBorder Border;
+
+        // 文本大小写变换（CSS text-transform，随嵌套继承；AddText 出口处施加）
+        public TextTransform TextTransform;
     }
 
     // Markdig inline 序列 → List<TextSpan>；HtmlInline 片段委托 HtmlSpanParser（Widget/Html/）
@@ -78,7 +96,8 @@ namespace Game {
                 }
                 case CodeInline code:
                     // 行内代码只接 Bold（斜体/删除线不接为既有取舍），装饰/缩放三字段随嵌套上下文透传
-                    //（<u><code>、<small><code>、<sub><code> 行内路径不再丢样式）
+                    //（<u><code>、<small><code>、<sub><code> 行内路径不再丢样式）。
+                    // TextTransform 同不接（code 字面语义，变换即失真——与斜体同口径留档）
                     spans.Add(new TextSpan(code.Content, RichContentPalette.CodeColor) {
                         BackgroundColor = RichContentPalette.CodeBackgroundColor,
                         Style = style.Bold ? RichTextStyle.Bold : RichTextStyle.Normal,

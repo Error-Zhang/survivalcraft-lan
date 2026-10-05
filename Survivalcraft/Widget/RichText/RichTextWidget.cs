@@ -324,8 +324,9 @@ namespace Game {
                             color
                         );
                     }
-                    bool underline = run.Span.Underline
-                        || (run.Span.IsLink && ShowLinkUnderline);
+                    bool underline = !run.Span.LinkUnderlineSuppressed
+                        && (run.Span.Underline
+                            || (run.Span.IsLink && ShowLinkUnderline));
                     if (underline
                         && flatBatch2D != null) {
                         // 下划线（HTML ins/链接）：字形下方 1px 处、厚度同删除线；GlyphHeight 须乘

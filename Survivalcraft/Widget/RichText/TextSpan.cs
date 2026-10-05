@@ -28,6 +28,10 @@ namespace Game {
         // 下划线（HTML ins），画在字形下方不穿字（layer=-1 背景批，同链接下划线）
         public bool Underline { get; set; }
 
+        // text-decoration:none（CSS 显式撤销）：抑制链接默认下划线（作者样式>UA 样式），
+        // 仅对 IsLink run 生效，非链接 run 无下划线可撤
+        public bool LinkUnderlineSuppressed { get; set; }
+
         // 基线偏移（HTML sub/sup）：正=下移、负=上移，单位=父字号 em 高的比例
         //（绘制期换算 GlyphHeight×DefaultFontScale×Font.Scale）。纯绘制偏移，不改行高/推进量
         public float BaselineShift { get; set; }

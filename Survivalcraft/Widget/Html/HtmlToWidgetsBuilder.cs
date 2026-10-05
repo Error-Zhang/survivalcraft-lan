@@ -153,7 +153,7 @@ namespace Game {
         // blockAlign：容器块级文本对齐（center/figure/figcaption = HorizontalCenter，div/p/h 的
         // align 属性可再覆写），TextAnchor.Default=继承外层——全部重入点（div/dl/列表/引用/表格格/
         // 未知容器）透传（Chrome text-align 继承口径；显式 left 属性映射 Default=Left 同值，天然覆盖）
-        void BuildHtmlNodes(IEnumerable<HtmlAgilityPack.HtmlNode> nodes, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default) {
+        void BuildHtmlNodes(IEnumerable<HtmlAgilityPack.HtmlNode> nodes, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, TextWordBreak wordBreakCtx = TextWordBreak.BreakWord, bool noWrapCtx = false) {
             if (depth > MaxDepth) {
                 return;
             }
@@ -161,7 +161,7 @@ namespace Game {
             // 行内段冲刷目标：带 style 盒属性的段落类标签（p/dt/summary/footer 行内形态）重定向
             // 进壳，其余场景恒等于 panel（壳方案 WrapInStyleBox 只覆盖单件块，段落壳在此换目标）
             StackPanelWidget flowPanel = panel;
-            void Flush(TextAnchor? alignOverride = null) {
+            void Flush(TextAnchor? alignOverride = null, (TextWordBreak WordBreak, bool NoWrap)? paraOverride = null) {
                 TextAnchor effectiveAlign = alignOverride ?? blockAlign;
                 if (pendingSpans.Count > 0) {
                     HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
@@ -172,6 +172,12 @@ namespace Game {
                     if (effectiveAlign != TextAnchor.Default) {
                         widget.HorizontalAlignment = WidgetAlignment.Stretch;
                         widget.TextAnchor = effectiveAlign;
+                    }
+                    // 段落级 word-break/white-space 声明覆盖容器继承上下文（CSS 元素级口径）
+                    (TextWordBreak paraBreak, bool paraNoWrap) = paraOverride ?? (wordBreakCtx, noWrapCtx);
+                    widget.WordBreak = paraBreak;
+                    if (paraNoWrap) {
+                        widget.WordWrap = false;
                     }
                     widget.Spans.AddRange(pendingSpans);
                     flowPanel.Children.Add(widget);
@@ -225,6 +231,7 @@ namespace Game {
                             widget.HorizontalAlignment = WidgetAlignment.Stretch;
                             widget.TextAnchor = headingAlign;
                         }
+                        ApplyParagraphBreakStyle(widget, ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx));
                         HtmlSpanParser.ParseHtmlNode(node, widget.Spans, default, widget.Color, linkColor: m_bodyLinkColor);
                         panel.Children.Add(WrapInStyleBox(node, widget, colorOverride) ?? widget);
                         break;
@@ -238,7 +245,7 @@ namespace Game {
                             flowPanel = paraShell;
                         }
                         AppendInlineChildren(node, colorOverride);
-                        Flush(ParseBlockAlignment(node));
+                        Flush(ParseBlockAlignment(node), ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx));
                         if (styledPara) {
                             flowPanel = panel;
                             if (EndStyleBox(paraShell, paraPad)) {
@@ -253,7 +260,8 @@ namespace Game {
                         // style 盒属性：子树入壳（容器壳，padding 铺直接子件）
                         Flush();
                         bool styledDiv = TryBeginStyleBox(node, colorOverride, out StackPanelWidget divShell, out Vector4 divPad);
-                        BuildHtmlNodes(node.ChildNodes, styledDiv ? divShell : panel, listDepth, colorOverride, depth + 1, ParseBlockAlignment(node) ?? blockAlign);
+                        (TextWordBreak divBreak, bool divNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
+                        BuildHtmlNodes(node.ChildNodes, styledDiv ? divShell : panel, listDepth, colorOverride, depth + 1, ParseBlockAlignment(node) ?? blockAlign, divBreak, divNoWrap);
                         if (styledDiv && EndStyleBox(divShell, divPad)) {
                             panel.Children.Add(divShell);
                         }
@@ -275,7 +283,8 @@ namespace Game {
                                 m_bodyLinkColor = bodyLink;
                             }
                         }
-                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, ParseBlockAlignment(node) ?? blockAlign);
+                        (TextWordBreak shellBreak, bool shellNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
+                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, ParseBlockAlignment(node) ?? blockAlign, shellBreak, shellNoWrap);
                         break;
                     }
                     case "ul":
@@ -283,11 +292,12 @@ namespace Game {
                     case "menu":
                         // menu 与 ul 同渲染（HTML 弃用标签，Chrome 按无序列表渲染）
                         Flush();
-                        BuildHtmlList(node, node.Name.Equals("ol", StringComparison.Ordinal), panel, listDepth, colorOverride, depth, blockAlign);
+                        BuildHtmlList(node, node.Name.Equals("ol", StringComparison.Ordinal), panel, listDepth, colorOverride, depth, blockAlign, wordBreakCtx, noWrapCtx);
                         break;
                     case "blockquote": {
                         Flush();
-                        Widget quote = CreateHtmlQuote(node, listDepth, colorOverride, depth, blockAlign);
+                        (TextWordBreak quoteBreak, bool quoteNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
+                        Widget quote = CreateHtmlQuote(node, listDepth, colorOverride, depth, blockAlign, quoteBreak, quoteNoWrap);
                         panel.Children.Add(WrapInStyleBox(node, quote, colorOverride) ?? quote);
                         break;
                     }
@@ -315,7 +325,7 @@ namespace Game {
                         // 不双渲染）；用户裁定 caption=居中块，与 center/figure 同款
                         HtmlAgilityPack.HtmlNode captionNode = node.Element("caption");
                         if (captionNode != null) {
-                            BuildHtmlNodes(captionNode.ChildNodes, panel, listDepth, colorOverride, depth + 1, TextAnchor.HorizontalCenter);
+                            BuildHtmlNodes(captionNode.ChildNodes, panel, listDepth, colorOverride, depth + 1, TextAnchor.HorizontalCenter, wordBreakCtx, noWrapCtx);
                         }
                         // 空表（无任何行）返回 null 不产部件——零尺寸 widget 仍会靠 Margin 贡献 8px 空白
                         TablePanelWidget table = CreateHtmlTable(node, colorOverride, depth, blockAlign);
@@ -334,7 +344,8 @@ namespace Game {
                         // 预提取，此处兜 table 外裸 caption。style 盒属性：子树入壳
                         Flush();
                         bool styledCenter = TryBeginStyleBox(node, colorOverride, out StackPanelWidget centerShell, out Vector4 centerPad);
-                        BuildHtmlNodes(node.ChildNodes, styledCenter ? centerShell : panel, listDepth, colorOverride, depth + 1, TextAnchor.HorizontalCenter);
+                        (TextWordBreak centerBreak, bool centerNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
+                        BuildHtmlNodes(node.ChildNodes, styledCenter ? centerShell : panel, listDepth, colorOverride, depth + 1, TextAnchor.HorizontalCenter, centerBreak, centerNoWrap);
                         if (styledCenter && EndStyleBox(centerShell, centerPad)) {
                             panel.Children.Add(centerShell);
                         }
@@ -345,7 +356,8 @@ namespace Game {
                         // 块边界+子节点重入，dt/dd 各归其位。style 盒属性：子树入壳
                         Flush();
                         bool styledDl = TryBeginStyleBox(node, colorOverride, out StackPanelWidget dlShell, out Vector4 dlPad);
-                        BuildHtmlNodes(node.ChildNodes, styledDl ? dlShell : panel, listDepth, colorOverride, depth + 1, blockAlign);
+                        (TextWordBreak dlBreak, bool dlNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
+                        BuildHtmlNodes(node.ChildNodes, styledDl ? dlShell : panel, listDepth, colorOverride, depth + 1, blockAlign, dlBreak, dlNoWrap);
                         if (styledDl && EndStyleBox(dlShell, dlPad)) {
                             panel.Children.Add(dlShell);
                         }
@@ -358,7 +370,7 @@ namespace Game {
                             flowPanel = dtShell;
                         }
                         AppendInlineChildren(node, colorOverride);
-                        Flush();
+                        Flush(null, ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx));
                         if (styledDt) {
                             flowPanel = panel;
                             if (EndStyleBox(dtShell, dtPad)) {
@@ -379,7 +391,8 @@ namespace Game {
                             // 对齐容器内 dd：撑满外壳剩余宽（Margin 左侧缩进扣余），锚点生效
                             ddPanel.HorizontalAlignment = WidgetAlignment.Stretch;
                         }
-                        BuildHtmlNodes(node.ChildNodes, ddPanel, listDepth, colorOverride, depth + 1, blockAlign);
+                        (TextWordBreak ddBreak, bool ddNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
+                        BuildHtmlNodes(node.ChildNodes, ddPanel, listDepth, colorOverride, depth + 1, blockAlign, ddBreak, ddNoWrap);
                         CurrentIndentX = prevIndentDd;
                         CanvasWidget ddOuter = new() { Size = new Vector2(NestedContentWidth(), -1f) };
                         if (blockAlign != TextAnchor.Default) {
@@ -407,7 +420,7 @@ namespace Game {
                         }
                         HtmlSpanParser.AddText("▼ ", pendingSpans, default, EffectiveTextColor(colorOverride));
                         AppendInlineChildren(node, colorOverride);
-                        Flush();
+                        Flush(null, ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx));
                         if (styledSummary) {
                             flowPanel = panel;
                             if (EndStyleBox(summaryShell, summaryPad)) {
@@ -425,7 +438,8 @@ namespace Game {
                         Flush();
                         if (ContainsBlockChild(node)) {
                             bool styledFooter = TryBeginStyleBox(node, colorOverride, out StackPanelWidget footerShell, out Vector4 footerPad);
-                            BuildHtmlNodes(node.ChildNodes, styledFooter ? footerShell : panel, listDepth, colorOverride, depth + 1, blockAlign);
+                            (TextWordBreak footerBreak, bool footerNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
+                            BuildHtmlNodes(node.ChildNodes, styledFooter ? footerShell : panel, listDepth, colorOverride, depth + 1, blockAlign, footerBreak, footerNoWrap);
                             if (styledFooter && EndStyleBox(footerShell, footerPad)) {
                                 panel.Children.Add(footerShell);
                             }
@@ -436,7 +450,7 @@ namespace Game {
                                 flowPanel = footerShell;
                             }
                             HtmlSpanParser.ParseHtmlNode(node, pendingSpans, default, EffectiveTextColor(colorOverride), linkColor: m_bodyLinkColor);
-                            Flush();
+                            Flush(null, ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx));
                             if (styledFooterInline) {
                                 flowPanel = panel;
                                 if (EndStyleBox(footerShell, footerInlinePad)) {
@@ -458,7 +472,8 @@ namespace Game {
                         if (ContainsBlockChild(node)) {
                             Flush();
                             bool styledUnknown = TryBeginStyleBox(node, colorOverride, out StackPanelWidget unknownShell, out Vector4 unknownPad);
-                            BuildHtmlNodes(node.ChildNodes, styledUnknown ? unknownShell : panel, listDepth, colorOverride, depth + 1, blockAlign);
+                            (TextWordBreak unknownBreak, bool unknownNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
+                            BuildHtmlNodes(node.ChildNodes, styledUnknown ? unknownShell : panel, listDepth, colorOverride, depth + 1, blockAlign, unknownBreak, unknownNoWrap);
                             if (styledUnknown && EndStyleBox(unknownShell, unknownPad)) {
                                 panel.Children.Add(unknownShell);
                             }
@@ -489,10 +504,15 @@ namespace Game {
             Flush();
         }
 
-        void BuildHtmlList(HtmlAgilityPack.HtmlNode listNode, bool ordered, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default) {
+        void BuildHtmlList(HtmlAgilityPack.HtmlNode listNode, bool ordered, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, TextWordBreak wordBreakCtx = TextWordBreak.BreakWord, bool noWrapCtx = false) {
             if (depth > MaxDepth) {
                 return;
             }
+            // 列表节点自身 word-break/white-space 声明在此统一 Resolve（顶层与 li 内嵌套同口径，
+            // 调用点只传继承上下文）
+            (TextWordBreak listBreak, bool listNoWrap) = ResolveWordBreakCtx(listNode, wordBreakCtx, noWrapCtx);
+            wordBreakCtx = listBreak;
+            noWrapCtx |= listNoWrap;
             StackPanelWidget listPanel = CreatePanel();
             listPanel.Margin = new Vector2(0f, 2f);
             if (blockAlign != TextAnchor.Default) {
@@ -557,6 +577,7 @@ namespace Game {
                 CurrentIndentX += contentX;
                 // li 内行内内容累积成段；内嵌块级标签递归处理
                 List<TextSpan> pendingSpans = [];
+                (TextWordBreak liBreak, bool liNoWrap) = ResolveWordBreakCtx(li, wordBreakCtx, noWrapCtx);
                 void FlushLi() {
                     if (pendingSpans.Count > 0) {
                         HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
@@ -565,6 +586,10 @@ namespace Game {
                             if (blockAlign != TextAnchor.Default) {
                                 widget.HorizontalAlignment = WidgetAlignment.Stretch;
                                 widget.TextAnchor = blockAlign;
+                            }
+                            widget.WordBreak = liBreak;
+                            if (liNoWrap) {
+                                widget.WordWrap = false;
                             }
                             widget.Spans.AddRange(pendingSpans);
                             contentPanel.Children.Add(widget);
@@ -590,10 +615,11 @@ namespace Game {
                             case "ul":
                             case "ol":
                             case "menu":
-                                BuildHtmlList(child, child.Name.Equals("ol", StringComparison.Ordinal), contentPanel, listDepth + 1, colorOverride, depth + 1, blockAlign);
+                                BuildHtmlList(child, child.Name.Equals("ol", StringComparison.Ordinal), contentPanel, listDepth + 1, colorOverride, depth + 1, blockAlign, liBreak, liNoWrap);
                                 break;
                             case "blockquote": {
-                                Widget quote = CreateHtmlQuote(child, listDepth + 1, colorOverride, depth + 1, blockAlign);
+                                (TextWordBreak liQuoteBreak, bool liQuoteNoWrap) = ResolveWordBreakCtx(child, liBreak, liNoWrap);
+                                Widget quote = CreateHtmlQuote(child, listDepth + 1, colorOverride, depth + 1, blockAlign, liQuoteBreak, liQuoteNoWrap);
                                 contentPanel.Children.Add(WrapInStyleBox(child, quote, colorOverride) ?? quote);
                                 break;
                             }
@@ -615,6 +641,7 @@ namespace Game {
                                     widget.HorizontalAlignment = WidgetAlignment.Stretch;
                                     widget.TextAnchor = headingAlign;
                                 }
+                                ApplyParagraphBreakStyle(widget, ResolveWordBreakCtx(child, liBreak, liNoWrap));
                                 HtmlSpanParser.ParseHtmlNode(child, widget.Spans, default, widget.Color, linkColor: m_bodyLinkColor);
                                 contentPanel.Children.Add(WrapInStyleBox(child, widget, colorOverride) ?? widget);
                                 break;
@@ -627,7 +654,7 @@ namespace Game {
                             default: {
                                 // p/div/section/article/table：单节点重入顶层分发（BuildHtmlNodes），
                                 // 与顶层同口径——纯行内整块成段、嵌块递归、li 内 p>img 不再静默丢
-                                BuildHtmlNodes([child], contentPanel, listDepth + 1, colorOverride, depth + 1, blockAlign);
+                                BuildHtmlNodes([child], contentPanel, listDepth + 1, colorOverride, depth + 1, blockAlign, liBreak, liNoWrap);
                                 break;
                             }
                         }
@@ -702,7 +729,7 @@ namespace Game {
             };
         }
 
-        CanvasWidget CreateHtmlQuote(HtmlAgilityPack.HtmlNode quoteNode, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default) {
+        CanvasWidget CreateHtmlQuote(HtmlAgilityPack.HtmlNode quoteNode, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, TextWordBreak wordBreakCtx = TextWordBreak.BreakWord, bool noWrapCtx = false) {
             CanvasWidget outer = CreateQuoteFrame(out StackPanelWidget inner);
             if (blockAlign != TextAnchor.Default) {
                 // 对齐容器内引用：外壳与 inner 双层 Stretch 撑满（HtmlWidget 壳路径 ContentWidth=-1，
@@ -716,7 +743,7 @@ namespace Game {
             CurrentPanel?.Shells.Add(new ShellEntry { Frame = outer, IndentX = CurrentIndentX, Kind = ShellKind.FlowShell });
             float prevIndent = CurrentIndentX;
             CurrentIndentX += 10f;
-            BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1, blockAlign);
+            BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1, blockAlign, wordBreakCtx, noWrapCtx);
             CurrentIndentX = prevIndent;
             return outer;
         }
@@ -939,7 +966,8 @@ namespace Game {
                 // 表格（内表格 CreateHtmlCell 再 push）与本格结束后恢复外层上下文正确嵌套
                 RichContentPanel prevPanel = CurrentPanel;
                 CurrentPanel = panel;
-                BuildHtmlNodes(cellNode.ChildNodes, panel, 0, colorOverride, depth + 1, blockAlign);
+                (TextWordBreak cellBreak, bool cellNoWrap) = ResolveWordBreakCtx(cellNode, null, false);
+                BuildHtmlNodes(cellNode.ChildNodes, panel, 0, colorOverride, depth + 1, blockAlign, cellBreak, cellNoWrap);
                 CurrentPanel = prevPanel;
                 if (isHeader) {
                     BoldWidgetSpans(panel);
@@ -952,16 +980,21 @@ namespace Game {
             if (isHeader) {
                 BoldCellSpans(spans);
             }
+            // 格级 word-break/white-space 声明（CSS 胜旧 nowrap 属性）；white-space:nowrap →
+            // WordWrap 关（纯行内格与块级格两路同口径）
+            bool hasCellBreak = ParseWordBreakStyle(cellNode, out TextWordBreak? cellInlineBreak, out bool cellInlineNoWrap);
             RichTextWidget widget = new() {
                 Font = Font,
                 FontScale = FontScale,
                 Color = EffectiveTextColor(colorOverride),
-                WordWrap = true,
+                WordWrap = !cellInlineNoWrap,
                 // td nowrap：老版防换行属性 → KeepAll（CJK/单词整体不破，浏览器 white-space:nowrap
-                // 对纯文本格的近似口径）；含块级子件的格不适用（块级各自折行语义），留档不处理
-                WordBreak = cellNode.GetAttributeValue("nowrap", null) != null
-                    ? TextWordBreak.KeepAll
-                    : TextWordBreak.BreakWord,
+                // 对纯文本格的近似口径）
+                WordBreak = (hasCellBreak && cellInlineBreak.HasValue)
+                    ? cellInlineBreak.Value
+                    : cellNode.GetAttributeValue("nowrap", null) != null
+                        ? TextWordBreak.KeepAll
+                        : TextWordBreak.BreakWord,
                 // 拉满格矩形（track−2×CellPadding）：TextAnchor 居中/右对齐按 ActualSize 定偏移，
                 // Near 会塌缩到内容宽
                 HorizontalAlignment = WidgetAlignment.Stretch,
@@ -1076,16 +1109,79 @@ namespace Game {
             };
         }
 
-        // 块级 align 属性 → 文本锚点（CSS text-align 口径）：center/right/left 三值生效，
-        // justify/char 不识别返回 null（继承外层）。left 显式映射 Default=Left 同值，
-        // nullable 装箱保住"显式 left 覆盖继承的 right"语义（否则 ?? 链会回退到继承值）
+        // 块级 align 属性 / style text-align → 文本锚点：style 声明胜旧属性（CSS 级联口径）。
+        // center/right/left 三值生效，justify/char 不识别返回 null（继承外层）。left 显式映射
+        // Default=Left 同值，nullable 装箱保住"显式 left 覆盖继承的 right"语义（否则 ?? 链会
+        // 回退到继承值）
         static TextAnchor? ParseBlockAlignment(HtmlAgilityPack.HtmlNode node) {
+            if (CssStyleParser.TryGetDeclaration(node.GetAttributeValue("style", null), "text-align", out string textAlign)) {
+                return textAlign.ToLowerInvariant() switch {
+                    "center" => TextAnchor.HorizontalCenter,
+                    "right" => TextAnchor.Right,
+                    "left" => TextAnchor.Default,
+                    // justify（引擎无逐行对齐）等：该声明不生效，退回 align 属性口径
+                    _ => null
+                };
+            }
             return node.GetAttributeValue("align", null)?.Trim().ToLowerInvariant() switch {
                 "center" => TextAnchor.HorizontalCenter,
                 "right" => TextAnchor.Right,
                 "left" => TextAnchor.Default,
                 _ => null
             };
+        }
+
+        // 块级 style word-break / white-space:nowrap → 段落换行口径（CSS word-break 继承属性，
+        // 随容器重入链透传；white-space 只认 nowrap=WordWrap 关，pre/pre-wrap 需空白保留机制
+        // 留档不做）。两者都未声明返回 false
+        static bool ParseWordBreakStyle(HtmlAgilityPack.HtmlNode node, out TextWordBreak? wordBreak, out bool noWrap) {
+            wordBreak = null;
+            noWrap = false;
+            string style = node.GetAttributeValue("style", null);
+            bool has = false;
+            if (CssStyleParser.TryGetDeclaration(style, "word-break", out string wb)) {
+                // 只认有效值（CSS：非法声明整条丢弃→继承外层）；break-word（deprecated 别名）
+                // =默认行为映射 BreakWord
+                switch (wb.Trim().ToLowerInvariant()) {
+                    case "normal":
+                        wordBreak = TextWordBreak.Normal;
+                        has = true;
+                        break;
+                    case "break-all":
+                        wordBreak = TextWordBreak.BreakAll;
+                        has = true;
+                        break;
+                    case "keep-all":
+                        wordBreak = TextWordBreak.KeepAll;
+                        has = true;
+                        break;
+                    case "break-word":
+                        wordBreak = TextWordBreak.BreakWord;
+                        has = true;
+                        break;
+                }
+            }
+            if (CssStyleParser.TryGetDeclaration(style, "white-space", out string ws)) {
+                noWrap = ws.Trim().ToLowerInvariant() == "nowrap";
+                has |= noWrap;
+            }
+            return has;
+        }
+
+        // 节点级 word-break/nowrap 解析并入继承上下文：节点声明覆盖（CSS 继承属性口径），
+        // 无声明沿用继承值。white-space 显式 normal 撤销继承 nowrap 不支持（bool ctx 无三态，
+        // 留档：nowrap 只会向下传导）
+        static (TextWordBreak WordBreak, bool NoWrap) ResolveWordBreakCtx(HtmlAgilityPack.HtmlNode node, TextWordBreak? inherited, bool inheritedNoWrap) {
+            bool has = ParseWordBreakStyle(node, out TextWordBreak? wordBreak, out bool noWrap);
+            return (has && wordBreak.HasValue ? wordBreak.Value : inherited ?? TextWordBreak.BreakWord, noWrap || inheritedNoWrap);
+        }
+
+        // 直建段落件（标题路径不经 Flush）铺 word-break/nowrap
+        static void ApplyParagraphBreakStyle(RichTextWidget widget, (TextWordBreak WordBreak, bool NoWrap) ctx) {
+            widget.WordBreak = ctx.WordBreak;
+            if (ctx.NoWrap) {
+                widget.WordWrap = false;
+            }
         }
 
         // hr 旧属性四件套：width（px / % 相对容器，容器宽未知退全宽）/size（厚度 px）/color/

@@ -130,6 +130,22 @@ namespace Game {
             return left.HasValue || top.HasValue || right.HasValue || bottom.HasValue;
         }
 
+        // 单属性声明查询：级联序取最后一条同名声明（后声明覆盖先声明）。无该属性返回 false。
+        // 口径留档：取"最后一条声明"而非"最后一条有效声明"（TryGetBox 是后者）——无效值由
+        // 消费方丢弃且不回退前条，与 CSS"解析期丢弃无效声明"有差（子集取舍）。
+        // 与 TryGetBox/TryGetBorder 同为逐属性重扫口径——style 串短、调用点少，O(n) 每属性可接受
+        public static bool TryGetDeclaration(string style, string name, out string value) {
+            value = null;
+            List<KeyValuePair<string, string>> declarations = ParseDeclarations(style);
+            for (int i = declarations.Count - 1; i >= 0; i--) {
+                if (declarations[i].Key == name) {
+                    value = declarations[i].Value;
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // 长度：px（大小写不敏感）/无单位（=px）；em/%/rem/pt 等不支持返回 false。负值接受——
         // 引擎布局是浮点加减，负 margin=间距缩小（CSS 同义）
         public static bool TryParseLength(string value, out float px) {
