@@ -104,11 +104,12 @@ namespace Game {
         // 图片块：走共用 RichContentImageLoader；宽度未定时 frame 记入 ImageBlocks 由测量期回填。
         // 占位宽扣减嵌套缩进（列表项/引用块内图片不占全宽）。
         // explicitSize：img width/height 属性（-1=该维未给，走自适应）；margin：hspace/vspace
-        // 外边距（未给走默认 0/8）
+        // 外边距（未给走默认 0/8）；maxWidth：CSS max-width px（<0=未声明，仅 height 反推与
+        // 自适应路径的显示尺寸钳制随它下沉加载/重适配路径，占位宽仍归回填子系统）
         // 返回 frame（挂树由调用方负责——HTML 侧 style 盒属性需把 frame 包进壳后挂）
-        protected CanvasWidget AddImageBlock(StackPanelWidget panel, string url, string alt, Vector2? explicitSize = null, Vector2? margin = null) {
+        protected CanvasWidget AddImageBlock(StackPanelWidget panel, string url, string alt, Vector2? explicitSize = null, Vector2? margin = null, float maxWidth = -1f) {
             float width = NestedContentWidth();
-            CanvasWidget frame = ImageLoader.CreateImageBlock(url, alt, width, MaxImageHeight, explicitSize);
+            CanvasWidget frame = ImageLoader.CreateImageBlock(url, alt, width, MaxImageHeight, explicitSize, maxWidth);
             frame.Margin = margin ?? new Vector2(0f, 8f);
             // 注册路由（同 CreateCodeBlock）：格内无条件进所在格 panel——panel 的回填基准是
             // 格净宽而非顶层 ContentWidth，顶层 ContentWidth 正负不影响格内注册

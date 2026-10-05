@@ -146,6 +146,47 @@ namespace Game {
             return false;
         }
 
+        // 宽度类值解析（width/max-width 共用）：px（大小写不敏感）/无单位→px；%→isPercent=true
+        // number=百分数（50% → 50）；em/rem→×16px（引擎无字号上下文，按浏览器根字号定口径）、
+        // pt→×4/3 换 px；auto/none/负值/未知→false
+        public static bool TryParseWidthValue(string value, out bool isPercent, out float number) {
+            isPercent = false;
+            number = 0f;
+            string v = value.Trim();
+            if (v.EndsWith("%", StringComparison.Ordinal)) {
+                if (!float.TryParse(v[..^1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float percent)
+                    || percent < 0f) {
+                    return false;
+                }
+                isPercent = true;
+                number = percent;
+                return true;
+            }
+            float scale = 1f;
+            if (v.EndsWith("px", StringComparison.OrdinalIgnoreCase)) {
+                v = v[..^2].Trim();
+            }
+            else if (v.EndsWith("rem", StringComparison.OrdinalIgnoreCase)) {
+                v = v[..^3].Trim();
+                scale = 16f;
+            }
+            else if (v.EndsWith("em", StringComparison.OrdinalIgnoreCase)) {
+                v = v[..^2].Trim();
+                scale = 16f;
+            }
+            else if (v.EndsWith("pt", StringComparison.OrdinalIgnoreCase)) {
+                v = v[..^2].Trim();
+                scale = 4f / 3f;
+            }
+            if (!float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out number)
+                || number < 0f) {
+                number = 0f;
+                return false;
+            }
+            number *= scale;
+            return true;
+        }
+
         // 长度：px（大小写不敏感）/无单位（=px）；em/%/rem/pt 等不支持返回 false。负值接受——
         // 引擎布局是浮点加减，负 margin=间距缩小（CSS 同义）
         public static bool TryParseLength(string value, out float px) {
