@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using Engine;
 
@@ -137,6 +138,247 @@ namespace Game {
                 v = v[..^2].Trim();
             }
             return float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out px);
+        }
+
+        // border 解析结果：Widths 轴序=X左 Y上 Z右 W下（同 Margin4），0=该边未启用；
+        // 四色 null=currentColor（调用方按继承文字色解析）。子集启用口径（用户裁定 A，从宽）：
+        // 该边出现任一有效组件（width/color/非 none 的 style 关键字）即启用，缺 width 取
+        // medium=3px；仅 none/hidden（简写或 border-style）禁用该边
+        public class CssBorderSpec {
+            public Vector4 Widths;
+
+            public Color? Left, Top, Right, Bottom;
+
+            public bool HasAny => Widths.X > 0f || Widths.Y > 0f || Widths.Z > 0f || Widths.W > 0f;
+        }
+
+        // CSS medium 线宽（浏览器缺省 border-width）
+        const float BorderMediumWidth = 3f;
+
+        // style 关键字：本波搁置 -style 不识别线型，只吞掉并按"启用"计；none/hidden=禁用
+        static readonly string[] BorderStyleKeywords = ["solid", "dotted", "dashed", "double", "groove", "ridge", "inset", "outset"];
+
+        // border 组解析：border / border-{side} 简写（width/color/style 任意序混排）+
+        // border-width / border-color（TRBL）+ border-{side}-width / -color 单边单分量 +
+        // border-style / border-{side}-style。返回=是否出现任何有效 border 声明（含全禁：
+        // 内层 border:none 借此替换掉继承边框）；是否画查 spec.HasAny。启用口径（用户裁定 A，
+        // 从宽）：该边出现任一有效组件（width/color/非 none 的 style 关键字）即启用，缺 width
+        // 取 medium=3px；仅 none/hidden（简写或 border-style）禁用该边。非法 width（负值/em/%）
+        // 或未知 token 丢弃所在声明（不污染其他边）
+        public static bool TryGetBorder(string style, out CssStyleParser.CssBorderSpec spec) {
+            spec = new CssBorderSpec();
+            bool hasDeclarations = false;
+            if (string.IsNullOrEmpty(style)) {
+                return false;
+            }
+            // 侧序沿用 CSS TRBL：0=上 1=右 2=下 3=左（展开/输出时再映射 Margin4 轴序）
+            float?[] widths = new float?[4];
+            Color?[] colors = new Color?[4];
+            bool[] enabled = new bool[4];
+            foreach (KeyValuePair<string, string> declaration in ParseDeclarations(style)) {
+                string key = declaration.Key;
+                string value = declaration.Value;
+                if (key == "border") {
+                    hasDeclarations |= ApplyBorderShorthand(value, widths, colors, enabled, allSides: true, side: -1);
+                }
+                else if (key is "border-top" or "border-right" or "border-bottom" or "border-left") {
+                    hasDeclarations |= ApplyBorderShorthand(value, widths, colors, enabled, allSides: false, side: SideIndex(key["border-".Length..]));
+                }
+                else if (key == "border-width") {
+                    hasDeclarations |= ApplyBorderWidths(value, widths, enabled);
+                }
+                else if (key == "border-color") {
+                    hasDeclarations |= ApplyBorderColors(value, colors, enabled);
+                }
+                else if (key is "border-top-width" or "border-right-width" or "border-bottom-width" or "border-left-width") {
+                    if (TryParseLength(value, out float w) && w >= 0f) {
+                        int side = SideIndex(key["border-".Length..^"-width".Length]);
+                        widths[side] = w;
+                        enabled[side] = true;
+                        hasDeclarations = true;
+                    }
+                }
+                else if (key is "border-top-color" or "border-right-color" or "border-bottom-color" or "border-left-color") {
+                    if (CssColorParser.TryParse(value, out Color c)) {
+                        int side = SideIndex(key["border-".Length..^"-color".Length]);
+                        colors[side] = c;
+                        enabled[side] = true;
+                        hasDeclarations = true;
+                    }
+                }
+                else if (key == "border-style" || key is "border-top-style" or "border-right-style" or "border-bottom-style" or "border-left-style") {
+                    // border-style 支持 1~4 值 TRBL；单边形式值域退化为单值。none/hidden 禁用，
+                    // 其余合法线型关键字启用该边（线型本身搁置不识别，裁定 A）
+                    string[] tokens = SplitTopLevelTokens(value);
+                    if (tokens.Length is < 1 or > 4) {
+                        continue;
+                    }
+                    string[] expanded = ExpandTrbl(tokens);
+                    int side = key == "border-style" ? -1 : SideIndex(key["border-".Length..^"-style".Length]);
+                    bool anyEdge = false;
+                    for (int i = 0; i < 4; i++) {
+                        if (side >= 0 && side != i) {
+                            continue;
+                        }
+                        string token = expanded[i].ToLowerInvariant();
+                        if (token is "none" or "hidden") {
+                            widths[i] = null;
+                            colors[i] = null;
+                            enabled[i] = false;
+                            anyEdge = true;
+                        }
+                        else if (BorderStyleKeywords.Contains(token)) {
+                            enabled[i] = true;
+                            anyEdge = true;
+                        }
+                    }
+                    hasDeclarations |= anyEdge;
+                }
+            }
+            for (int i = 0; i < 4; i++) {
+                float w = widths[i] ?? (enabled[i] ? BorderMediumWidth : 0f);
+                // Margin4 轴序输出：X=左(3) Y=上(0) Z=右(1) W=下(2)
+                switch (i) {
+                    case 0: spec.Widths.Y = w; spec.Top = colors[i]; break;
+                    case 1: spec.Widths.Z = w; spec.Right = colors[i]; break;
+                    case 2: spec.Widths.W = w; spec.Bottom = colors[i]; break;
+                    case 3: spec.Widths.X = w; spec.Left = colors[i]; break;
+                }
+            }
+            return hasDeclarations;
+        }
+
+        static int SideIndex(string side) => side switch {
+            "top" => 0,
+            "right" => 1,
+            "bottom" => 2,
+            _ => 3
+        };
+
+        // TRBL 1~4 值展开：1=四边；2=上下 左右；3=上 左右 下；4=上右下左
+        static string[] ExpandTrbl(string[] tokens) => tokens.Length switch {
+            1 => [tokens[0], tokens[0], tokens[0], tokens[0]],
+            2 => [tokens[0], tokens[1], tokens[0], tokens[1]],
+            3 => [tokens[0], tokens[1], tokens[2], tokens[1]],
+            _ => tokens
+        };
+
+        // 简写 token 分类：长度（≥0）→width、颜色→color、线型关键字→启用、none/hidden→禁用、
+        // 未知→整条声明丢弃。none/hidden 胜出其余组件（CSS `border: none red` 无边框口径）。
+        // 返回=是否有任一边有效写入
+        static bool ApplyBorderShorthand(string value, float?[] widths, Color?[] colors, bool[] enabled, bool allSides, int side) {
+            float? width = null;
+            Color? color = null;
+            bool styleOn = false;
+            bool styleOff = false;
+            foreach (string token in SplitTopLevelTokens(value)) {
+                if (TryParseLength(token, out float w) && w >= 0f) {
+                    width = w;
+                }
+                else if (CssColorParser.TryParse(token, out Color c)) {
+                    color = c;
+                }
+                else if (BorderStyleKeywords.Contains(token.ToLowerInvariant())) {
+                    styleOn = true;
+                }
+                else if (token.Equals("none", StringComparison.OrdinalIgnoreCase)
+                    || token.Equals("hidden", StringComparison.OrdinalIgnoreCase)) {
+                    styleOff = true;
+                }
+                else {
+                    return false;
+                }
+            }
+            bool any = false;
+            for (int i = 0; i < 4; i++) {
+                if (!allSides && side != i) {
+                    continue;
+                }
+                if (styleOff) {
+                    widths[i] = null;
+                    colors[i] = null;
+                    enabled[i] = false;
+                    any = true;
+                }
+                else {
+                    // 任一有效组件即启用（裁定 A）：仅 color 也启用（缺 width 取 medium）
+                    if (width.HasValue) {
+                        widths[i] = width.Value;
+                    }
+                    if (color.HasValue) {
+                        colors[i] = color.Value;
+                    }
+                    if (width.HasValue || color.HasValue || styleOn) {
+                        enabled[i] = true;
+                    }
+                    any |= width.HasValue || color.HasValue || styleOn;
+                }
+            }
+            return any;
+        }
+
+        static bool ApplyBorderWidths(string value, float?[] widths, bool[] enabled) {
+            string[] tokens = SplitTopLevelTokens(value);
+            // 任一 token 非法整条丢弃（CSS 口径，避免 TRBL 错位吃值）
+            if (tokens.Length is < 1 or > 4
+                || !tokens.All(t => TryParseLength(t, out float w) && w >= 0f)) {
+                return false;
+            }
+            string[] expanded = ExpandTrbl(tokens);
+            for (int i = 0; i < 4; i++) {
+                if (TryParseLength(expanded[i], out float w) && w >= 0f) {
+                    widths[i] = w;
+                    enabled[i] = true;
+                }
+            }
+            return true;
+        }
+
+        static bool ApplyBorderColors(string value, Color?[] colors, bool[] enabled) {
+            string[] tokens = SplitTopLevelTokens(value);
+            // 任一 token 非法整条丢弃（CSS 口径，避免 TRBL 错位吃值）
+            if (tokens.Length is < 1 or > 4
+                || !tokens.All(t => CssColorParser.TryParse(t, out _))) {
+                return false;
+            }
+            string[] expanded = ExpandTrbl(tokens);
+            for (int i = 0; i < 4; i++) {
+                if (CssColorParser.TryParse(expanded[i], out Color c)) {
+                    colors[i] = c;
+                    // 仅 color 声明也启用该边（裁定 A，缺 width 取 medium）
+                    enabled[i] = true;
+                }
+            }
+            return true;
+        }
+
+        // 括号感知 token 切分：rgb(1, 2, 3) 等函数色内含空格，按深度跳过括号内空白
+        static string[] SplitTopLevelTokens(string value) {
+            List<string> tokens = [];
+            int depth = 0;
+            int start = -1;
+            for (int i = 0; i < value.Length; i++) {
+                char c = value[i];
+                if (c == '(') {
+                    depth++;
+                }
+                else if (c == ')') {
+                    depth = MathUtils.Max(depth - 1, 0);
+                }
+                if (depth == 0 && char.IsWhiteSpace(c)) {
+                    if (start >= 0) {
+                        tokens.Add(value[start..i]);
+                        start = -1;
+                    }
+                }
+                else if (start < 0) {
+                    start = i;
+                }
+            }
+            if (start >= 0) {
+                tokens.Add(value[start..]);
+            }
+            return [.. tokens];
         }
     }
 }

@@ -173,7 +173,7 @@ namespace Game {
             // 背景/下划线用 layer=-1 的 FlatBatch、删除线用 layer=2：渲染器按 batch Layer 排序绘制，
             // -1 排在文字批（FontBatch layer=1）之前背景才压在文字下；删除线横穿字形，若也在文字下会被
             // Pericles 烘焙黑描边切成暗缝（实测穿越处亮度 255→128），故排到文字批之后画在字上
-            bool needsUnderlayBatch = ShowLinkUnderline || HasBackground || HasUnderline;
+            bool needsUnderlayBatch = ShowLinkUnderline || HasBackground || HasUnderline || HasBorder;
             FlatBatch2D flatBatch2D = needsUnderlayBatch ? dc.PrimitivesRenderer2D.FlatBatch(-1, DepthStencilState.None) : null;
             FlatBatch2D overlayBatch2D = HasStrikethrough ? dc.PrimitivesRenderer2D.FlatBatch(2, DepthStencilState.None) : null;
             SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
@@ -192,7 +192,8 @@ namespace Game {
                     Color color = (run.Span.Color ?? Color) * GlobalColorTransform;
                     if (color.A == 0
                         && !run.Span.IsLink
-                        && run.Span.BackgroundColor == null) {
+                        && run.Span.BackgroundColor == null
+                        && run.Span.Border == null) {
                         continue;
                     }
                     Vector2 scale = new(SpanScale(run.Span));
@@ -232,6 +233,34 @@ namespace Game {
                                 Font.GlyphHeight * scale.X * Font.Scale,
                                 backgroundColor
                             );
+                        }
+                    }
+                    // 行内边框（SpanBorder）：每行盒片段独立成框，横条贴行盒、竖条贴片段盒
+                    //（片段盒=文字盒外扩左右边宽，run.X 为文字 x——排版层已按边宽占位推进）。
+                    // Y 取行盒不随 BaselineShift（行内 border 不参与行盒高度的浏览器口径）
+                    if (run.Span.Border is SpanBorder border
+                        && flatBatch2D != null) {
+                        float bl = MathF.Max(border.Widths.X, 0f);
+                        float bt = MathF.Max(border.Widths.Y, 0f);
+                        float br = MathF.Max(border.Widths.Z, 0f);
+                        float bb = MathF.Max(border.Widths.W, 0f);
+                        if (bl + bt + br + bb > 0f) {
+                            float boxLeft = position.X + drawDelta.X - bl;
+                            float boxTop = blockY + line.Y + drawDelta.Y;
+                            float boxWidth = bl + run.Width + br;
+                            float boxHeight = line.Height;
+                            if (bt > 0f) {
+                                QueueTransformedQuad(flatBatch2D, boxLeft, boxTop, boxWidth, bt, BorderColor(border.Top, run.Span));
+                            }
+                            if (bb > 0f) {
+                                QueueTransformedQuad(flatBatch2D, boxLeft, boxTop + boxHeight - bb, boxWidth, bb, BorderColor(border.Bottom, run.Span));
+                            }
+                            if (bl > 0f) {
+                                QueueTransformedQuad(flatBatch2D, boxLeft, boxTop, bl, boxHeight, BorderColor(border.Left, run.Span));
+                            }
+                            if (br > 0f) {
+                                QueueTransformedQuad(flatBatch2D, boxLeft + boxWidth - br, boxTop, br, boxHeight, BorderColor(border.Right, run.Span));
+                            }
                         }
                     }
                     // 斜体＝run 顶点本地切变（伪斜体），末尾 GlobalTransform 整批变换后套，测量/命中不受影响
@@ -329,6 +358,9 @@ namespace Game {
             batch.QueueQuad(p1, p2, p3, p4, 0f, color);
         }
 
+        // 边框色解析：side null=currentColor（span 自身色回退 widget 色），×GlobalColorTransform 同其他 quad
+        Color BorderColor(Color? side, TextSpan span) => (side ?? span.Color ?? Color) * GlobalColorTransform;
+
         // 斜体切变矩阵：x' = x − k·(y − em 中点)，k = tan(12°) ≈ 0.21，顶部右倾。
         // 绕 em 中点而非基线（Pericles 基线未单独暴露）；emHeight = GlyphHeight×span 字号×Font.Scale
         Matrix ItalicShearMatrix(float emHeight) {
@@ -380,6 +412,17 @@ namespace Game {
             get {
                 foreach (TextSpan span in Spans) {
                     if (span.BackgroundColor != null) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
+        bool HasBorder {
+            get {
+                foreach (TextSpan span in Spans) {
+                    if (span.Border != null) {
                         return true;
                     }
                 }

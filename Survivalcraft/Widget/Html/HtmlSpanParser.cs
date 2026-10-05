@@ -73,6 +73,17 @@ namespace Game {
             background = null;
             forceColor = null;
             MarkdownSpanStyle inner = style;
+            // border-* style 对所有行内标签生效（b/i/a/code 与 span 同享；未知标签透传分支同口径）。
+            // 嵌套带边框标签：内层替换外层（同片段只画一框），与嵌套 color 覆盖同语义
+            if (CssStyleParser.TryGetBorder(node.GetAttributeValue("style", null), out CssStyleParser.CssBorderSpec borderSpec)) {
+                inner.Border = new SpanBorder {
+                    Widths = borderSpec.Widths,
+                    Left = borderSpec.Left,
+                    Top = borderSpec.Top,
+                    Right = borderSpec.Right,
+                    Bottom = borderSpec.Bottom
+                };
+            }
             switch (node.Name.ToLowerInvariant()) {
                 case "b":
                 case "strong":
@@ -256,7 +267,8 @@ namespace Game {
                 Strikethrough = style.Strikethrough,
                 FontScale = style.Scale,
                 Underline = style.Underline,
-                BaselineShift = style.BaselineShift
+                BaselineShift = style.BaselineShift,
+                Border = style.Border
             });
         }
 

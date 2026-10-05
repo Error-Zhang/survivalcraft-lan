@@ -25,6 +25,9 @@ namespace Game {
 
         // 基线偏移比例累积（sub +0.25 / sup −0.33），语义同 TextSpan.BaselineShift
         public float BaselineShift;
+
+        // 行内边框（HTML border-* style），引用类型随结构复制共享，null=无边框
+        public SpanBorder Border;
     }
 
     // Markdig inline 序列 → List<TextSpan>；HtmlInline 片段委托 HtmlSpanParser（Widget/Html/）

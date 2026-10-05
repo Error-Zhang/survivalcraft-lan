@@ -162,7 +162,9 @@ namespace Game {
             MeasuredSize = new Vector2(maxWidth, y);
         }
 
-        // 组装一行：同 sequence 连续 cell 归并为一个 run，kerning 记在相邻对的前一个字符上（与 QueueLine 相同）
+        // 组装一行：同 sequence 连续 cell 归并为一个 run，kerning 记在相邻对的前一个字符上（与 QueueLine 相同）。
+        // 行内边框（SpanBorder）按片段占位：每个 run 左右各加边宽（run.X=文字 x，推进含右宽），行盒高度不撑
+        //（浏览器行内 border 口径：水平进排版、垂直可与相邻行重叠）
         void AddLine(List<Cell> cells, bool lineEllipsized) {
             TextLine line = new();
             float maxScale = DefaultFontScale;
@@ -186,14 +188,21 @@ namespace Game {
                         width -= Font.GetKerning(cells[k].C, cells[k + 1].C) * scale * Font.Scale;
                     }
                 }
+                SpanBorder border = span.Border;
+                if (border != null) {
+                    x += MathF.Max(border.Widths.X, 0f);
+                }
                 TextRun run = new() {
                     Span = span,
                     Text = new string(text),
                     X = x,
                     Width = width
                 };
-                line.Runs.Add(run);
                 x += width;
+                if (border != null) {
+                    x += MathF.Max(border.Widths.Z, 0f);
+                }
+                line.Runs.Add(run);
                 i = j + 1;
             }
             line.Width = x;
@@ -225,10 +234,19 @@ namespace Game {
         }
 
         // 返回 [start, end) 内总宽不超过 availableWidth 的最大字符数；超宽单字符由调用方强制推进。
-        // reserveEllipsis：预留省略号宽度（按当前 cell 的 span 字号度量，与截断后实际追加的省略号字号一致）
+        // reserveEllipsis：预留省略号宽度（按当前 cell 的 span 字号度量，与截断后实际追加的省略号字号一致）。
+        // 行内边框占位与 AddLine 同模型：每个 sequence 片段的左右边宽计入（累加于片段首 cell）
         int CountFittingCells(List<Cell> cells, int start, int end, float availableWidth, bool reserveEllipsis) {
             float width = 0f;
+            float borderWidths = 0f;
             for (int i = start; i < end; i++) {
+                if (i == start
+                    || cells[i].Sequence != cells[i - 1].Sequence) {
+                    SpanBorder border = cells[i].Span.Border;
+                    if (border != null) {
+                        borderWidths += MathF.Max(border.Widths.X, 0f) + MathF.Max(border.Widths.Z, 0f);
+                    }
+                }
                 float scale = SpanScale(cells[i].Span);
                 width += CharacterAdvance(cells[i].C, scale);
                 if (i + 1 < end
@@ -236,7 +254,7 @@ namespace Game {
                     width -= Font.GetKerning(cells[i].C, cells[i + 1].C) * scale * Font.Scale;
                 }
                 float limit = reserveEllipsis ? availableWidth - MeasureEllipsisWidth(scale) : availableWidth;
-                if (width > limit) {
+                if (width + borderWidths > limit) {
                     return i - start;
                 }
             }

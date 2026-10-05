@@ -39,6 +39,9 @@ namespace Game {
         // 非 null 时该段为链接，点击触发 RichTextWidget.LinkClicked
         public string Href { get; set; }
 
+        // 行内边框（HTML border-* style），null=无边框。每行盒片段独立成框（跨行两侧都有）
+        public SpanBorder Border { get; set; }
+
         // 调用方自定义载荷（如 markdown 源节点），排版层不解释
         public object Tag { get; set; }
 
