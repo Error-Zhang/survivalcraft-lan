@@ -575,6 +575,14 @@ namespace Game {
         // 遇被前 rowspan 占住的格跳过（occupied 登记 rowspan 覆盖格，帧间 Clear 复用）；越界 span
         // 防御钳到 columns − Col（至少 1）。产出协商/摆位数组尺寸与每 slot 的 Row/Col/ColSpan（帧内重算）
         void ExpandSlots() {
+            // 自然列数上限（各行格数最大值）：span 展开不越过它——超限 colspan（HTML 标准钳 1000 的
+            // 不可信源）若计入展开会把列数本身撑到 1000，第二遍钳制形同虚设（Σmin 定格 40px×1000，
+            // 裁切后 15 窄列一字一行即此）；小 span 越界的孤行表（如单行 colspan=3）幻影列无内容无
+            // 格线，视觉与满跨等价，牺牲无感
+            int naturalColumns = 0;
+            foreach (TableLayoutRow row in m_layoutRows) {
+                naturalColumns = MathUtils.Max(naturalColumns, row.Cells.Count);
+            }
             int columns = 0;
             m_occupied.Clear();
             for (int r = 0; r < m_layoutRows.Count; r++) {
@@ -586,7 +594,7 @@ namespace Game {
                         cursor++;
                     }
                     slot.Col = cursor;
-                    cursor += slot.ColSpan;
+                    cursor += MathUtils.Min(MathUtils.Max(slot.ColSpan, 1), MathUtils.Max(naturalColumns - cursor, 1));
                     for (int rr = r + 1; rr < MathUtils.Min(r + slot.RowSpan, m_layoutRows.Count); rr++) {
                         for (int cc = slot.Col; cc < cursor; cc++) {
                             m_occupied.Add((rr, cc));

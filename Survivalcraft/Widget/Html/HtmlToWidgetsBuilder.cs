@@ -459,12 +459,25 @@ namespace Game {
             // FooterRows 计剔除后的真实 footer 行数
             int footerRowCount = footerRows.Count(HasCellElement);
             rows.RemoveAll(entry => !HasCellElement(entry.Row));
+            // 自然列数上限（各行 td/th 格数最大值）——ExpandSlots 同名口径：span 展开不越过它，
+            // 下列对齐模拟的 cursor 推进须与底座逐格一致（M1），单改一侧即错列
+            int naturalColumns = 0;
+            foreach ((HtmlAgilityPack.HtmlNode Row, bool _) in rows) {
+                int cellCount = 0;
+                foreach (HtmlAgilityPack.HtmlNode child in Row.ChildNodes) {
+                    if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
+                        && child.Name.ToLowerInvariant() is "td" or "th") {
+                        cellCount++;
+                    }
+                }
+                naturalColumns = MathUtils.Max(naturalColumns, cellCount);
+            }
             // 列对齐：格级属性降列级——自上而下取每列第一个出现的对齐（td/th 与 tr 的 align 属性、
             // style text-align 都认），此后该列锚点固定（照包装类 SetColumnAlignments 语义）；
-            // 列号照底座 ExpandSlots 口径模拟（M1）：cursor 跳过被前行 rowspan 登记的占格——旧口径
-            // 仅按前置 colspan 累计，rowspan+列对齐组合下 anchor 染错列（视觉错对齐）。ExpandSlots
-            // 的越界 colspan 二次钳（columns−Col）发生在全部 slot.Col 定值之后，不影响列号，故模拟
-            // 对全部输入与布局期定列逐槽一致
+            // 列号照底座 ExpandSlots 口径模拟（M1）：cursor 跳过被前行 rowspan 登记的占格，span
+            // 展开同钳自然列数（naturalColumns）——两侧任一单改即错列。越界 colspan 二次钳
+            //（columns−Col）发生在全部 slot.Col 定值之后，不影响列号，故模拟对全部输入与布局期
+            // 定列逐槽一致
             List<MarkdownTableAlignment?> alignments = [];
             HashSet<(int Row, int Col)> occupied = [];
             for (int r = 0; r < rows.Count; r++) {
@@ -503,13 +516,14 @@ namespace Game {
                     ApplyCellAnchor(cell, ToTextAnchor(alignments[column]));
                     cells.Add(cell);
                     // rowspan 向后续行登记占格（照 ExpandSlots：行覆盖至 min(r+rowSpan, 行数) 前，
-                    // 列覆盖 [column, column+colSpan)，colspan 用未钳值与第一遍 cursor 推进同口径）
+                    // 列覆盖 [column, column+advance)，advance=span 展开钳自然列数与底座同口径）
+                    int advance = MathUtils.Min(MathUtils.Max(colSpan, 1), MathUtils.Max(naturalColumns - column, 1));
                     for (int rr = r + 1; rr < MathUtils.Min(r + rowSpan, rows.Count); rr++) {
-                        for (int cc = column; cc < column + colSpan; cc++) {
+                        for (int cc = column; cc < column + advance; cc++) {
                             occupied.Add((rr, cc));
                         }
                     }
-                    column += colSpan;
+                    column += advance;
                 }
                 if (cells.Count > 0) {
                     TableRowWidget row = new() { Header = isHeader };
