@@ -14,8 +14,12 @@ namespace Engine {
     public abstract unsafe class OpenXrVrBackend : IVrBackend {
         XR m_xr;
         Instance m_instance;
+#pragma warning disable CS0649 // 从未对字段赋值，字段将一直保持其默认值
         Task m_initTask;
+#pragma warning restore CS0649 // 从未对字段赋值，字段将一直保持其默认值
+#pragma warning disable CS0169 // 字段从未被使用
         volatile bool m_initStarted;
+#pragma warning restore CS0169 // 字段从未被使用
         ulong m_systemId;
         Session m_session;
         Space m_playSpace;
