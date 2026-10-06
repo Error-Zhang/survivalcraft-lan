@@ -11,14 +11,38 @@ namespace Game {
     // margin:auto 居中不由本件承担（builder 检出后设 HorizontalAlignment=Center，宿主排列期
     // 居中）；margin/padding/border/background 归壳层 WrapInStyleBox，本件不管。
     // 已知限制（留档）：
-    // - 回填击穿：子树含 pre/img 自适应 frame 时，宿主测量回填按根容器净宽强制铺满 frame 宽
-    //   不知本件存在——px 声明的顶层回填已感知本件（HtmlWidget.ResolveSizedAncestorWidth），
-    //   格 panel 回填与 % 声明仍击穿（留档）
+    // - 回填击穿（% 声明）：% 声明测量期才有宿主基准，不参与祖先钳制（ResolveAncestorCap 只认
+    //   px 声明）——% sizer 子树内的 pre/img frame 仍按容器净宽回填（留档）。px 声明的顶层
+    //   （HtmlWidget）与格 panel（RichContentPanel）回填均已感知本件
     // - FixedWidth 超宿主可用宽：引擎 Arrange 把本件钳到宿主格宽裁切（故意保持绝对值语义，
     //   不随宿主缩放）
     // - % 分母含自身 margin 近似：水平 margin 迁到本件后，宿主测量扣 margin 再传入，% 实际
     //   分母=宿主净宽−自身 margin（CSS 应为不含自身 margin 的包含块 content 宽）
     public class HtmlBlockSizerWidget : StackPanelWidget {
+        // 祖先定宽 sizer 的内容宽上限（回填感知共享版，HtmlWidget/RichContentPanel 测量期回填
+        // 共用）：自 frame 上溯到 stopAt（宿主壳/格 panel）的 ParentWidget 链，px 声明的
+        // FixedWidth/MaxFixedWidth 按「声明值−途经累加 margin」取最小命中后 consumed 归零
+        //（嵌套内层胜，CSS 口径）。边距沿途累加——壳 pad、引用/列表缩进都是路径上的 Margin；
+        // sizer 自身边距在钳制后累加，不算进自身内容宽。% 声明不参与（上方留档同款限制）。
+        // 无 px sizer 祖先返回 ∞，min 恒等原净宽口径（既有布局零回归）
+        internal static float ResolveAncestorCap(Widget frame, Widget stopAt) {
+            float cap = float.PositiveInfinity;
+            float consumed = 0f;
+            for (Widget w = frame; w != null && w != stopAt; w = w.ParentWidget) {
+                if (w is HtmlBlockSizerWidget sizer) {
+                    float bound = sizer.FixedWidth >= 0f ? sizer.FixedWidth : float.PositiveInfinity;
+                    if (sizer.MaxFixedWidth >= 0f) {
+                        bound = MathUtils.Min(bound, sizer.MaxFixedWidth);
+                    }
+                    if (!float.IsPositiveInfinity(bound)) {
+                        cap = MathUtils.Min(cap, bound - consumed);
+                        consumed = 0f;
+                    }
+                }
+                consumed += w.MarginHorizontalSum;
+            }
+            return cap;
+        }
         // 固定像素宽（width:300px → 300；builder 已做 content-box 补偿=声明值+水平 pad/border），
         // <0=未声明
         public float FixedWidth = -1f;

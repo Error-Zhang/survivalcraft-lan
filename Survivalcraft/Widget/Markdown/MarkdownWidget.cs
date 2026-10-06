@@ -54,15 +54,24 @@ namespace Game {
                 Rebuild();
             }
             // 代码块外层宽度：构建时父宽未知，测量期按可用宽解析（扣减构建时记录的嵌套缩进，
-            // 列表项/引用块内不占全宽）
+            // 列表项/引用块内不占全宽）。祖先 px 定宽 sizer 钳制 + flex 内跳过（照 HtmlWidget
+            // 同款口径）：Markdown 顶层原生产不出这两类节点，此处理只对 raw HTML block 转发
+            // 产物生效（BuildHtmlBlock 把 HtmlToWidgetsBuilder 的注册表合并回本 builder）
             float contentWidth = ContentWidth > 0f ? ContentWidth : parentAvailableSize.X;
             foreach ((CanvasWidget codeBlock, float indentX) in m_builder.CodeBlocks) {
-                codeBlock.Size = new Vector2(MathUtils.Max(contentWidth - indentX, 50f), codeBlock.Size.Y);
+                if (FlexPanelWidget.IsInsideFlex(codeBlock, this)) {
+                    continue;
+                }
+                codeBlock.Size = new Vector2(MathUtils.Max(MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(codeBlock, this)), 50f), codeBlock.Size.Y);
             }
-            // 图片块同机制；已加载完成的 frame 宽=图宽，不覆盖（HorizontalAlignment=Center 居中）
+            // 图片块同机制（min cap 同源，flex 内不跳过照 HtmlWidget 图片循环口径：pending 占位
+            // 帧回填必须保留——frame.Size.X>0 才能被 ResolvePendingWidths 收口适配上屏）；
+            // 已加载完成的 frame 宽=图宽、width/height 属性显式帧宽=属性值，均不覆盖
+            //（HorizontalAlignment=Center 居中，判据照 HtmlWidget 图片循环对齐）
             foreach ((CanvasWidget imageBlock, float indentX) in m_builder.ImageBlocks) {
-                if (!m_imageLoader.IsFrameApplied(imageBlock)) {
-                    imageBlock.Size = new Vector2(MathUtils.Max(contentWidth - indentX, 50f), imageBlock.Size.Y);
+                if (!m_imageLoader.IsFrameApplied(imageBlock)
+                    && !m_imageLoader.IsFrameExplicit(imageBlock)) {
+                    imageBlock.Size = new Vector2(MathUtils.Max(MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(imageBlock, this)), 50f), imageBlock.Size.Y);
                 }
             }
             // 宽已解析的挂起 frame（纹理先于测量就绪：缓存命中/秒图）此刻补适配上屏

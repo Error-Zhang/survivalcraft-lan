@@ -157,6 +157,19 @@ namespace Game {
 
         static bool IsFinite(float value) => !float.IsInfinity(value) && !float.IsNaN(value);
 
+        // frame 是否处于 flex 容器内（沿 ParentWidget 链走到 stopAt——宿主壳/格 panel）：
+        // flex 主轴按子件期望（basis）排布，块级 shell 的「容器净宽回填」会与 flex 分配互相
+        // 覆写打架（代码块 basis 被撑满容器、已应用图被格净宽重适配），回填循环据此跳过
+        // flex 内 frame（HtmlWidget 代码块循环 / RichContentPanel bounded 分支）
+        internal static bool IsInsideFlex(Widget frame, Widget stopAt) {
+            for (Widget w = frame; w != null && w != stopAt; w = w.ParentWidget) {
+                if (w is FlexPanelWidget) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public override void MeasureOverride(Vector2 parentAvailableSize) {
             // 上一帧的行对象归还池复用（单线程 UI，帧序 Measure→Arrange 内 m_rows 仍有效）。
             m_rowPool.AddRange(m_rows);

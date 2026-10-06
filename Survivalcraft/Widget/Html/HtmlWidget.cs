@@ -65,46 +65,28 @@ namespace Game {
                 Rebuild();
             }
             // 代码块外层宽度：构建时父宽未知，测量期按可用宽解析（扣减构建时记录的嵌套缩进，
-            // 列表项/引用块内不占全宽）；祖先有定宽 sizer 时钳到 sizer 内容宽（防回填击穿）
+            // 列表项/引用块内不占全宽）；祖先有定宽 sizer 时钳到 sizer 内容宽（防回填击穿）。
+            // flex 容器内跳过：主轴 basis=构建期自然宽（CreateCodeBlock flexNaturalBasis），
+            // 容器净宽回填与 flex 排布互斥（FlexPanelWidget.IsInsideFlex）
             float contentWidth = ContentWidth > 0f ? ContentWidth : parentAvailableSize.X;
             foreach ((CanvasWidget codeBlock, float indentX) in m_builder.CodeBlocks) {
-                codeBlock.Size = new Vector2(MathUtils.Max(MathUtils.Min(contentWidth - indentX, ResolveSizedAncestorWidth(codeBlock)), 50f), codeBlock.Size.Y);
+                if (FlexPanelWidget.IsInsideFlex(codeBlock, this)) {
+                    continue;
+                }
+                codeBlock.Size = new Vector2(MathUtils.Max(MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(codeBlock, this)), 50f), codeBlock.Size.Y);
             }
             // 图片块同机制；已加载完成的 frame 宽=图宽、width/height 属性帧宽=属性值，均不覆盖
-            //（HorizontalAlignment=Center 居中）
+            //（HorizontalAlignment=Center 居中）；pending 帧回填保留（含 flex 内——frame.Size.X>0
+            // 才能被 ResolvePendingWidths 收口适配上屏）
             foreach ((CanvasWidget imageBlock, float indentX) in m_builder.ImageBlocks) {
                 if (!m_imageLoader.IsFrameApplied(imageBlock)
                     && !m_imageLoader.IsFrameExplicit(imageBlock)) {
-                    imageBlock.Size = new Vector2(MathUtils.Max(MathUtils.Min(contentWidth - indentX, ResolveSizedAncestorWidth(imageBlock)), 50f), imageBlock.Size.Y);
+                    imageBlock.Size = new Vector2(MathUtils.Max(MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(imageBlock, this)), 50f), imageBlock.Size.Y);
                 }
             }
             // 宽已解析的挂起 frame（纹理先于测量就绪：缓存命中/秒图）此刻补适配上屏
             m_imageLoader.ResolvePendingWidths();
             base.MeasureOverride(parentAvailableSize);
-        }
-
-        // 祖先定宽 sizer 的内容宽上限（回填感知）：自 frame 上溯到本部件，px 声明的
-        // FixedWidth/MaxFixedWidth 按「声明值−途经水平边距」取最小（嵌套内层胜，CSS 口径）。
-        // 边距沿途累加——壳 pad、引用/列表缩进都是路径上的 Margin；sizer 自身边距在钳制后
-        // 累加，不算进自身内容宽。% 声明测量期才有宿主基准，不参与（sizer 留档同款限制）。
-        // 无 px sizer 祖先返回 ∞，min 恒等原净宽口径（既有布局零回归）
-        float ResolveSizedAncestorWidth(Widget frame) {
-            float cap = float.PositiveInfinity;
-            float consumed = 0f;
-            for (Widget w = frame; w != null && w != this; w = w.ParentWidget) {
-                if (w is HtmlBlockSizerWidget sizer) {
-                    float bound = sizer.FixedWidth >= 0f ? sizer.FixedWidth : float.PositiveInfinity;
-                    if (sizer.MaxFixedWidth >= 0f) {
-                        bound = MathUtils.Min(bound, sizer.MaxFixedWidth);
-                    }
-                    if (!float.IsPositiveInfinity(bound)) {
-                        cap = MathUtils.Min(cap, bound - consumed);
-                        consumed = 0f;
-                    }
-                }
-                consumed += w.MarginHorizontalSum;
-            }
-            return cap;
         }
 
         public override void UpdateCeases() {

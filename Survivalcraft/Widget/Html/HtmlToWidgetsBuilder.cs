@@ -38,6 +38,11 @@ namespace Game {
 
         HtmlAgilityPack.HtmlNode m_pendingIndentOwner;
 
+        // flex 容器嵌套深度（CreateFlexContainer 子项构建期递增/递减）：>0 时 CreateCodeBlock
+        // 走 flexNaturalBasis（主轴 basis=自然宽）。构建入口清零——构建中途异常留下的脏深度
+        // 不得传染下一次构建（同 m_pendingIndent 防传染口径）
+        int m_flexDepth;
+
         // HTML 片段入口：解析为 DOM 后做块级遍历，块收进自建面板返回（HtmlWidget 壳用）
         public StackPanelWidget BuildHtml(string html, int listDepth, Color? colorOverride, int depth) {
             StackPanelWidget panel = CreatePanel();
@@ -54,6 +59,8 @@ namespace Game {
             m_pendingIndentPx = 0f;
             m_pendingIndentPercent = null;
             m_pendingIndentOwner = null;
+            // flex 深度同步清零：构建中途异常留下的脏深度不得传染下一次构建
+            m_flexDepth = 0;
             m_pendingAnchors.Clear();
             // 宽约束栈同步清空：构建中途异常留下的脏种子不得传染下一次构建
             WidthConstraints.Clear();
@@ -748,7 +755,7 @@ namespace Game {
                         PendAnchor(node);
                         HtmlAgilityPack.HtmlNode code = node.Element("code") ?? node;
                         ParseCodeTextStyle(node, out Color? codeTextColor, out float? codeScaleOverride, out float? codeRoundingRadius);
-                        Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), codeTextColor, codeScaleOverride, codeRoundingRadius);
+                        Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), codeTextColor, codeScaleOverride, codeRoundingRadius, flexNaturalBasis: m_flexDepth > 0);
                         // 代码块随 ctx×自身声明淡出（BevelledRect 框+Label 行全子树浸透）
                         codeBlock.ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(node));
                         AttachBlock(panel, FinalizeBlock(node, codeBlock, colorOverride));
@@ -1029,6 +1036,10 @@ namespace Game {
         // 块容器，CSS 缩进不适用于 flex 件）。
         // opacity：容器 ctx×自身声明落 FlexPanelWidget.ColorTransform 一并浸透子树（quote 外壳
         // 同款），子项子树 ctx 归一传 1 防双淡，嵌套子块自身声明从 1 起步照吃
+        // 回填口径（留档，已接受残余）：flex 内代码块构建期 basis=自然宽（m_flexDepth→
+        // flexNaturalBasis，回填循环经 IsInsideFlex 跳过）；pending 图占位基准=容器净宽
+        //（瞬时通胀，应用后归位显示宽）；窄 flex item 内嵌套内容应用后超 item 宽由 arrange
+        // 钳制/溢出；FlowShell（引用外壳/li 行框）flex 内维持现状回填
         Widget CreateFlexContainer(HtmlAgilityPack.HtmlNode node, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign, TextWordBreak wordBreakCtx, bool noWrapCtx, float lineHeightMul, float lineHeightPx, float opacityCtx, float letterSpacingCtx) {
             if (depth > MaxDepth) {
                 return null;
@@ -1155,6 +1166,10 @@ namespace Game {
                 flexPanel.Children.Add(widget);
                 pendingSpans.Clear();
             }
+            // flex 子项构建期深度 +1（覆盖全子项构建循环：img 升级件/匿名行内累积/块级子树
+            // 重入 BuildHtmlNodes——子树内 pre 直发块与顶层 pre case 均经 m_flexDepth 判定走
+            // flexNaturalBasis）。构建中途异常的减配平由构建入口 m_flexDepth=0 统一清零兜底
+            m_flexDepth++;
             foreach (HtmlAgilityPack.HtmlNode child in node.ChildNodes) {
                 if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Text) {
                     HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, EffectiveTextColor(colorOverride));
@@ -1213,6 +1228,7 @@ namespace Game {
                 flexPanel.Children.Add(item);
             }
             FlushAnonymousItem();
+            m_flexDepth--;
             // 纯空白子树不产件（零尺寸 widget 仍会靠 Margin 贡献空白，同空壳不产口径）
             return flexPanel.Children.Count > 0 ? flexPanel : null;
         }
@@ -1529,7 +1545,7 @@ namespace Game {
                             case "pre": {
                                 HtmlAgilityPack.HtmlNode code = child.Element("code") ?? child;
                                 ParseCodeTextStyle(child, out Color? liCodeTextColor, out float? liCodeScaleOverride, out float? liCodeRoundingRadius);
-                                Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), liCodeTextColor, liCodeScaleOverride, liCodeRoundingRadius);
+                                Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), liCodeTextColor, liCodeScaleOverride, liCodeRoundingRadius, flexNaturalBasis: m_flexDepth > 0);
                                 // 代码块随 ctx×自身声明淡出（同顶层 pre 口径）
                                 codeBlock.ColorTransform = Color.White * (liOpacityCtx * ResolveOpacityMultiplier(child));
                                 Widget liCode = WrapInStyleBox(child, codeBlock, colorOverride) ?? codeBlock;
