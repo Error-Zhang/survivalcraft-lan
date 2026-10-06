@@ -2,6 +2,49 @@
 
 > 说明：此更新日志和发布页的更新日志略有不同
 
+## API 1.9.4 (2026-10-07)
+
+### 新增
+
+* 完整支持全新中文社区（即内置 [社区扩展模组](https://test.suancaixianyu.cn/#/post/1755)）
+* 来自 Ka27_27, 的土耳其语翻译
+
+### 改进
+
+* Windows 平台内置 Angle 兼容补丁，GPU 驱动不支持 OpenGL ES 3.2 时自动启用
+* API 版本列表渲染改进
+* 一些性能相关改进，游戏帧数将略有提高，如遇到模组兼容问题，请在游戏兼容性设置中启用“强制 32 位顶点索引”
+
+### 修复
+
+* 吃饱后继续进食时，食物消失的问题
+* 安卓使用蓝牙鼠标时，转动视角不顺畅的问题
+* 修复文本框存在的多个已知问题
+
+### 对于开发者
+
+* modinfo.json 中的依赖部分能设置依赖缺失时要显示的名称和链接，便于玩家找到所需依赖，示例如下，详情[点此查看](docs/ModInfoConfig.md#dependencies-依赖关系)
+```json
+{
+    "Dependencies": {
+        "PackageNameOfModA": {
+            "Name": "ModA",
+            "Version": "1.2",
+            "Link": "https://..."
+        }
+    }
+}
+```
+* 新增 MarkdownWidget、HtmlWidget 用于渲染 Markdown 和 HTML（仅限基本支持）
+* 新增 FlexPanelWidget、TablePanelWidget 两种实用容器组件
+* 支持鼠标横向滚轮（Mouse.MouseWheelMovementX、WidgetInput.MouseWheelMovementX）
+* 新增 OnStartMounting、OnStartDismounting 钩子（开始骑乘、结束骑乘）
+* 修复 ChangeSkyColor 钩子阻断式调度，让多个该钩子能正常运行
+* IndexBuffer 支持按顶点池动态选择索引格式（`ushort`/`int`）与 SetData 智能转换，并在游戏兼容性设置中增加“强制 32 位顶点索引”开关
+* Storage 新增多个实用辅助方法，并改进部分已有方法
+* 在 Texture2D、JsInterface 为引用不规范模组添加一些辅助方法
+* 修正[架构文档](docs/Architecture.md)中的错误
+
 ## API 1.9.3.1 (2026-08-01)
 
 ### 改进
