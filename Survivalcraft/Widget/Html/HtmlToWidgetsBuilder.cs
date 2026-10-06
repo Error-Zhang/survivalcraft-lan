@@ -408,28 +408,40 @@ namespace Game {
             // Near 子件视觉不变——审查 P1：Near 壳会把居中/撑满塌成内容宽左对齐）
             shell.HorizontalAlignment = WidgetAlignment.Stretch;
             CurrentIndentX += padding.X;
-            // px width/max-width 播种子树构建期宽约束（% 无构建期基准跳过，同 sizer 留档）；
-            // 无 px 声明的壳压 ∞ 宽占位条目，与 EndStyleBox 弹出配对（种子消费见 AddImageBlock）
+            // width/max-width 播种子树构建期宽约束（px 声明入 AvailWidth；% 声明无构建期基准，
+            // 存 Percent 载荷待 ConstrainedContentWidth 以宿主显式 ContentWidth 为基准现场解析，
+            // 跟随宿主 ContentWidth<=0 时跳过、由测量期回填路接住）；无任何声明的壳压 ∞ 宽占位
+            // 条目，与 EndStyleBox 弹出配对（种子消费见 AddImageBlock）
             WidthConstraints.Push(SeedWidthConstraint(style));
             return true;
         }
 
         // 子树宽约束种子：px 声明的 width/max-width 取小（content-box 口径=声明值，自身水平
-        // pad/border 已折入种子缩进右侧的壳内缩）；无 px 声明返回 ∞ 宽占位（解析器拒负值，
-        // "1e40" 类溢出解析为 ∞，作为占位条目自然失效）
-        (float AvailWidth, float IndentX) SeedWidthConstraint(string style) {
+        // pad/border 已折入种子缩进右侧的壳内缩）；% 声明存 Percent 载荷（width/max-width 的
+        // % 取小，与 px 可并存），消费端现场解析见 ConstrainedContentWidth。两者皆无返回 ∞ 宽
+        // 占位（解析器拒负值，"1e40" 类溢出解析为 ∞，作为占位条目自然失效）
+        (float AvailWidth, float Percent, float IndentX) SeedWidthConstraint(string style) {
             float width = float.PositiveInfinity;
+            float percent = -1f;
             if (CssStyleParser.TryGetDeclaration(style, "width", out string widthDecl)
-                && CssStyleParser.TryParseWidthValue(widthDecl, out bool widthIsPercent, out float widthNumber)
-                && !widthIsPercent) {
-                width = widthNumber;
+                && CssStyleParser.TryParseWidthValue(widthDecl, out bool widthIsPercent, out float widthNumber)) {
+                if (widthIsPercent) {
+                    percent = widthNumber;
+                }
+                else {
+                    width = widthNumber;
+                }
             }
             if (CssStyleParser.TryGetDeclaration(style, "max-width", out string maxWidthDecl)
-                && CssStyleParser.TryParseWidthValue(maxWidthDecl, out bool maxIsPercent, out float maxNumber)
-                && !maxIsPercent) {
-                width = MathUtils.Min(width, maxNumber);
+                && CssStyleParser.TryParseWidthValue(maxWidthDecl, out bool maxIsPercent, out float maxNumber)) {
+                if (maxIsPercent) {
+                    percent = percent >= 0f ? MathUtils.Min(percent, maxNumber) : maxNumber;
+                }
+                else {
+                    width = MathUtils.Min(width, maxNumber);
+                }
             }
-            return (width, CurrentIndentX);
+            return (width, percent, CurrentIndentX);
         }
 
         // 容器壳收尾：padding 铺给直接子件（左右=每件、首件补上、末件补下——CSS 容器 padding

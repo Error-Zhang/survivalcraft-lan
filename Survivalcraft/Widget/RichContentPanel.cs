@@ -57,16 +57,17 @@ namespace Game {
             foreach (ShellEntry shell in Shells) {
                 if (bounded) {
                     // 格净宽回传：shell 宽=格净宽−嵌套缩进（50 保底照 MarkdownWidget 回填口径）；
-                    // 祖先 px 定宽 sizer 钳制（HtmlBlockSizerWidget.ResolveAncestorCap，与顶层
-                    // HtmlWidget 完全同序：先 min cap 后 50 保底）——`<td><div style="width:200px">`
-                    // 的 sizer 不再被格净宽回填击穿
+                    // 祖先定宽 sizer 钳制（HtmlBlockSizerWidget.ResolveAncestorCap，px+ % 声明
+                    // 自顶向下解析、基准=本格 contentWidth；与顶层 HtmlWidget 完全同序：先 min
+                    // cap 后 50 保底）——`<td><div style="width:200px">` 的 sizer 不再被格净宽
+                    // 回填击穿，`<td><div style="width:50%">` 同口径钳半宽
                     // flex 内口径（FlexPanelWidget.IsInsideFlex）：代码块构建期 Size.X=自然宽
                     //（CreateCodeBlock flexNaturalBasis）已对，跳过覆写；已应用图跳过 RefitFrame
                     //（自然显示宽胜，超 item 宽由 arrange 钳制/溢出）；pending 占位帧覆写保留
                     //（瞬时通胀=格净宽，应用后归位显示宽——frame.Size.X>0 才能被
                     // ResolvePendingWidths 收口）；FlowShell（引用外壳/li 行框）维持现状回填
                     bool inFlex = FlexPanelWidget.IsInsideFlex(shell.Frame, this);
-                    float cap = HtmlBlockSizerWidget.ResolveAncestorCap(shell.Frame, this);
+                    float cap = HtmlBlockSizerWidget.ResolveAncestorCap(shell.Frame, this, contentWidth);
                     float width = MathUtils.Max(MathUtils.Min(contentWidth - shell.IndentX, cap), 50f);
                     if (shell.Kind == ShellKind.ImageFrame
                         && ImageLoader?.IsFrameApplied(shell.Frame) == true) {

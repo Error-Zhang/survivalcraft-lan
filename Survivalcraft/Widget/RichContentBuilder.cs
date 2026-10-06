@@ -43,19 +43,29 @@ namespace Game {
         // 栈式 push/pop 纪律同 CurrentIndentX：构建格内容前保存、构建后恢复（归调用方，本类不维护栈）
         internal RichContentPanel CurrentPanel;
 
-        // px 定宽 sizer 祖先的子树可用宽约束（HTML 前端 TryBeginStyleBox 播种/EndStyleBox 弹出，
-        // 元组=「种子时可用宽, 种子时缩进」，∞ 宽条目=无 px 声明壳的配对占位）。显式 ContentWidth
-        // 宿主的 img frame 不进 ImageBlocks 回填注册表（注册仅 ContentWidth<=0），构建期钳制是
-        // 这类 frame 的唯一定宽点；消费见 AddImageBlock
-        internal readonly Stack<(float AvailWidth, float IndentX)> WidthConstraints = [];
+        // 定宽 sizer 祖先的子树可用宽约束（HTML 前端 TryBeginStyleBox 播种/EndStyleBox 弹出，
+        // 元组=「种子时可用宽, 种子时 % 声明, 种子时缩进」；∞ 宽条目=无 px 声明壳的配对占位，
+        // Percent<0=无 % 声明，px 与 % 载荷可在同一条目并存如 px width+ % max-width）。% 声明
+        // 两路参与：构建期由 ConstrainedContentWidth 以显式 ContentWidth 为基准现场解析（显式
+        // ContentWidth 宿主的 img frame 不进 ImageBlocks 回填注册表——注册仅 ContentWidth<=0
+        // ——构建期钳制是这类 frame 的唯一定宽点）；跟随宿主（ContentWidth<=0）% 无基准不解析，
+        // 测量期 ResolveAncestorCap 以回填宿主 contentWidth 为基准接住。消费见 AddImageBlock
+        internal readonly Stack<(float AvailWidth, float Percent, float IndentX)> WidthConstraints = [];
 
-        // 当前缩进下的约束可用宽：各种子按「种子可用宽−种子后新增缩进」折算取最小（嵌套内层胜；
-        // 折算增量钳非负——表格格等重入点把 CurrentIndentX 归零时外层种子不得反向放宽/过收）
+        // 当前缩进下的约束可用宽：px 条目按「种子可用宽−种子后新增缩进」折算取最小（嵌套内层
+        // 胜；折算增量钳非负——表格格等重入点把 CurrentIndentX 归零时外层种子不得反向放宽/过收）；
+        // % 条目按「ContentWidth×pct/100−CurrentIndentX」现场解析（负钳 0）后同取 min——%
+        // 无构建期基准，以宿主显式 ContentWidth 为近似分母、缩进全量扣减（CSS % 应解自包含块
+        // 净宽的近似口径，见上留档）
         internal float ConstrainedContentWidth {
             get {
                 float width = float.PositiveInfinity;
-                foreach ((float availWidth, float indentX) in WidthConstraints) {
+                foreach ((float availWidth, float percent, float indentX) in WidthConstraints) {
                     width = MathUtils.Min(width, availWidth - MathUtils.Max(CurrentIndentX - indentX, 0f));
+                    if (percent >= 0f
+                        && ContentWidth > 0f) {
+                        width = MathUtils.Min(width, MathUtils.Max(ContentWidth * percent / 100f - CurrentIndentX, 0f));
+                    }
                 }
                 return width;
             }
@@ -127,9 +137,11 @@ namespace Game {
         // 返回 frame（挂树由调用方负责——HTML 侧 style 盒属性需把 frame 包进壳后挂）
         protected CanvasWidget AddImageBlock(StackPanelWidget panel, string url, string alt, Vector2? explicitSize = null, Vector2? margin = null, float maxWidth = -1f) {
             float width = NestedContentWidth();
-            // px 定宽 sizer 祖先钳制占位宽（只钳正值：width=-1 为测量期回填哨兵，保持跟随语义
+            // 定宽 sizer 祖先钳制占位宽（只钳正值：width=-1 为测量期回填哨兵，保持跟随语义
             // 不被数值比较吞掉）：explicitSize 帧宽=属性值不受占位宽影响（CSS 显式宽胜祖先约束），
-            // 自适应帧在加载/重适配路径同源此宽
+            // 自适应帧在加载/重适配路径同源此宽。% 声明两路参与：显式 ContentWidth 宿主在
+            // ConstrainedContentWidth 内现场解析（此类 frame 不进回填注册表，构建期是唯一定宽
+            // 点）；跟随宿主（ContentWidth<=0）% 无基准不解析，测量期 ResolveAncestorCap 接住
             if (width > 0f && width > ConstrainedContentWidth) {
                 width = MathUtils.Max(ConstrainedContentWidth, 50f);
             }

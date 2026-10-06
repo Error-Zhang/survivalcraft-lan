@@ -11,37 +11,48 @@ namespace Game {
     // margin:auto 居中不由本件承担（builder 检出后设 HorizontalAlignment=Center，宿主排列期
     // 居中）；margin/padding/border/background 归壳层 WrapInStyleBox，本件不管。
     // 已知限制（留档）：
-    // - 回填击穿（% 声明）：% 声明测量期才有宿主基准，不参与祖先钳制（ResolveAncestorCap 只认
-    //   px 声明）——% sizer 子树内的 pre/img frame 仍按容器净宽回填（留档）。px 声明的顶层
-    //   （HtmlWidget）与格 panel（RichContentPanel）回填均已感知本件
+    // - flex 夹层基准≠flex 分配宽：% 的回填分母=回填宿主 contentWidth（容器净宽链），flex
+    //   容器内 sizer 子树的实际分配宽由 flex 主轴协商决定（构建期 basis/运行期 item 宽），
+    //   两基准可以不等——flex 内 shell 大多经 IsInsideFlex 跳过回填，残余仅在夹层组合处按
+    //   净宽链近似（留档）
     // - FixedWidth 超宿主可用宽：引擎 Arrange 把本件钳到宿主格宽裁切（故意保持绝对值语义，
     //   不随宿主缩放）
     // - % 分母含自身 margin 近似：水平 margin 迁到本件后，宿主测量扣 margin 再传入，% 实际
     //   分母=宿主净宽−自身 margin（CSS 应为不含自身 margin 的包含块 content 宽）
     public class HtmlBlockSizerWidget : StackPanelWidget {
-        // 祖先定宽 sizer 的内容宽上限（回填感知共享版，HtmlWidget/RichContentPanel 测量期回填
-        // 共用）：自 frame 上溯到 stopAt（宿主壳/格 panel）的 ParentWidget 链，px 声明的
-        // FixedWidth/MaxFixedWidth 按「声明值−途经累加 margin」取最小命中后 consumed 归零
-        //（嵌套内层胜，CSS 口径）。边距沿途累加——壳 pad、引用/列表缩进都是路径上的 Margin；
-        // sizer 自身边距在钳制后累加，不算进自身内容宽。% 声明不参与（上方留档同款限制）。
-        // 无 px sizer 祖先返回 ∞，min 恒等原净宽口径（既有布局零回归）
-        internal static float ResolveAncestorCap(Widget frame, Widget stopAt) {
-            float cap = float.PositiveInfinity;
-            float consumed = 0f;
+        // 祖先 sizer 的内容宽上限（回填感知共享版，HtmlWidget/RichContentPanel/MarkdownWidget
+        // 测量期回填共用）：基准=宿主回填 contentWidth（baseWidth，三调用点各传自己的），自
+        // stopAt（宿主壳/格 panel）侧向 frame 自顶向下递推。沿途每节点先扣该节点自身水平
+        // margin（口径=引擎 StackPanel 子件测量输入 parentAvail−child.MarginHorizontalSumAnd
+        // VerticalSum 的水平分量，只扣 MarginHorizontalSum；方向=父到子不得扣反。壳 pad、
+        // 引用/列表缩进都是路径上的 Margin，与构建期 IndentX 记账同源），遇 HtmlBlockSizerWidget
+        // 按 ResolveTargetWidth 消费当层可用宽（公式与测量期同源零漂移）。语义核对：px width
+        // 绝对值语义=覆写非相对外层钳（width:300 在 width:100 内=内层 300，与本件测量期文档
+        // 一致）；嵌套 % 复合（50% 套 50%=25%）自顶向下天然成立；嵌套内层胜（后套的 sizer
+        // 递推覆盖 avail）。到 frame 的递推终值即 cap——每节点 margin 恰扣一次（引擎按层扣
+        // 子件 margin，此处同序扣同一批），无双重扣减。% 声明参与测量期钳制（分母=baseWidth=
+        // 回填宿主 contentWidth）；baseWidth 恒有限（宿主仅在有限基准分支调用），% 恒可解，
+        // ∞ 跳 % 守卫仅防御路径（含在 ResolveTargetWidth 内）
+        // 收链暂存池：回填热路径每 frame 每 Measure 调用本方法，静态复用免逐调分配（旧版
+        // 自底向上零分配的口径补回）。UI 单线程无并发；本方法收链/递推全程只读树不 Measure，
+        // 调用期间不会重入本方法（嵌套宿主 Measure 也是先整池清空用尽再返回），池安全
+        static readonly Stack<Widget> s_capChain = [];
+
+        internal static float ResolveAncestorCap(Widget frame, Widget stopAt, float baseWidth) {
+            // 压栈序=frame→stopAt，弹栈即自 stopAt 侧向 frame 递推（父到子，方向不得反）
+            s_capChain.Clear();
             for (Widget w = frame; w != null && w != stopAt; w = w.ParentWidget) {
-                if (w is HtmlBlockSizerWidget sizer) {
-                    float bound = sizer.FixedWidth >= 0f ? sizer.FixedWidth : float.PositiveInfinity;
-                    if (sizer.MaxFixedWidth >= 0f) {
-                        bound = MathUtils.Min(bound, sizer.MaxFixedWidth);
-                    }
-                    if (!float.IsPositiveInfinity(bound)) {
-                        cap = MathUtils.Min(cap, bound - consumed);
-                        consumed = 0f;
-                    }
-                }
-                consumed += w.MarginHorizontalSum;
+                s_capChain.Push(w);
             }
-            return cap;
+            float avail = baseWidth;
+            while (s_capChain.Count > 0) {
+                Widget w = s_capChain.Pop();
+                avail = MathUtils.Max(avail - w.MarginHorizontalSum, 0f);
+                if (w is HtmlBlockSizerWidget sizer) {
+                    avail = sizer.ResolveTargetWidth(avail);
+                }
+            }
+            return avail;
         }
         // 固定像素宽（width:300px → 300；builder 已做 content-box 补偿=声明值+水平 pad/border），
         // <0=未声明
