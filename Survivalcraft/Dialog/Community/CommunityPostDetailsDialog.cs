@@ -56,7 +56,15 @@ namespace Game {
             // DefaultColor 对齐 ReleasesScreen 约定（正文 224 灰）；FontScale 维持 1f——富文本正文
             // 字号大于旧降级渲染（0.86）属有意取舍，勿当遗漏补小
             m_htmlWidget = new HtmlWidget { ImageBaseUrl = m_baseUrl, PreserveImagesOnRebuild = true, DefaultColor = new Color(224, 224, 224) };
-            m_htmlWidget.LinkClicked += WebBrowserManager.LaunchBrowser;
+            // # 开头=站内锚点：滚动正文锚点（空 fragment=回顶），命中与否都不外抛浏览器；
+            // 带 fragment 的外部 URL（page.html#x）仍按外链处理
+            m_htmlWidget.LinkClicked += href => {
+                if (href.StartsWith("#", StringComparison.Ordinal)) {
+                    m_htmlWidget.TryScrollToAnchor(href.Substring(1));
+                    return;
+                }
+                WebBrowserManager.LaunchBrowser(href);
+            };
             m_contentPanel.Children.Add(m_htmlWidget);
             bool hasPrimaryAction = !string.IsNullOrWhiteSpace(primaryButtonText) && primaryAction != null;
             // 行内含关闭按钮，恒可见；主按钮/浏览器按钮按有无动作与链接各自显隐。

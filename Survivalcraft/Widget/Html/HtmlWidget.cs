@@ -114,6 +114,29 @@ namespace Game {
             base.UpdateCeases();
         }
 
+        // 锚点跳转（宿主把 <a href="#name"> 的点击转发进来）：滚动最近宿主 ScrollPanelWidget
+        // 使目标块顶对齐视口顶（Chrome fragment 语义，不判可见性）。空名=回顶；未知名/无滚动
+        // 宿主=false（宿主据此决定不外抛浏览器）。定位基于当下布局，异步图片加载后的高度变化
+        // 不重定位（陈旧已知，v1 接受）
+        public bool TryScrollToAnchor(string name) {
+            bool isTopRequest = string.IsNullOrEmpty(name);
+            Widget target = null;
+            if (!isTopRequest
+                && !m_builder.Anchors.TryGetValue(name, out target)) {
+                return false;
+            }
+            for (Widget ancestor = ParentWidget; ancestor != null; ancestor = ancestor.ParentWidget) {
+                if (ancestor is ScrollPanelWidget scrollPanel) {
+                    // 子件排布于 −ScrollPosition：面板空间 Y + ScrollPosition=内容空间 Y
+                    scrollPanel.ScrollPosition = isTopRequest
+                        ? 0f
+                        : MathUtils.Max(scrollPanel.ScreenToWidget(target.WidgetToScreen(Vector2.Zero)).Y + scrollPanel.ScrollPosition, 0f);
+                    return true;
+                }
+            }
+            return false;
+        }
+
         void Rebuild() {
             // 内容变更：默认旧内容的图片纹理立即全量释放（loader 代际递增使旧下载晚到回调就地销毁），
             // 缓存一并清空；PreserveImagesOnRebuild 时保留缓存供新内容复用（翻译重建）。
@@ -129,6 +152,7 @@ namespace Game {
             Children.Clear();
             m_builder.CodeBlocks.Clear();
             m_builder.ImageBlocks.Clear();
+            m_builder.Anchors.Clear();
             m_builder.Font = Font ?? LabelWidget.BitmapFont ?? BitmapFont.DebugFont;
             m_builder.FontScale = FontScale;
             m_builder.DefaultColor = DefaultColor;
@@ -151,6 +175,7 @@ namespace Game {
                 // 同一输入结果确定，清脏防每帧 Measure 重试
                 m_builder.CodeBlocks.Clear();
                 m_builder.ImageBlocks.Clear();
+                m_builder.Anchors.Clear();
                 Children.Add(new FontTextWidget {
                     Text = "(HTML 渲染失败：" + e.Message + ")",
                     Font = m_builder.Font,

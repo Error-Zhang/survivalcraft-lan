@@ -33,7 +33,13 @@ namespace Game {
             m_scrollPanel = Children.Find<ScrollPanelWidget>("ScrollPanel");
             m_releasesListPanel = Children.Find<ListPanelWidget>("ReleasesList");
             m_infoLabel = Children.Find<LabelWidget>("ReleaseInfo");
-            m_textLabel.LinkClicked += WebBrowserManager.LaunchBrowser;
+            // # 开头=站内锚点：Markdown 路径未接锚点注册（留档），旧实现会拼成乱码外链，静默忽略；
+            // 其余 URL（含带 fragment 的外部地址）照旧外抛
+            m_textLabel.LinkClicked += href => {
+                if (!href.StartsWith("#", StringComparison.Ordinal)) {
+                    WebBrowserManager.LaunchBrowser(href);
+                }
+            };
             m_releaseInfoPanel = Children.Find<StackPanelWidget>("ReleaseInfoPanel");
             m_releasesListPanel.ItemWidgetFactory = item => new LabelWidget {
                 Text = item is ReleaseInfo releaseInfo
