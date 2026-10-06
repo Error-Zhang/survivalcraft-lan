@@ -792,7 +792,8 @@ namespace Game {
                         || slot.RowSpan != 1) {
                         continue;
                     }
-                    float innerW = TrackSpanWidth(m_columnWidth, slot.Col, 1) - 2f * CellPadding.X - slot.Cell.MarginHorizontalSum;
+                    // 跨列格净宽=Σ跨列 track（与下方 rowspan 二遍同口径；单 track 会把折行格测成一字一行爆行高）
+                    float innerW = TrackSpanWidth(m_columnWidth, slot.Col, slot.ColSpan) - 2f * CellPadding.X - slot.Cell.MarginHorizontalSum;
                     slot.Cell.Measure(new Vector2(MathUtils.Max(innerW, 0f), float.PositiveInfinity));
                     slot.Height = IsFinite(slot.Cell.ParentDesiredSize.Y) ? MathUtils.Max(slot.Cell.ParentDesiredSize.Y, 0f) : 0f;
                     m_rowHeights[slot.Row] = MathUtils.Max(m_rowHeights[slot.Row], slot.Height);
