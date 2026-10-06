@@ -57,6 +57,15 @@ namespace Game {
         /// <summary>末 N 行视为表尾（HTML tfoot 沉底场景；对称 HeaderRows，Markdown 表恒 0）。</summary>
         public int FooterRows { get; set; }
 
+        /// <summary>列宽偏好 px（HTML colgroup/col width，track 口径）：Measure 期逐列 min+max
+        /// 双 floor（浏览器 auto 布局语义：指定列宽=列最小宽，Σpref 超宿主时表溢出）。null=无
+        /// 偏好；越界/缺位元素按 0 处理。</summary>
+        public float[] ColumnPreferredWidths { get; set; }
+
+        /// <summary>列宽偏好 %（width="50%" 存 50）：Measure 期按本次宿主可用宽解析后同上双
+        /// floor，宿主无界（∞/NaN）跳过（HtmlBlockSizerWidget % 口径先例）。与 px 偏好并存取大者。</summary>
+        public float[] ColumnPreferredPercents { get; set; }
+
         /// <summary>整表底色（Task 5 消费）。</summary>
         public Color? BackgroundColor { get; set; }
 
@@ -139,6 +148,28 @@ namespace Game {
             for (int c = 0; c < m_columnMin.Length; c++) {
                 m_columnMin[c] = MathUtils.Max(m_columnMin[c], floorW);
                 m_columnMax[c] = MathUtils.Max(m_columnMax[c], m_columnMin[c]);
+            }
+            // col 宽偏好（HTML colgroup/col width）：逐列 min+max 双 floor——浏览器 auto 布局
+            // "指定列宽=列最小宽"语义：无约束尊偏好（抬 max）、削峰自偏好基起削（min 同抬）、
+            // 定格偏好即溢出下限。% 按本次宿主可用宽解析，宿主无界跳过；越界/缺位按 0
+            if (ColumnPreferredWidths != null
+                || ColumnPreferredPercents != null) {
+                for (int c = 0; c < m_columnMin.Length; c++) {
+                    float pref = 0f;
+                    if (ColumnPreferredWidths != null
+                        && c < ColumnPreferredWidths.Length) {
+                        pref = MathUtils.Max(ColumnPreferredWidths[c], 0f);
+                    }
+                    if (ColumnPreferredPercents != null
+                        && c < ColumnPreferredPercents.Length
+                        && IsFinite(availX)) {
+                        pref = MathUtils.Max(pref, MathUtils.Max(ColumnPreferredPercents[c], 0f) * availX / 100f);
+                    }
+                    if (pref > 0f) {
+                        m_columnMin[c] = MathUtils.Max(m_columnMin[c], pref);
+                        m_columnMax[c] = MathUtils.Max(m_columnMax[c], pref);
+                    }
+                }
             }
             NegotiateColumns(availX);
             MeasureRowHeights();                 // 高度轮：列宽定稿，cell 重测拿折行后高（spec §5.3）

@@ -1679,8 +1679,9 @@ namespace Game {
 
         // HTML 表格 → TablePanelWidget 直产（spec §7.1）：布局/列协商/格线全由底座承担，本方法只做
         // DOM→行/格映射。行收集：table 直下 tr 与 thead/tbody 内 tr 展平、tfoot 行沉底（HTML 渲染
-        // 语义，FooterRows 记行数）；caption/colgroup/col 无对应视觉语义，跳过（caption 已在表 case
-        // 预提取渲染）。thead 行或含 th 的行为表头（粗体由 builder 侧染 span，同 Markdown CreateTable
+        // 语义，FooterRows 记行数）；caption 无对应视觉语义，跳过（caption 已在表 case 预提取
+        // 渲染）；colgroup/col 宽偏好提取为列 px/% 偏好数组（底座 Measure 期 min+max 双 floor）。
+        // thead 行或含 th 的行为表头（粗体由 builder 侧染 span，同 Markdown CreateTable
         // 口径）。无滚动兜底（包装类超宽横向滚动不随迁）：Σmin 超宿主时底座定格列 min 溢出
         TablePanelWidget CreateHtmlTable(HtmlAgilityPack.HtmlNode tableNode, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, float opacityCtx = 1f) {
             // 格内容相对格左缘定位（spec §5.3）：入口清零外层嵌套缩进——格 shell 的回填扣减基准
@@ -1735,7 +1736,7 @@ namespace Game {
                     continue;
                 }
                 // 行收集路径不经 BuildHtmlNodes 分发，hidden 在此补拦（thead/tbody/tfoot 容器同口径）
-                if (child.GetAttributeValue("hidden", null) != null) {
+                if (IsHiddenNode(child)) {
                     continue;
                 }
                 string childTag = child.Name.ToLowerInvariant();
@@ -1764,9 +1765,33 @@ namespace Game {
             // FooterRows 计剔除后的真实 footer 行数
             int footerRowCount = footerRows.Count(HasCellElement);
             rows.RemoveAll(entry => !HasCellElement(entry.Row));
-            // 自然列数上限（各行 td/th 格数最大值）——ExpandSlots 同名口径：span 展开不越过它，
-            // 下列对齐模拟的 cursor 推进须与底座逐格一致（M1），单改一侧即错列
+            // 自然列数上限（各行可见 td/th 格数最大值）——ExpandSlots 同名口径：span 展开不越过它，
+            // 下列对齐模拟的 cursor 推进须与底座逐格一致（M1），单改一侧即错列。hidden 格格构建
+            // 跳挂（不进底座行），此处同口径不计，否则列偏好/列对齐映射到不存在的 track
             int naturalColumns = 0;
+            foreach ((HtmlAgilityPack.HtmlNode Row, bool _) in rows) {
+                int cellCount = 0;
+                foreach (HtmlAgilityPack.HtmlNode child in Row.ChildNodes) {
+                    if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
+                        && child.Name.ToLowerInvariant() is "td" or "th"
+                        && !IsHiddenNode(child)) {
+                        cellCount++;
+                    }
+                }
+                naturalColumns = MathUtils.Max(naturalColumns, cellCount);
+            }
+            // colgroup/col 宽偏好（col 直挂 table 也认；colgroup 嵌套非法忽略）：col 无自身声明
+            // 继承 colgroup（style-or-attr），span=N 覆盖的每条 track 各得全量偏好（CSS 规范
+            // 语义）；无 col 子件的 colgroup 组 span=N 同上。偏好越过 naturalColumns 的 track
+            // 静默丢弃（ExpandSlots 列数上限——与浏览器虚拟列的口径差异）。% 存百分数，底座
+            // Measure 期按宿主可用宽解析
+            float[] prefPx = null;
+            float[] prefPct = null;
+            // col 序列按 DOM 列位推进，隐藏格位不占 track（格构建跳挂同口径）：位 p 在所有出现
+            // 它的行里全 hidden 即死位，col 偏好按"活位 rank"落轨（死位后的位前移）。混合行部分
+            // 隐藏为病理取保守近似；rowspan 占位/仅含隐藏格行（HasCellElement 仍计入、底座不挂
+            // 壳）的行号错位是 M1 模拟既有口径，col 映射不另建模拟
+            int domColumns = 0;
             foreach ((HtmlAgilityPack.HtmlNode Row, bool _) in rows) {
                 int cellCount = 0;
                 foreach (HtmlAgilityPack.HtmlNode child in Row.ChildNodes) {
@@ -1775,7 +1800,84 @@ namespace Game {
                         cellCount++;
                     }
                 }
-                naturalColumns = MathUtils.Max(naturalColumns, cellCount);
+                domColumns = MathUtils.Max(domColumns, cellCount);
+            }
+            bool[] hiddenSlot = new bool[domColumns];
+            bool[] visibleSlot = new bool[domColumns];
+            foreach ((HtmlAgilityPack.HtmlNode Row, bool _) in rows) {
+                int position = 0;
+                foreach (HtmlAgilityPack.HtmlNode child in Row.ChildNodes) {
+                    if (child.NodeType != HtmlAgilityPack.HtmlNodeType.Element
+                        || child.Name.ToLowerInvariant() is not ("td" or "th")) {
+                        continue;
+                    }
+                    if (IsHiddenNode(child)) {
+                        hiddenSlot[position] = true;
+                    }
+                    else {
+                        visibleSlot[position] = true;
+                    }
+                    position++;
+                }
+            }
+            int[] liveRank = new int[domColumns + 1];   // [p]=p 之前活位数（前缀和）
+            for (int p = 0; p < domColumns; p++) {
+                liveRank[p + 1] = liveRank[p] + (hiddenSlot[p] && !visibleSlot[p] ? 0 : 1);
+            }
+            void ApplyColPreference(int domStart, int domSpan, float px, float pct) {
+                if (px <= 0f && pct <= 0f) {
+                    return;
+                }
+                for (int p = domStart; p < MathUtils.Min(domStart + domSpan, domColumns); p++) {
+                    if ((hiddenSlot[p] && !visibleSlot[p])
+                        || liveRank[p] >= naturalColumns) {
+                        continue;
+                    }
+                    int track = liveRank[p];
+                    prefPx ??= new float[naturalColumns];
+                    prefPct ??= new float[naturalColumns];
+                    prefPx[track] = MathUtils.Max(prefPx[track], px);
+                    prefPct[track] = MathUtils.Max(prefPct[track], pct);
+                }
+            }
+            int domCursor = 0;
+            foreach (HtmlAgilityPack.HtmlNode child in tableNode.ChildNodes) {
+                if (child.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
+                    continue;
+                }
+                string structuralTag = child.Name.ToLowerInvariant();
+                if (structuralTag == "col") {
+                    int span = ParseSpanAttribute(child, "span");
+                    (float colPx, float colPct) = ParseColWidthPreference(child);
+                    ApplyColPreference(domCursor, span, colPx, colPct);
+                    domCursor += span;
+                }
+                else if (structuralTag == "colgroup") {
+                    (float groupPx, float groupPct) = ParseColWidthPreference(child);
+                    List<HtmlAgilityPack.HtmlNode> groupCols = [];
+                    foreach (HtmlAgilityPack.HtmlNode colNode in child.Elements("col")) {
+                        groupCols.Add(colNode);
+                    }
+                    if (groupCols.Count == 0) {
+                        int span = ParseSpanAttribute(child, "span");
+                        ApplyColPreference(domCursor, span, groupPx, groupPct);
+                        domCursor += span;
+                    }
+                    else {
+                        // 有 col 子件：组宽只作缺省继承（col 无自身声明才吃），组 span 被忽略
+                        foreach (HtmlAgilityPack.HtmlNode colNode in groupCols) {
+                            int span = ParseSpanAttribute(colNode, "span");
+                            (float colPx, float colPct) = ParseColWidthPreference(colNode);
+                            bool hasOwn = colPx > 0f || colPct > 0f;
+                            ApplyColPreference(domCursor, span, hasOwn ? colPx : groupPx, hasOwn ? colPct : groupPct);
+                            domCursor += span;
+                        }
+                    }
+                }
+            }
+            if (prefPx != null) {
+                widget.ColumnPreferredWidths = prefPx;
+                widget.ColumnPreferredPercents = prefPct;
             }
             // 列对齐：格级属性降列级——自上而下取每列第一个出现的对齐（td/th 与 tr 的 align 属性、
             // style text-align 都认），此后该列锚点固定（照包装类 SetColumnAlignments 语义）；
@@ -1811,7 +1913,7 @@ namespace Game {
                         continue;
                     }
                     // td/th hidden：格收集同走不到 BuildHtmlNodes，补拦（行收集已拦 tr/行组容器）
-                    if (cellNode.GetAttributeValue("hidden", null) != null) {
+                    if (IsHiddenNode(cellNode)) {
                         continue;
                     }
                     // colspan/rowspan 属性：空/非法/≤0 → 1（Set 后仅非平凡值登记 attached 状态）
@@ -2006,6 +2108,23 @@ namespace Game {
             return int.TryParse(cell.GetAttributeValue(name, null), out int value) && value > 0 ? Math.Min(value, 1000) : 1;
         }
 
+        // col/colgroup 宽偏好解析：style width 声明胜旧 width 属性（同 bgcolor/text-align 规），
+        // TryParseWidthValue 解析 px/%/em/rem/pt（负/auto 拒）。返回 (px, %) 之一，无效 (0,0)
+        static (float Px, float Pct) ParseColWidthPreference(HtmlAgilityPack.HtmlNode node) {
+            string width = null;
+            if (CssStyleParser.TryGetDeclaration(node.GetAttributeValue("style", null), "width", out string cssWidth)) {
+                width = cssWidth;
+            }
+            else {
+                width = node.GetAttributeValue("width", null)?.Trim();
+            }
+            if (string.IsNullOrEmpty(width)
+                || !CssStyleParser.TryParseWidthValue(width, out bool isPercent, out float number)) {
+                return (0f, 0f);
+            }
+            return isPercent ? (0f, number) : (number, 0f);
+        }
+
         // 行直下是否含 th 格（行级表头判定辅助，F3；thead 判定由调用侧 fromThead 承担）
         static bool HasHeaderCell(HtmlAgilityPack.HtmlNode row) {
             foreach (HtmlAgilityPack.HtmlNode child in row.ChildNodes) {
@@ -2027,6 +2146,10 @@ namespace Game {
             }
             return false;
         }
+
+        // 全局 hidden 属性（任意值含空串都隐藏）：表路径三处同源（行收集/格构建/自然列数与列
+        // 偏好映射），与 BuildHtmlNodes 块级拦截同款判定
+        static bool IsHiddenNode(HtmlAgilityPack.HtmlNode node) => node.GetAttributeValue("hidden", null) != null;
 
         // 块格表头染粗：递归格内全部 RichTextWidget（嵌套表格一并——CSS th 粗体继承口径）
         static void BoldWidgetSpans(Widget widget) {
