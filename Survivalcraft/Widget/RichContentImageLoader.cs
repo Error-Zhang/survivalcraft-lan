@@ -11,6 +11,8 @@ namespace Game {
     /// Dispatcher 回主线程做 GL 上传换 Subtexture。
     /// 另持有已加载图片纹理的生命周期（引擎 Dialog/Widget 树无 Dispose 级联）：
     /// 收集每张纹理统一释放，避免每次开详情累积一个不可回收句柄。
+    /// 图片源除 http(s) 外支持 base64 档 data URI（仅 base64，不支持 urlencoded 档），
+    /// 解码走同一异步管线，失败字/日志口径与下载失败一致。
     /// </summary>
     sealed class RichContentImageLoader {
         static readonly CommunityHttpDownloader s_imageDownloader = new(HttpClientProvider.Community);
@@ -24,7 +26,9 @@ namespace Game {
 
         // URL → 纹理：内容重建（自动翻译等）时复用已下载图片，避免同一张图下载两次。
         // 纹理对象与 m_loadedTextures 同源（后者负责释放），ReleaseTextures 时一并清空。
-        readonly Dictionary<string, Texture2D> m_imageTextureCache = new(StringComparer.OrdinalIgnoreCase);
+        // 比较器必须 Ordinal：base64 data URI 大小写敏感（大小写不同=不同图片，IgnoreCase
+        // 会串图），http 路径按 RFC 也是大小写敏感的
+        readonly Dictionary<string, Texture2D> m_imageTextureCache = new(StringComparer.Ordinal);
 
         // 代际计数：ReleaseTextures 递增。图片下载/解码是异步的，回调捕获发起时的代际，
         // 回主线程后代际已变（宿主已释放/重建内容）即就地释放新纹理，既防 GL 句柄泄漏，
@@ -210,9 +214,19 @@ namespace Game {
             int generation = m_generation;
             byte[] data;
             try {
-                using MemoryStream downloaded = await s_imageDownloader.DownloadToMemoryAsync(url, null, CancellationToken.None)
-                    .ConfigureAwait(false);
-                data = downloaded.ToArray();
+                if (IsDataUri(url)) {
+                    // data URI 无需下载，直接解码。必须留在后台线程：本方法首个 await 前仍跑在
+                    // 主线程，几 MB base64 的 FromBase64String 足以卡帧；无 ',' / 坏 base64 抛
+                    // FormatException、非 base64 档抛 NotSupportedException，
+                    // 由下方既有 catch 统一落失败字 + 日志；空 payload（如 data:;base64,）解出
+                    // 空数组，自然落既有零长失败分支
+                    data = await Task.Run(() => DecodeDataUri(url)).ConfigureAwait(false);
+                }
+                else {
+                    using MemoryStream downloaded = await s_imageDownloader.DownloadToMemoryAsync(url, null, CancellationToken.None)
+                        .ConfigureAwait(false);
+                    data = downloaded.ToArray();
+                }
                 if (data.Length == 0) {
                     Dispatcher.Dispatch(delegate {
                         status.Text = FailedToLoadText(alt);
@@ -418,11 +432,71 @@ namespace Game {
             return size;
         }
 
+        // data URI 前缀判定（大小写不敏感）：ResolveUrl 早退与 LoadImageAsync 分流共用
+        static bool IsDataUri(string url) {
+            return url.StartsWith("data:", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // data URI 是否 base64 档：头部（"data:" 与首个 ',' 之间）按 ';' 分段任一等于 base64
+        //（大小写不敏感；mediatype 可省略，如 data:;base64,）
+        static bool IsBase64DataUri(string url) {
+            int commaIndex = url.IndexOf(',');
+            if (commaIndex < "data:".Length) {
+                return false;
+            }
+            foreach (string segment in url["data:".Length..commaIndex].Split(';')) {
+                if (string.Equals(segment, "base64", StringComparison.OrdinalIgnoreCase)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 解码 base64 档 data URI 载荷。无 ',' → FormatException；非 base64 档（urlencoded
+        // svg/text 等，ImageSharp 也解不了）→ NotSupportedException；payload 先剥空白
+        //（base64 字母表无空白，剥除无损，兼容 MIME 换行折叠的脏数据）再 FromBase64String
+        //（坏字符/长度非法抛 FormatException）——均由 LoadImageAsync 既有 catch 统一收口
+        static byte[] DecodeDataUri(string url) {
+            int commaIndex = url.IndexOf(',');
+            if (commaIndex < 0) {
+                throw new FormatException("data URI: missing ',' separator");
+            }
+            if (!IsBase64DataUri(url)) {
+                throw new NotSupportedException("data URI: only base64 payloads are supported");
+            }
+            string payload = url[(commaIndex + 1)..];
+            bool hasWhitespace = false;
+            foreach (char c in payload) {
+                if (char.IsWhiteSpace(c)) {
+                    hasWhitespace = true;
+                    break;
+                }
+            }
+            if (hasWhitespace) {
+                char[] chars = payload.ToCharArray();
+                int write = 0;
+                foreach (char c in chars) {
+                    if (!char.IsWhiteSpace(c)) {
+                        chars[write++] = c;
+                    }
+                }
+                payload = new string(chars, 0, write);
+            }
+            return Convert.FromBase64String(payload);
+        }
+
         string ResolveUrl(string url) {
             if (string.IsNullOrWhiteSpace(url)) {
                 return string.Empty;
             }
-            url = WebUtility.HtmlDecode(url.Trim());
+            url = url.Trim();
+            // data: URI 早退：base64 字母表无 HTML 实体无空白，免对多 MB 串做 HtmlDecode
+            // 全文扫描；也不进下方 Uri.TryCreate 归一化（Uri.ToString 对 data 载荷的转义
+            // 改写不可控，有串改载荷风险）
+            if (IsDataUri(url)) {
+                return url;
+            }
+            url = WebUtility.HtmlDecode(url);
             if (url.StartsWith("//", StringComparison.Ordinal)) {
                 return $"https:{url}";
             }
