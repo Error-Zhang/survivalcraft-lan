@@ -363,6 +363,21 @@ namespace Game {
             return true;
         }
 
+        // font-size 值解析（带单位类别，HtmlToWidgetsBuilder 盒属性 em 上下文用）：absolute=
+        // 绝对单位（px/pt/rem——以 16px 根字号换底，ctx 不参与，绝对值覆盖）；!absolute=相对
+        // 单位（em/%——相对父字号=ctx×ratio）。复用 TryParseCssFontSize 的解析与钳制口径，
+        // 仅按后缀补单位类别；现有 TryParseCssFontSize 签名与行为不动（rem 须先于 em 判定，
+        // "1.5rem" 以 "em" 结尾）
+        internal static bool TryParseCssFontSizeUnit(string value, out float ratio, out bool absolute) {
+            string v = value.Trim().ToLowerInvariant();
+            // 绝对单位=px/pt/rem（16px 根基准换底）；em/% 为相对单位（父字号=ctx 基准）。
+            // rem 须先于 em 心算判定（"1.5rem" 以 "em" 结尾，但 rem 根基准属绝对）
+            absolute = v.EndsWith("rem", StringComparison.Ordinal)
+                || v.EndsWith("px", StringComparison.Ordinal)
+                || v.EndsWith("pt", StringComparison.Ordinal);
+            return TryParseCssFontSize(value, out ratio);
+        }
+
         // font-weight 值 → 有/无粗体：bold/bolder 与数值 ≥600 加粗；normal/lighter 与数值 <600
         // 撤销；无效值返回 null（调用方不动继承值——不反噬 <b> 的标签置位，CSS 口径）。
         // 粗体是合成双绘，无多字重字库，600 阈值即浏览器 semibold 起粗的近似
@@ -540,8 +555,9 @@ namespace Game {
 
     // font size 属性：绝对 1-7 或 ±N 相对（"+2"/"-1"，int.TryParse 吞掉前导符号得 2/-1）。
     // 相对值以基准 3 折算后钳 1-7（HTML 规范：不随嵌套累加，浏览器同款）；绝对越界（0/8+）
-    // 规范规定无效果——返回 false 不缩放
-    static bool TryParseFontSizeAttribute(string attribute, out float ratio) {
+    // 规范规定无效果——返回 false 不缩放。
+    // internal：HtmlToWidgetsBuilder UA 标签块级字号 ctx 乘点复用（同行内口径，签名不动）
+    internal static bool TryParseFontSizeAttribute(string attribute, out float ratio) {
         ratio = 1f;
         if (string.IsNullOrWhiteSpace(attribute)) {
             return false;

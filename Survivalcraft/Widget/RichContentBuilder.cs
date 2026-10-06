@@ -79,6 +79,10 @@ namespace Game {
         // 标题字号/金色阶梯（PRD 6.3，帖子详情 header 视觉同源）
         static readonly float[] s_headingScales = [1.6f, 1.4f, 1.2f, 1.1f, 1f, 1f];
 
+        // 标题阶梯取值（HtmlToWidgetsBuilder 盒属性 em 上下文线程用：CSS hN UA font-size 对
+        // 自身盒 padding/margin 与子树同时生效，builder 走链 ctx 进标题 case 即乘）
+        protected static float HeadingScale(int level) => s_headingScales[MathUtils.Min(level, 6) - 1];
+
         static readonly Color HeadingColor = new(255, 230, 140);
 
         protected static readonly Color QuoteColor = new(175, 175, 175);
