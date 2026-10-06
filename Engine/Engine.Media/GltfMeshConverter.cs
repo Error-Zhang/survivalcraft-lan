@@ -38,11 +38,8 @@ namespace Engine.Media {
             ref int bufferIndex,
             Dictionary<GltfMaterial, int> materialToIndex,
             bool parentVisible = true) {
-            // 解析当前节点的 visibility 状态
-            bool nodeVisible = parentVisible;
-            if (node.TryGetVisibility(out bool vis)) {
-                nodeVisible = vis && parentVisible;
-            }
+            // 解析当前节点的 visibility 状态（GetVisibility 返回 null 表示未声明，继承父节点）
+            bool nodeVisible = parentVisible & (node.GetVisibility() ?? true);
             if (node.Mesh != null) {
                 int boneIndex = nodeToIndex.TryGetValue(node, out int idx) ? idx : 0;
 

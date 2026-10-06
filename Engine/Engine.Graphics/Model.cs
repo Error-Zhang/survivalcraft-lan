@@ -154,6 +154,12 @@ namespace Engine.Graphics {
                 return null;
             }
 
+            // 引擎解码器不支持压缩纹理容器（WEBP 除外，ImageSharp 可解），提前拦截避免泛化解码异常
+            if (texInfo.SourceImage.IsDds || texInfo.SourceImage.IsKtx2 || texInfo.SourceImage.IsXnb) {
+                Log.Error($"[Model] Failed to load texture '{texInfo.Name}': unsupported compressed texture format '{texInfo.SourceImage.MimeType}'");
+                return null;
+            }
+
             // 直接从 Stream 创建 Texture2D
             // sRGB 纹理（BaseColor、Emissive）使用 Srgb8Alpha8 格式，GPU 采样时自动 sRGB→线性解码
             Texture2D texture = null;
