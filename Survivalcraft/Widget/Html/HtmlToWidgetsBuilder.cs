@@ -107,6 +107,22 @@ namespace Game {
             return widget;
         }
 
+        // 盒属性 em/% 上下文（壳方案 WrapInStyleBox/TryBeginStyleBox + ApplyBlockSizing 补偿 +
+        // li 行框收窄四个 TryGetBox 消费点同源，防解析口径漂移）。tier-1 近似留档：
+        // em 基准=16×本元素 style font-size 倍率（TryParseCssFontSize ratio 口径；无声明/声明
+        // 解析失败=16px——垃圾 font-size 不丢整条盒声明；不穿继承：父级 small/big/style
+        // font-size 链不上浮）；% 基准=NestedContentWidth()（包含块内容宽近似：含祖先左缩进，
+        // 下限 50 由基类钳制），ContentWidth<=0（跟随宿主）传 -1=该边 % 声明维持丢弃
+        (float EmBase, float PercentBase) BoxLengthContext(string style) {
+            float emBase = 16f;
+            if (CssStyleParser.TryGetDeclaration(style, "font-size", out string sizeDecl)
+                && HtmlSpanParser.TryParseCssFontSize(sizeDecl, out float ratio)) {
+                emBase = 16f * ratio;
+            }
+            float nestedWidth = NestedContentWidth();
+            return (emBase, nestedWidth > 0f ? nestedWidth : -1f);
+        }
+
         // style 盒属性（padding/margin/background-color）壳方案：带声明时包一层 StackPanel 壳——
         // 壳 Margin=CSS margin（壳外距），子件四边距=CSS padding（壳内缘到内容），背景/边框由壳
         // Draw 铺整幅（背景垫边框之下）。浏览器盒子模型同构：border 波边框画在壳矩形上时 padding
@@ -114,8 +130,10 @@ namespace Game {
         // 单件版：叶子块（标题/引用/代码块/hr/表格/列表整体）
         Widget WrapInStyleBox(HtmlAgilityPack.HtmlNode node, Widget widget, Color? colorOverride, bool backgroundViaShell = true) {
             string style = node.GetAttributeValue("style", null);
-            bool hasMargin = CssStyleParser.TryGetBox(style, "margin", out Vector4 margin);
-            bool hasPadding = CssStyleParser.TryGetBox(style, "padding", out Vector4 padding);
+            // margin/padding em/% 上下文（tier-1 近似口径见 BoxLengthContext 留档）
+            (float emBase, float percentBase) = BoxLengthContext(style);
+            bool hasMargin = CssStyleParser.TryGetBox(style, "margin", out Vector4 margin, emBase, percentBase);
+            bool hasPadding = CssStyleParser.TryGetBox(style, "padding", out Vector4 padding, emBase, percentBase);
             // TryGetBorder 返回=有声明（含全禁），起壳查 HasAny（全禁=无边框不起壳）
             bool hasBorder = CssStyleParser.TryGetBorder(style, out CssStyleParser.CssBorderSpec border)
                 && border.HasAny;
@@ -226,7 +244,10 @@ namespace Game {
                 // 变换壳恒最外）
                 return ApplyBlockTransform(node, widget);
             }
-            CssStyleParser.TryGetBox(style, "padding", out Vector4 sizingEdges);
+            // content-box 补偿的 padding 同源解析（与壳侧 BoxLengthContext 同参同结果，em/%
+            // 随解析结果自动正确——width 补偿含 pad/border 合计；tier-1 近似见 BoxLengthContext）
+            (float emBase, float percentBase) = BoxLengthContext(style);
+            CssStyleParser.TryGetBox(style, "padding", out Vector4 sizingEdges, emBase, percentBase);
             if (CssStyleParser.TryGetBorder(style, out CssStyleParser.CssBorderSpec sizingBorder)) {
                 sizingEdges = MergeBoxEdges(sizingEdges, sizingBorder);
             }
@@ -301,11 +322,14 @@ namespace Game {
                     if (values.Length is < 1 or > 4) {
                         continue;
                     }
-                    // 简写原子性：全 token 须合法（auto 或长度），否则整条丢弃不重置
+                    // 简写原子性：全 token 须合法（auto 或长度），否则整条丢弃不重置。
+                    // 合法性用 TryParseLengthUnit（em/% token 亦计）：与 TryGetBox 的 em/%
+                    // 收口同口径——否则 margin:auto 后带单位长手覆写不上 auto 位（两侧漂移：
+                    // 壳 Margin 已生效而对齐仍居中，审查 P2）
                     bool valid = true;
                     foreach (string token in values) {
                         if (!token.Equals("auto", StringComparison.OrdinalIgnoreCase)
-                            && !CssStyleParser.TryParseLength(token, out _)) {
+                            && !CssStyleParser.TryParseLengthUnit(token, out _, out _, out _)) {
                             valid = false;
                             break;
                         }
@@ -323,8 +347,10 @@ namespace Game {
                 }
                 else if (declaration.Key is "margin-left" or "margin-right") {
                     bool isAuto = declaration.Value.Trim().Equals("auto", StringComparison.OrdinalIgnoreCase);
+                    // 长手合法性同简写口径（TryParseLengthUnit：em/% token 也能覆写 auto 位；
+                    // 数值换算归 TryGetBox，本函数只判 auto 位）
                     if (isAuto
-                        || CssStyleParser.TryParseLength(declaration.Value, out _)) {
+                        || CssStyleParser.TryParseLengthUnit(declaration.Value, out _, out _, out _)) {
                         if (declaration.Key == "margin-left") {
                             leftAuto = isAuto;
                         }
@@ -345,8 +371,10 @@ namespace Game {
         // border 宽并入 padding 返回值：EndStyleBox 铺边距与 CurrentIndentX 自动含 border
         bool TryBeginStyleBox(HtmlAgilityPack.HtmlNode node, Color? colorOverride, out StackPanelWidget shell, out Vector4 padding) {
             string style = node.GetAttributeValue("style", null);
-            bool hasMargin = CssStyleParser.TryGetBox(style, "margin", out Vector4 margin);
-            bool hasPadding = CssStyleParser.TryGetBox(style, "padding", out padding);
+            // margin/padding em/% 上下文（tier-1 近似口径见 BoxLengthContext 留档）
+            (float emBase, float percentBase) = BoxLengthContext(style);
+            bool hasMargin = CssStyleParser.TryGetBox(style, "margin", out Vector4 margin, emBase, percentBase);
+            bool hasPadding = CssStyleParser.TryGetBox(style, "padding", out padding, emBase, percentBase);
             // TryGetBorder 返回=有声明（含全禁），起壳查 HasAny（全禁=无边框不起壳）
             bool hasBorder = CssStyleParser.TryGetBorder(style, out CssStyleParser.CssBorderSpec border)
                 && border.HasAny;
@@ -1631,7 +1659,10 @@ namespace Game {
                 float liShrink = 0f;
                 string liStyle = li.GetAttributeValue("style", null);
                 if (!string.IsNullOrEmpty(liStyle)) {
-                    CssStyleParser.TryGetBox(liStyle, "padding", out Vector4 liPad);
+                    // em/% 上下文与下方 WrapInStyleBox(li,…) 同源（BoxLengthContext 同参同结果）：
+                    // row 固定宽，收窄补偿必须吃到壳侧同一 em/% 解析结果，否则壳内缩把行顶出列
+                    (float liEmBase, float liPercentBase) = BoxLengthContext(liStyle);
+                    CssStyleParser.TryGetBox(liStyle, "padding", out Vector4 liPad, liEmBase, liPercentBase);
                     liShrink += MathUtils.Max(liPad.X, 0f) + MathUtils.Max(liPad.Z, 0f);
                     if (CssStyleParser.TryGetBorder(liStyle, out CssStyleParser.CssBorderSpec liBorder)
                         && liBorder.HasAny) {

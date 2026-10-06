@@ -8,8 +8,10 @@ using Engine;
 namespace Game {
     // style 属性内联 CSS 子集解析：HtmlAgilityPack 只给原始属性串（无任何 CSS 能力，Fizzler 是
     // 选择器不是声明），这里手写声明切分 + 盒简写 TRBL 展开 + px 长度。定位：只认引擎消费的
-    // 属性族（本波 padding/margin，border-* 波续用同一入口）；em/%/rem/pt 等单位不支持、含无效值
-    // 的声明整条丢弃；缺属性=引擎默认（不造浏览器 UA 默认值表——computed-style 口径留给将来
+    // 属性族（padding/margin、border-*、border-radius 等续用同一入口）；padding/margin 收
+    // px/无单位/em/%（em/% 须调用方传上下文基准，TryGetBox emBase/percentBase，缺=维持丢弃）；
+    // border-width 仍仅 px/无单位（em/% 不识别）；rem/pt 等其余单位盒属性不支持、含无效值的
+    // 声明整条丢弃；缺属性=引擎默认（不造浏览器 UA 默认值表——computed-style 口径留给将来
     // 基类 Padding 版本，本类只报"作者写了什么"）
     internal static class CssStyleParser {
         // 解析 style 串为声明序列（保序，级联=后声明覆盖前声明）：单遍 O(n) 扫描，';' 切声明、
@@ -62,7 +64,11 @@ namespace Game {
         // `prefix-left/top/right/bottom` 单边声明（后声明覆盖先声明，CSS 级联口径），展开为四边。
         // 无任何有效相关声明返回 false。简写任一值非法 → 整条简写丢弃（CSS 简写原子性）；
         // 单边非法仅丢该条。输出 Vector4 轴序 = Widget.Margin4（X=左 Y=上 Z=右 W=下）
-        public static bool TryGetBox(string style, string prefix, out Vector4 box) {
+        // 单位上下文（e632b943 波只收 px/无单位，本波收口）：emBase=em 换算基准
+        //（px/1em）、percentBase=% 换算基准（px/100%）——由调用方按元素上下文传（builder 侧
+        // tier-1 口径见 BoxLengthContext）；缺上下文（<0）时该单位声明维持丢弃现状
+        //（em/% 解析失败同型）。负值接受（px 语义现状，em/% 负值同 acceptance）
+        public static bool TryGetBox(string style, string prefix, out Vector4 box, float emBase = -1f, float percentBase = -1f) {
             float? left = null;
             float? top = null;
             float? right = null;
@@ -74,7 +80,7 @@ namespace Game {
                     // 简写原子性：先全部解析进临时量，全成功才写入四边（中途失败整条丢弃，
                     // 无部分生效——审查 P0：先写后析会让非法简写的前缀值泄漏）
                     if (values.Length is < 1 or > 4
-                        || !TryParseLength(values[0], out float first)) {
+                        || !ResolveBoxLength(values[0], emBase, percentBase, out float first)) {
                         continue;
                     }
                     float newTop = first;
@@ -82,7 +88,7 @@ namespace Game {
                     float newBottom = first;
                     float newLeft = first;
                     if (values.Length >= 2) {
-                        if (!TryParseLength(values[1], out float second)) {
+                        if (!ResolveBoxLength(values[1], emBase, percentBase, out float second)) {
                             continue;
                         }
                         // 两值形：上下=v0、左右=v1（bottom 归 v0——此前误写 v1，探针 padLast MB=32 实证）
@@ -91,13 +97,13 @@ namespace Game {
                         newLeft = second;
                     }
                     if (values.Length >= 3) {
-                        if (!TryParseLength(values[2], out float third)) {
+                        if (!ResolveBoxLength(values[2], emBase, percentBase, out float third)) {
                             continue;
                         }
                         newBottom = third;
                     }
                     if (values.Length >= 4) {
-                        if (!TryParseLength(values[3], out float fourth)) {
+                        if (!ResolveBoxLength(values[3], emBase, percentBase, out float fourth)) {
                             continue;
                         }
                         newLeft = fourth;
@@ -110,24 +116,58 @@ namespace Game {
                 }
                 // 单边声明：无效值仅丢该条（不影响已展开的简写值）
                 if (declaration.Key == prefix + "-left"
-                    && TryParseLength(declaration.Value, out float l)) {
+                    && ResolveBoxLength(declaration.Value, emBase, percentBase, out float l)) {
                     left = l;
                 }
                 else if (declaration.Key == prefix + "-top"
-                    && TryParseLength(declaration.Value, out float t)) {
+                    && ResolveBoxLength(declaration.Value, emBase, percentBase, out float t)) {
                     top = t;
                 }
                 else if (declaration.Key == prefix + "-right"
-                    && TryParseLength(declaration.Value, out float r)) {
+                    && ResolveBoxLength(declaration.Value, emBase, percentBase, out float r)) {
                     right = r;
                 }
                 else if (declaration.Key == prefix + "-bottom"
-                    && TryParseLength(declaration.Value, out float b)) {
+                    && ResolveBoxLength(declaration.Value, emBase, percentBase, out float b)) {
                     bottom = b;
                 }
             }
             box = new Vector4(left ?? 0f, top ?? 0f, right ?? 0f, bottom ?? 0f);
             return left.HasValue || top.HasValue || right.HasValue || bottom.HasValue;
+        }
+
+        // 盒边长度解析（TryParseLengthUnit + 单位换算）：px/无单位→原值（不依赖上下文）；
+        // em→原值×emBase、%→原值×percentBase/100；对应基准缺上下文（<0）→该值无效
+        //（=既有"em/% 解析失败丢弃"口径，单位恒等）；rem/pt 等其他单位 TryParseLengthUnit false。
+        // em/% 换算后非有限（1e38em 级溢出→Infinity）按解析失败丢边，Infinity/NaN 不进布局
+        static bool ResolveBoxLength(string value, float emBase, float percentBase, out float px) {
+            if (!TryParseLengthUnit(value, out float number, out bool isPercent, out bool isEm)) {
+                px = 0f;
+                return false;
+            }
+            if (isEm) {
+                if (emBase < 0f) {
+                    px = 0f;
+                    return false;
+                }
+                px = number * emBase;
+            }
+            else if (isPercent) {
+                if (percentBase < 0f) {
+                    px = 0f;
+                    return false;
+                }
+                px = number * percentBase / 100f;
+            }
+            else {
+                px = number;
+                return true;
+            }
+            if (!float.IsFinite(px)) {
+                px = 0f;
+                return false;
+            }
+            return true;
         }
 
         // 单属性声明查询：级联序取最后一条同名声明（后声明覆盖先声明）。无该属性返回 false。
@@ -188,13 +228,52 @@ namespace Game {
         }
 
         // 长度：px（大小写不敏感）/无单位（=px）；em/%/rem/pt 等不支持返回 false。负值接受——
-        // 引擎布局是浮点加减，负 margin=间距缩小（CSS 同义）
+        // 引擎布局是浮点加减，负 margin=间距缩小（CSS 同义）。单位感知版见 TryParseLengthUnit
+        //（TryGetBox 盒属性 em/% 收口用）；border-width 族仍走本入口（px-only 口径不变）
         public static bool TryParseLength(string value, out float px) {
+            if (TryParseLengthUnit(value, out float number, out bool isPercent, out bool isEm)
+                && !isPercent && !isEm) {
+                px = number;
+                return true;
+            }
+            px = 0f;
+            return false;
+        }
+
+        // 长度+单位解析（TryParseLength 的单位感知版，TryGetBox 盒边换算前置）：px/无单位→
+        // number 原值；em→isEm=true、%→isPercent=true，number=原始数值（换算由调用方按上下文
+        // 基准做——em 基准随元素 font-size tier-1 修正，% 基准=包含块近似，见 builder
+        // BoxLengthContext）；rem/pt 等其他单位→false。负值接受（px 语义现状 e632b943 裁定，
+        // em/% 负值同 acceptance）
+        public static bool TryParseLengthUnit(string value, out float number, out bool isPercent, out bool isEm) {
+            number = 0f;
+            isPercent = false;
+            isEm = false;
             string v = value.Trim();
+            if (v.EndsWith("%", StringComparison.Ordinal)) {
+                if (!float.TryParse(v[..^1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out number)) {
+                    number = 0f;
+                    return false;
+                }
+                isPercent = true;
+                return true;
+            }
             if (v.EndsWith("px", StringComparison.OrdinalIgnoreCase)) {
                 v = v[..^2].Trim();
             }
-            return float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out px);
+            else if (v.EndsWith("rem", StringComparison.OrdinalIgnoreCase)) {
+                // rem/pt 等盒属性不支持（本波只收 em/%，留档）
+                return false;
+            }
+            else if (v.EndsWith("em", StringComparison.OrdinalIgnoreCase)) {
+                v = v[..^2].Trim();
+                isEm = true;
+            }
+            if (!float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out number)) {
+                number = 0f;
+                return false;
+            }
+            return true;
         }
 
         // border 解析结果：Widths 轴序=X左 Y上 Z右 W下（同 Margin4），0=该边未启用；
