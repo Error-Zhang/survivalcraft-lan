@@ -164,23 +164,41 @@ namespace Game {
                     }
                     break;
                 }
-                case "span": {
-                    string styleAttr = node.GetAttributeValue("style", null);
-                    if (TryParseStyleColor(styleAttr, "color", out Color color)) {
-                        inner.Color = color;
+            }
+            // 行内 style color/background-color 泛化（全部行内标签统一入口）：置于 switch 后——
+            // 作者内联声明胜 UA/标签置位（<code style="color"> 盖调色板橙、<a style="color"> 盖
+            // 链接色、<font color> 属性=表现提示 < style，CSS presentational hint < author inline
+            // 口径）。解析走 TryGetDeclaration（与块级同口径：注释剥离、后声明胜级联），色值走
+            // CssColorParser 全口径（MDN 140 命名色等）——旧 span/default case 的 regex 窄口径
+            //（仅 #hex/rgb()）删除。background-color 优先、background 简写兜底（简写值须可直接
+            // 解析为纯色才生效，图片/渐变等复杂值解析失败整条丢弃）。background 双通道写法与
+            // 原 span case 相同：out background 供 DOM 路径 ParseHtmlChildren 后刷（img 占位等
+            // 旁路 span），inner.Background 供标签栈路径（ApplyInlineHtmlTag 无 DOM 后刷机制）。
+            // Markdown 标签栈路径（ApplyInlineHtmlTag→ParseFragment→ParseHtmlNode）零额外接线
+            // 自动同享。嵌套语义按路径有别（旧行为原样，非本波引入）：标签栈路径 inner.Background
+            // 逐层替换=内层胜；DOM 路径外层 background 经 ParseHtmlChildren 后刷统一盖回其子树
+            //（含内层自声明的底色）=外层胜，color 的 forceColor 后刷同口径跳过链接
+            string inlineStyle = node.GetAttributeValue("style", null);
+            if (!string.IsNullOrEmpty(inlineStyle)) {
+                if (CssStyleParser.TryGetDeclaration(inlineStyle, "color", out string colorDecl)
+                    && CssColorParser.TryParse(colorDecl, out Color styleColor)) {
+                    inner.Color = styleColor;
+                    // UA 底色标签（code/kbd/mark）的强制后刷色随作者声明走：否则 ParseHtmlChildren
+                    // 后刷会用调色板色盖回（span/b/i 等本就无 forceColor，不受影响）
+                    if (forceColor.HasValue) {
+                        forceColor = styleColor;
                     }
-                    if (TryParseStyleColor(styleAttr, "background-color", out Color spanBackground)) {
-                        background = spanBackground;
-                        inner.Background = spanBackground;
-                    }
-                    break;
                 }
-                default:
-                    // 未知标签：透传子节点；节点自带 style color 时染其内容
-                    if (TryParseStyleColor(node.GetAttributeValue("style", null), "color", out Color inheritedColor)) {
-                        inner.Color = inheritedColor;
-                    }
-                    break;
+                if (CssStyleParser.TryGetDeclaration(inlineStyle, "background-color", out string bgColorDecl)
+                    && CssColorParser.TryParse(bgColorDecl, out Color styleBackground)) {
+                    background = styleBackground;
+                    inner.Background = styleBackground;
+                }
+                else if (CssStyleParser.TryGetDeclaration(inlineStyle, "background", out string bgShorthand)
+                    && CssColorParser.TryParse(bgShorthand, out Color shorthandBackground)) {
+                    background = shorthandBackground;
+                    inner.Background = shorthandBackground;
+                }
             }
             // 行内 CSS 字体/装饰族：对所有行内标签生效。置于标签 switch 后——显式 normal 值
             // 撤销 b/u 的标签置位（作者样式>UA 样式，CSS 级联口径）
@@ -517,27 +535,6 @@ namespace Game {
             }
         }
 
-        // 左边界 lookbehind：防止 border-color/link-color 等属性内的 color 子串被误当文字色
-        static readonly Regex s_styleColorRegex = new("(?<![\\w-])(?<name>color|background-color)\\s*:\\s*(?<value>[^;]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-
-        // 仅支持 #rgb/#rrggbb 与 rgb()/rgba()；解析失败返回 false（不染色）
-        static bool TryParseStyleColor(string styleAttribute, string name, out Color color) {
-            color = default;
-            if (string.IsNullOrEmpty(styleAttribute)) {
-                return false;
-            }
-            foreach (Match match in s_styleColorRegex.Matches(styleAttribute)) {
-                if (!string.Equals(match.Groups["name"].Value, name, StringComparison.OrdinalIgnoreCase)) {
-                    continue;
-                }
-                string value = match.Groups["value"].Value.Trim();
-                if (TryParseColorValue(value, out color)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
         // font size 属性倍率表：Chrome 16px medium 基准的绝对字号映射（10/13/16/18/24/32/48px ÷ 16）
     static readonly float[] s_fontSizeRatios = [0.625f, 0.8125f, 1f, 1.125f, 1.5f, 2f, 3f];
 
@@ -564,65 +561,5 @@ namespace Game {
         ratio = s_fontSizeRatios[absolute - 1];
         return true;
     }
-
-    static bool TryParseColorValue(string value, out Color color) {
-            color = default;
-            if (value.StartsWith("#")) {
-                string hex = value[1..];
-                if (hex.Length == 6
-                    && int.TryParse(hex[..2], System.Globalization.NumberStyles.HexNumber, null, out int r)
-                    && int.TryParse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, null, out int g)
-                    && int.TryParse(hex[4..], System.Globalization.NumberStyles.HexNumber, null, out int b)) {
-                    color = new Color(r, g, b);
-                    return true;
-                }
-                if (hex.Length == 3
-                    && int.TryParse(new string(hex[0], 2), System.Globalization.NumberStyles.HexNumber, null, out int r3)
-                    && int.TryParse(new string(hex[1], 2), System.Globalization.NumberStyles.HexNumber, null, out int g3)
-                    && int.TryParse(new string(hex[2], 2), System.Globalization.NumberStyles.HexNumber, null, out int b3)) {
-                    color = new Color(r3, g3, b3);
-                    return true;
-                }
-                return false;
-            }
-            // rgb(r,g,b) / rgba(r,g,b,a)
-            if (value.StartsWith("rgb", StringComparison.OrdinalIgnoreCase)) {
-                int open = value.IndexOf('(');
-                int close = value.LastIndexOf(')');
-                if (open < 0 || close <= open) {
-                    return false;
-                }
-                string[] parts = value[(open + 1)..close].Split(',');
-                if (parts.Length is not (3 or 4)) {
-                    return false;
-                }
-                if (!int.TryParse(parts[0].Trim(), out int rr)
-                    || !int.TryParse(parts[1].Trim(), out int gg)
-                    || !int.TryParse(parts[2].Trim(), out int bb)) {
-                    return false;
-                }
-                int aa = 255;
-                if (parts.Length == 4
-                    && !TryParseAlpha(parts[3].Trim(), out aa)) {
-                    return false;
-                }
-                color = new Color(rr, gg, bb, aa);
-                return true;
-            }
-            return false;
-        }
-
-        // CSS alpha 两种写法：整数 0-255 与小数 0.0-1.0（rgba(1,2,3,0.5) 最常见）
-        static bool TryParseAlpha(string text, out int alpha) {
-            if (int.TryParse(text, out alpha)) {
-                return true;
-            }
-            if (float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float fraction)) {
-                alpha = (int)MathF.Round(MathUtils.Clamp(fraction, 0f, 1f) * 255f);
-                return true;
-            }
-            alpha = 255;
-            return false;
-        }
     }
 }

@@ -754,8 +754,8 @@ namespace Game {
                         Flush();
                         PendAnchor(node);
                         HtmlAgilityPack.HtmlNode code = node.Element("code") ?? node;
-                        ParseCodeTextStyle(node, out Color? codeTextColor, out float? codeScaleOverride, out float? codeRoundingRadius);
-                        Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), codeTextColor, codeScaleOverride, codeRoundingRadius, flexNaturalBasis: m_flexDepth > 0);
+                        ParseCodeTextStyle(node, out Color? codeTextColor, out float? codeScaleOverride, out float? codeRoundingRadius, out Color? codeBackgroundColor);
+                        Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), codeTextColor, codeScaleOverride, codeRoundingRadius, flexNaturalBasis: m_flexDepth > 0, backgroundColor: codeBackgroundColor);
                         // 代码块随 ctx×自身声明淡出（BevelledRect 框+Label 行全子树浸透）
                         codeBlock.ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(node));
                         AttachBlock(panel, FinalizeBlock(node, codeBlock, colorOverride));
@@ -1544,8 +1544,8 @@ namespace Game {
                             }
                             case "pre": {
                                 HtmlAgilityPack.HtmlNode code = child.Element("code") ?? child;
-                                ParseCodeTextStyle(child, out Color? liCodeTextColor, out float? liCodeScaleOverride, out float? liCodeRoundingRadius);
-                                Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), liCodeTextColor, liCodeScaleOverride, liCodeRoundingRadius, flexNaturalBasis: m_flexDepth > 0);
+                                ParseCodeTextStyle(child, out Color? liCodeTextColor, out float? liCodeScaleOverride, out float? liCodeRoundingRadius, out Color? liCodeBackgroundColor);
+                                Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), liCodeTextColor, liCodeScaleOverride, liCodeRoundingRadius, flexNaturalBasis: m_flexDepth > 0, backgroundColor: liCodeBackgroundColor);
                                 // 代码块随 ctx×自身声明淡出（同顶层 pre 口径）
                                 codeBlock.ColorTransform = Color.White * (liOpacityCtx * ResolveOpacityMultiplier(child));
                                 Widget liCode = WrapInStyleBox(child, codeBlock, colorOverride) ?? codeBlock;
@@ -2501,32 +2501,61 @@ namespace Game {
             return ParseOpacityStyle(node, out float v) ? v : 1f;
         }
 
-        // pre/code style 直通解析（代码块便宜档）：color/font-size 经 CreateCodeBlock 可选参
-        // 直通 Label 行；border-radius 出四角最大 px 值直通引擎真圆弧（% 忽略、斜杠取前半在
-        // 解析层——引擎 BevelledShapeRenderer 石皮斜切观感 vs CSS 扁平圆角有差，便宜档近似
-        // 留档）。其余行内属性不吃（等宽管线不进 span 解析，留档）。code 内层元素自带 style
-        // 不解析（与 pre 同口径留档）
-        void ParseCodeTextStyle(HtmlAgilityPack.HtmlNode preNode, out Color? textColor, out float? fontScaleOverride, out float? roundingRadius) {
+        // pre/code style 直通解析（代码块便宜档）：color/font-size/border-radius 经 CreateCodeBlock
+        // 可选参直通 Label 行/frame；background-color 直通 frame.CenterColor（backgroundColor 新
+        // 可选参，null=调色板 CodeCenterColor 零改，Markdown 路径零改）。内层 code 元素（pre 直下
+        // 第一个 code）自带 style 同样读取：内层更具体，逐属性 pre 先读、code 声明覆盖（code 声明
+        // 胜 pre 的级联口径）；无 code 子元素只读 pre。border-radius 出四角最大 px 值直通引擎真圆
+        // 弧（% 忽略、斜杠取前半在解析层——引擎 BevelledShapeRenderer 石皮斜切观感 vs CSS 扁平圆
+        // 角有差，便宜档近似留档）。其余行内属性（font-weight 等）等宽管线不进 span 解析，维持
+        // 不吃（留档）。内容提取逻辑不受影响——只读 code 节点属性，不碰子树
+        void ParseCodeTextStyle(HtmlAgilityPack.HtmlNode preNode, out Color? textColor, out float? fontScaleOverride, out float? roundingRadius, out Color? backgroundColor) {
             textColor = null;
             fontScaleOverride = null;
             roundingRadius = null;
-            string style = preNode.GetAttributeValue("style", null);
-            if (string.IsNullOrEmpty(style)) {
+            backgroundColor = null;
+            HtmlAgilityPack.HtmlNode codeNode = null;
+            foreach (HtmlAgilityPack.HtmlNode child in preNode.ChildNodes) {
+                if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
+                    && child.Name.Equals("code", StringComparison.OrdinalIgnoreCase)) {
+                    codeNode = child;
+                    break;
+                }
+            }
+            string preStyle = preNode.GetAttributeValue("style", null);
+            string codeStyleAttr = codeNode?.GetAttributeValue("style", null);
+            if (string.IsNullOrEmpty(preStyle)
+                && string.IsNullOrEmpty(codeStyleAttr)) {
                 return;
             }
-            if (CssStyleParser.TryGetDeclaration(style, "color", out string colorDecl)
+            if (CssStyleParser.TryGetDeclaration(preStyle, "color", out string colorDecl)
                 && CssColorParser.TryParse(colorDecl, out Color color)) {
                 textColor = color;
             }
-            if (CssStyleParser.TryGetDeclaration(style, "font-size", out string sizeDecl)
+            if (CssStyleParser.TryGetDeclaration(codeStyleAttr, "color", out string codeColorDecl)
+                && CssColorParser.TryParse(codeColorDecl, out Color codeColor)) {
+                textColor = codeColor;
+            }
+            if (CssStyleParser.TryGetDeclaration(preStyle, "font-size", out string sizeDecl)
                 && HtmlSpanParser.TryParseCssFontSize(sizeDecl, out float ratio)) {
                 fontScaleOverride = ratio;
             }
-            // border-radius 直通：true 即取四角 px 最大值——0 → 显式 0（BevelledRectangle 直角，
-            // CSS 口径，引擎 RoundCorner 半径 0 有 >0 守卫安全）；全 % 情形 px 位全 0 同样落
-            // 显式 0（% 近似留档）；无声明 null=引擎缺省 6（Markdown 路径零改）
-            if (CssStyleParser.TryParseBorderRadius(style, out Vector4 cornerPx, out _)) {
+            if (CssStyleParser.TryGetDeclaration(codeStyleAttr, "font-size", out string codeSizeDecl)
+                && HtmlSpanParser.TryParseCssFontSize(codeSizeDecl, out float codeRatio)) {
+                fontScaleOverride = codeRatio;
+            }
+            // border-radius：code 声明胜 pre（code 未声明回退 pre）
+            if (CssStyleParser.TryParseBorderRadius(codeStyleAttr, out Vector4 cornerPx, out _)
+                || CssStyleParser.TryParseBorderRadius(preStyle, out cornerPx, out _)) {
                 roundingRadius = MathUtils.Max(MathUtils.Max(cornerPx.X, cornerPx.Y), MathUtils.Max(cornerPx.Z, cornerPx.W));
+            }
+            if (CssStyleParser.TryGetDeclaration(preStyle, "background-color", out string bgDecl)
+                && CssColorParser.TryParse(bgDecl, out Color bgColor)) {
+                backgroundColor = bgColor;
+            }
+            if (CssStyleParser.TryGetDeclaration(codeStyleAttr, "background-color", out string codeBgDecl)
+                && CssColorParser.TryParse(codeBgDecl, out Color codeBg)) {
+                backgroundColor = codeBg;
             }
         }
 

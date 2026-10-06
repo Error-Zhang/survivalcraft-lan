@@ -175,10 +175,13 @@ namespace Game {
         // roundingRadius：HTML 侧 pre style border-radius 直通（仅四角最大 px 值便宜档，%
         // 忽略）——引擎 BevelledShapeRenderer 真圆弧石皮观感 vs CSS 扁平圆角有差（留档）；
         // null=引擎缺省 6（Markdown 路径零改）
+        // backgroundColor：HTML 侧 pre/内层 code style background-color 直通 frame.CenterColor
+        //（内层 code 声明胜 pre，见 HtmlToWidgetsBuilder.ParseCodeTextStyle）——null=调色板
+        // CodeCenterColor 零改（Markdown 路径零改）
         // flexNaturalBasis：flex 容器内代码块主轴 basis=自然宽（max-content 同义）——容器净宽
         // 回填与 flex 排布互斥（回填循环经 FlexPanelWidget.IsInsideFlex 跳过 flex 内 frame），
         // 构建期 Size.X 直接定 naturalWidth（false=现状 NestedContentWidth，Markdown 路径零改）
-        protected CanvasWidget CreateCodeBlock(string[] lines, Color? textColor = null, float? fontScaleOverride = null, float? roundingRadius = null, bool flexNaturalBasis = false) {
+        protected CanvasWidget CreateCodeBlock(string[] lines, Color? textColor = null, float? fontScaleOverride = null, float? roundingRadius = null, bool flexNaturalBasis = false, Color? backgroundColor = null) {
             if (lines.Length == 0
                 || (lines.Length == 1 && lines[0].Length == 0)) {
                 lines = [" "];
@@ -206,7 +209,7 @@ namespace Game {
                 HorizontalAlignment = WidgetAlignment.Stretch,
                 VerticalAlignment = WidgetAlignment.Stretch,
                 RoundingRadius = roundingRadius ?? 6f,
-                CenterColor = CodeCenterColor,
+                CenterColor = backgroundColor ?? CodeCenterColor,
                 BevelColor = CodeBevelColor,
                 DirectionalLight = 0f,
                 AmbientLight = 1f
