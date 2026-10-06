@@ -31,6 +31,16 @@ namespace Game {
         // 也防旧内容的晚到回调动新内容的 frame；ReleaseTextures 后 loader 可继续复用（Markdown 重建场景）。
         int m_generation;
 
+        // 本批未决图片请求数：CreateImageBlock 发起下载时 +1，终态 -1（只在上屏线程增减，无锁）。
+        // ReleaseTextures 归零换批：旧批晚到终态凭代际失配跳过扣减，不把新批计数扣负
+        int m_outstandingRequests;
+
+        // 本内容全部图片请求均已到终态（成功上屏/挂宽待测量回填，或失败字）信号：计数 >0→0
+        // 归零瞬间在上屏线程触发，每批各一次；归零后再发起的请求开新批、再归零再触发。
+        // 无图内容（含空 src）不发起请求，不触发；全缓存命中同样零请求不触发——
+        // 勿当"内容完成"信号消费，重建全缓存场景会等不到
+        public event Action AllLoadsSettled;
+
         // 已换上真实纹理的 frame 及其适配参数：宿主（MarkdownWidget）测量期只回填未完成 frame
         // 的宽度；已完成 frame 宽=图宽不可直改，但格内场景需随格宽重适配（RefitFrame 查此表
         // 取纹理与高上限）。Alt/Url 仅为条目完整性保留（与 pending 条目同构），重适配不消费。
@@ -128,13 +138,16 @@ namespace Game {
                 ApplyImageTexture(cachedTexture, frame, image, status, alt, url, maxHeight, explicitSize, maxWidth);
                 return frame;
             }
+            m_outstandingRequests++;
             _ = LoadImageAsync(url, alt, frame, image, status, maxHeight, explicitSize, maxWidth);
             return frame;
         }
 
         // 宿主销毁/重建前调用：释放纹理句柄并递增代际，晚到的旧代回调据此就地释放新纹理。
+        // 未决计数一并作废：旧批晚到终态因代际失配不再扣减（新批从 0 计数，不被旧批压制/清空）
         public void ReleaseTextures() {
             m_generation++;
+            m_outstandingRequests = 0;
             if (m_loadedTextures.Count == 0) {
                 return;
             }
@@ -175,6 +188,17 @@ namespace Game {
             }
         }
 
+        // 请求终态收口：代际失配（ReleaseTextures 后的旧批残留）跳过扣减；>0→0 归零瞬间
+        // 触发 AllLoadsSettled。仅在主线程被调（终态都在 Dispatcher 回调/主线程同步路径）
+        void SettleRequest(int requestGeneration) {
+            if (requestGeneration != m_generation) {
+                return;
+            }
+            if (--m_outstandingRequests == 0) {
+                AllLoadsSettled?.Invoke();
+            }
+        }
+
         async Task LoadImageAsync(string url,
             string alt,
             CanvasWidget frame,
@@ -190,12 +214,18 @@ namespace Game {
                     .ConfigureAwait(false);
                 data = downloaded.ToArray();
                 if (data.Length == 0) {
-                    Dispatcher.Dispatch(delegate { status.Text = FailedToLoadText(alt); });
+                    Dispatcher.Dispatch(delegate {
+                        status.Text = FailedToLoadText(alt);
+                        SettleRequest(generation);
+                    });
                     return;
                 }
             }
             catch (Exception ex) {
-                Dispatcher.Dispatch(delegate { status.Text = FailedToLoadText(alt); });
+                Dispatcher.Dispatch(delegate {
+                    status.Text = FailedToLoadText(alt);
+                    SettleRequest(generation);
+                });
                 Log.Information(
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -213,7 +243,10 @@ namespace Game {
                 decodedImage = Image.Load(stream);
             }
             catch (Exception ex) {
-                Dispatcher.Dispatch(delegate { status.Text = FailedToLoadText(alt); });
+                Dispatcher.Dispatch(delegate {
+                    status.Text = FailedToLoadText(alt);
+                    SettleRequest(generation);
+                });
                 Log.Information(
                     string.Format(
                         CultureInfo.InvariantCulture,
@@ -279,6 +312,11 @@ namespace Game {
                                 ex.Message
                             )
                         );
+                    }
+                    finally {
+                        // 终态（成功上屏/挂宽或失败字）恰好扣减一次；上方陈旧批 return 会被
+                        // SettleRequest 的代际守卫跳过
+                        SettleRequest(generation);
                     }
                 }
             );
