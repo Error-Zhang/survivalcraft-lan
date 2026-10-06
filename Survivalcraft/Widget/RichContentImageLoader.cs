@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Text.RegularExpressions;
 using Engine;
 using Engine.Graphics;
 using Engine.Media;
@@ -11,8 +12,10 @@ namespace Game {
     /// Dispatcher 回主线程做 GL 上传换 Subtexture。
     /// 另持有已加载图片纹理的生命周期（引擎 Dialog/Widget 树无 Dispose 级联）：
     /// 收集每张纹理统一释放，避免每次开详情累积一个不可回收句柄。
-    /// 图片源除 http(s) 外支持 base64 档 data URI（仅 base64，不支持 urlencoded 档），
-    /// 解码走同一异步管线，失败字/日志口径与下载失败一致。
+    /// 图片源除 http(s) 外支持三类专有 scheme：base64 档 data URI（仅 base64，不支持 urlencoded
+    /// 档）走同一异步解码管线；app:/data: 按 Storage 本地文件（app:=exe 安装目录，
+    /// data:=LocalApplicationData）后台读盘；content: 走 ContentManager 纹理缓存主线程同步
+    /// 加载（所有权归 ContentManager，统一释放不得 dispose）。失败字/日志口径与下载失败一致。
     /// </summary>
     sealed class RichContentImageLoader {
         static readonly CommunityHttpDownloader s_imageDownloader = new(HttpClientProvider.Community);
@@ -142,6 +145,37 @@ namespace Game {
                 ApplyImageTexture(cachedTexture, frame, image, status, alt, url, maxHeight, explicitSize, maxWidth);
                 return frame;
             }
+            if (url.StartsWith(ContentScheme, StringComparison.OrdinalIgnoreCase)) {
+                // content: 同步分支（主线程）：ContentManager.Get 缓存命中即廉价，未命中首载
+                // 同游戏常规内容加载。不进异步批（不 m_outstandingRequests++，不触发
+                // AllLoadsSettled），未命中与空 src 同口径只落失败字。
+                // 所有权约束：content: 取得的纹理归 ContentManager 所有（其缓存与设备重置自管），
+                // 只入 m_imageTextureCache 供内容重建复用，不入 m_loadedTextures——
+                // ReleaseTextures 统一释放时不得 dispose 它
+                Texture2D contentTexture;
+                try {
+                    contentTexture = GetContentTexture(url);
+                }
+                catch (Exception ex) {
+                    // 损坏内容会从 ContentManager.Get 同步抛出（流已 dispose 时
+                    // ContentInfo.Duplicate 抛、坏图数据 Texture2D.Load 抛）：与异步管线失败
+                    // 口径对齐——记同格式日志，置 null 落失败字，异常不穿出崩溃
+                    Log.Information(
+                        string.Format(
+                            CultureInfo.InvariantCulture,
+                            LanguageControl.Get("PostDetailsContentBuilder", "RequestPostDetailsImageFailed"),
+                            url,
+                            ex.Message
+                        )
+                    );
+                    contentTexture = null;
+                }
+                if (contentTexture != null) {
+                    m_imageTextureCache[url] = contentTexture;
+                }
+                ApplyImageTexture(contentTexture, frame, image, status, alt, url, maxHeight, explicitSize, maxWidth);
+                return frame;
+            }
             m_outstandingRequests++;
             _ = LoadImageAsync(url, alt, frame, image, status, maxHeight, explicitSize, maxWidth);
             return frame;
@@ -215,12 +249,21 @@ namespace Game {
             byte[] data;
             try {
                 if (IsDataUri(url)) {
-                    // data URI 无需下载，直接解码。必须留在后台线程：本方法首个 await 前仍跑在
-                    // 主线程，几 MB base64 的 FromBase64String 足以卡帧；无 ',' / 坏 base64 抛
-                    // FormatException、非 base64 档抛 NotSupportedException，
-                    // 由下方既有 catch 统一落失败字 + 日志；空 payload（如 data:;base64,）解出
-                    // 空数组，自然落既有零长失败分支
+                    // base64 档 image data URI 无需下载，直接解码。必须留在后台线程：本方法
+                    // 首个 await 前仍跑在主线程，几 MB base64 的 FromBase64String 足以卡帧；
+                    // 坏 base64 抛 FormatException，由下方既有 catch 统一落失败字 + 日志；
+                    // 空 payload（如 data:image/png;base64,）解出空数组，自然落既有零长失败分支
                     data = await Task.Run(() => DecodeDataUri(url)).ConfigureAwait(false);
+                }
+                else if (url.StartsWith(AppScheme, StringComparison.OrdinalIgnoreCase)
+                    || url.StartsWith(DataScheme, StringComparison.OrdinalIgnoreCase)) {
+                    // app:/data: Storage 本地文件。desktop：app:=exe 安装目录（failIfApp=false
+                    // 安全），data:=LocalApplicationData/<AssemblyName>；ANDROID：app: 走 Assets
+                    //（OpenFile failIfApp=false→Assets.Open），data: 归 MyDocuments；iOS：两前缀
+                    // 均归 MyDocuments。读盘留在后台线程不卡主线程；文件不存在抛
+                    // FileNotFoundException，由下方既有 catch 统一落失败字 + 日志。
+                    // 此处 data: 均为非 base64 image 档形态（base64 档已在上方分流）
+                    data = await Task.Run(() => Storage.ReadAllBytes(url)).ConfigureAwait(false);
                 }
                 else {
                     using MemoryStream downloaded = await s_imageDownloader.DownloadToMemoryAsync(url, null, CancellationToken.None)
@@ -432,39 +475,33 @@ namespace Game {
             return size;
         }
 
-        // data URI 前缀判定（大小写不敏感）：ResolveUrl 早退与 LoadImageAsync 分流共用
+        // 专有 scheme 前缀常量：前缀判定与 Length 切片统一引用，消字面量漂移
+        private const string AppScheme = "app:";
+        private const string DataScheme = "data:";
+        private const string ContentScheme = "content:";
+
+        // base64 档 image data URI 分类：^data:image/<token>;base64,（OrdinalIgnoreCase，
+        // 静态编译只构造一次）。RFC 2397 允许 base64 标记前带参数（如
+        // data:image/png;charset=utf-8;base64,…），带参档不认——按 Storage 路径落失败字，
+        // 消歧取舍留档。命中=标准 base64 数据 URI，走既有解码管线；不命中时一切
+        // data: 前缀一律按 Storage 本地文件路径处理——文件路径可含 ','，“含 ',' 即数据
+        // URI”的旧判定不可靠；且非 image 档/非 base64 档 ImageSharp 本就解不了，失败语义不变
+        static readonly Regex s_base64ImageDataUri = new(
+            "^data:image/[a-z0-9.+-]+;base64,",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled
+        );
+
+        // data URI 是否 base64 档 image 形态：ResolveUrl 早退与 LoadImageAsync 分流共用
         static bool IsDataUri(string url) {
-            return url.StartsWith("data:", StringComparison.OrdinalIgnoreCase);
+            return s_base64ImageDataUri.IsMatch(url);
         }
 
-        // data URI 是否 base64 档：头部（"data:" 与首个 ',' 之间）按 ';' 分段任一等于 base64
-        //（大小写不敏感；mediatype 可省略，如 data:;base64,）
-        static bool IsBase64DataUri(string url) {
-            int commaIndex = url.IndexOf(',');
-            if (commaIndex < "data:".Length) {
-                return false;
-            }
-            foreach (string segment in url["data:".Length..commaIndex].Split(';')) {
-                if (string.Equals(segment, "base64", StringComparison.OrdinalIgnoreCase)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        // 解码 base64 档 data URI 载荷。无 ',' → FormatException；非 base64 档（urlencoded
-        // svg/text 等，ImageSharp 也解不了）→ NotSupportedException；payload 先剥空白
-        //（base64 字母表无空白，剥除无损，兼容 MIME 换行折叠的脏数据）再 FromBase64String
-        //（坏字符/长度非法抛 FormatException）——均由 LoadImageAsync 既有 catch 统一收口
+        // 解码 base64 档 data URI 载荷（IsDataUri 分类已保证 ^data:image/...;base64, 形态，
+        // 无需再检 ',' 与档位）：payload 先剥空白（base64 字母表无空白，剥除无损，兼容 MIME
+        // 换行折叠的脏数据）再 FromBase64String（坏字符/长度非法抛 FormatException）——
+        // 由 LoadImageAsync 既有 catch 统一收口
         static byte[] DecodeDataUri(string url) {
-            int commaIndex = url.IndexOf(',');
-            if (commaIndex < 0) {
-                throw new FormatException("data URI: missing ',' separator");
-            }
-            if (!IsBase64DataUri(url)) {
-                throw new NotSupportedException("data URI: only base64 payloads are supported");
-            }
-            string payload = url[(commaIndex + 1)..];
+            string payload = url[(url.IndexOf(',') + 1)..];
             bool hasWhitespace = false;
             foreach (char c in payload) {
                 if (char.IsWhiteSpace(c)) {
@@ -485,18 +522,42 @@ namespace Game {
             return Convert.FromBase64String(payload);
         }
 
+        // content: URL → ContentManager 纹理（主线程同步调用，所有权归 ContentManager）。
+        // "content:<path>" 拆后缀：最后一个 '.' 在最后一个 '/' 之后 → Get(name, suffix)
+        //（suffix 不带点，ContentManager 内部拼 name + "." + suffix 精确查 Resources）；
+        // 无后缀 → Get(name, null) 按 Texture2DReader.DefaultSuffix 逐个探测。
+        // throwOnNotFound:false，未命中返回 null；命中但内容损坏可抛（流已 dispose 时
+        // ContentInfo.Duplicate 抛、坏图数据 Texture2D.Load 抛），由调用方 catch 记日志置
+        // null——未命中或加载异常均落失败字，不向 CreateImageBlock 外穿出
+        static Texture2D GetContentTexture(string url) {
+            string path = url[ContentScheme.Length..];
+            int dot = path.LastIndexOf('.');
+            int slash = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
+            bool hasSuffix = dot > slash;
+            string name = hasSuffix ? path[..dot] : path;
+            string suffix = hasSuffix ? path[(dot + 1)..] : null;
+            return ContentManager.Get<Texture2D>(name, suffix, throwOnNotFound: false);
+        }
+
         string ResolveUrl(string url) {
             if (string.IsNullOrWhiteSpace(url)) {
                 return string.Empty;
             }
             url = url.Trim();
-            // data: URI 早退：base64 字母表无 HTML 实体无空白，免对多 MB 串做 HtmlDecode
-            // 全文扫描；也不进下方 Uri.TryCreate 归一化（Uri.ToString 对 data 载荷的转义
-            // 改写不可控，有串改载荷风险）
+            // base64 image data URI 早退：免对多 MB 串做 HtmlDecode 全文扫描；也不进下方
+            // Uri.TryCreate 归一化（Uri.ToString 对 data 载荷的转义改写不可控，有串改载荷风险）
             if (IsDataUri(url)) {
                 return url;
             }
             url = WebUtility.HtmlDecode(url);
+            // 专有 scheme 短路：app:/data:（Storage 本地文件）与 content:（ContentManager
+            // 纹理）不做 // 补全 / Uri.TryCreate / BaseUrl 相对解析——Uri.TryCreate 会把
+            // app:foo 当绝对 URI 放过，显式短路既自档语义也保住路径原样大小写
+            if (url.StartsWith(AppScheme, StringComparison.OrdinalIgnoreCase)
+                || url.StartsWith(DataScheme, StringComparison.OrdinalIgnoreCase)
+                || url.StartsWith(ContentScheme, StringComparison.OrdinalIgnoreCase)) {
+                return url;
+            }
             if (url.StartsWith("//", StringComparison.Ordinal)) {
                 return $"https:{url}";
             }
