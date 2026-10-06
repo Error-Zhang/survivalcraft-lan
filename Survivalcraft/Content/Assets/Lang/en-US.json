@@ -568,7 +568,9 @@
     "14": "The world files may be occupied by another program.",
     "15": "All",
     "16": "Warnings",
-    "17": "Errors"
+    "17": "Errors",
+    "18": "Hint",
+    "19": "If you encounter an error, first go to the Content - Mod Management screen and check whether the enabled mods are compatible with the current API version. If they should be compatible but errors still occur, a mod conflict may have occurred; try disabling them one by one to ensure the game runs properly. You can usually open the mod's official website/release page from the Mod Management screen to report the issue. If you encounter a non-mod issue, please click the \"Report API Issue\" button in the Help screen."
   },
   "MoreCommunityLinkDialog": {
     "1": "No User",
@@ -4095,7 +4097,8 @@
       "Clear",
       "Copy",
       "Close",
-      "Upload"
+      "Upload",
+      "Hint"
     ],
     "RunJsDialog": {
       "1": "Run",

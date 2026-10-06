@@ -70,6 +70,7 @@
 * 要取消 Windows 系统上的文件关联，游戏设置-设备兼容和日志-文件关联，禁用即可
 * 网页版打不开？请尝试更换更好的网络，如果还是不行，请打开 [https://scapiweb.netlify.app/dashboard.html](https://scapiweb.netlify.app/dashboard.html)，检测你的浏览器是否支持网页版所需的功能。这里推荐使用最新版的 Chrome 浏览器。
 * 网页版键盘操作没反应？请将输入法切换成英文模式
+* 还有更多问题？[点击此处](https://gitee.com/SC-SPM/SurvivalcraftApi/issues) 提问，请务必详细描述
 
 ## 模组开发者引用、仓库构建说明等
 
