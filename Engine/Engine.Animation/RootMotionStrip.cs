@@ -10,12 +10,12 @@ namespace Engine.Animation {
         /// NeedsStrip=false 直接返回。骨骼缺失回退 model.RootBone；cur==null 跳过（无 NPE）。幂等。
         /// </summary>
         public static void StripRootTranslation(Matrix?[] boneTransforms, Model model, RootStripInfo info) {
-            if (!info.NeedsStrip || boneTransforms == null || model == null) {
+            if (!info.NeedsStrip
+                || boneTransforms == null
+                || model == null) {
                 return;
             }
-            ModelBone found = !string.IsNullOrEmpty(info.SourceBone)
-                ? model.FindBone(info.SourceBone, throwIfNotFound: false)
-                : null;
+            ModelBone found = !string.IsNullOrEmpty(info.SourceBone) ? model.FindBone(info.SourceBone, false) : null;
             ModelBone cur = found ?? model.RootBone;
             while (cur != null) {
                 if (boneTransforms[cur.Index].HasValue) {

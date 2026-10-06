@@ -127,13 +127,17 @@ namespace Engine.Animation {
             // 顶层 rootBoneRotation / rootBoneTranslation 有限性
             if (config.RootBoneRotation.HasValue) {
                 Vector3 r = config.RootBoneRotation.Value;
-                if (!IsFinite(r.X) || !IsFinite(r.Y) || !IsFinite(r.Z)) {
+                if (!IsFinite(r.X)
+                    || !IsFinite(r.Y)
+                    || !IsFinite(r.Z)) {
                     errors.Add("rootBoneRotation has non-finite component");
                 }
             }
             if (config.RootBoneTranslation.HasValue) {
                 Vector3 t = config.RootBoneTranslation.Value;
-                if (!IsFinite(t.X) || !IsFinite(t.Y) || !IsFinite(t.Z)) {
+                if (!IsFinite(t.X)
+                    || !IsFinite(t.Y)
+                    || !IsFinite(t.Z)) {
                     errors.Add("rootBoneTranslation has non-finite component");
                 }
             }
@@ -214,11 +218,14 @@ namespace Engine.Animation {
                         // 不变量：HasRootBoneRotation == true 时 RootBoneRotationValue 必非 null。
                         if (reference.HasRootBoneRotation) {
                             if (reference.RootBoneRotationValue is Vector3 rv) {
-                                if (!IsFinite(rv.X) || !IsFinite(rv.Y) || !IsFinite(rv.Z)) {
+                                if (!IsFinite(rv.X)
+                                    || !IsFinite(rv.Y)
+                                    || !IsFinite(rv.Z)) {
                                     errors.Add($"Animation '{alias}': rootBoneRotation has non-finite component");
                                 }
                             }
-                            else if (reference.RootBoneRotationValue is float rf && !IsFinite(rf)) {
+                            else if (reference.RootBoneRotationValue is float rf
+                                && !IsFinite(rf)) {
                                 errors.Add($"Animation '{alias}': rootBoneRotation must be finite (got {rf})");
                             }
                         }
@@ -226,7 +233,9 @@ namespace Engine.Animation {
                         if (reference.HasRootBoneTranslation
                             && reference.RootBoneTranslation.HasValue) {
                             Vector3 tv = reference.RootBoneTranslation.Value;
-                            if (!IsFinite(tv.X) || !IsFinite(tv.Y) || !IsFinite(tv.Z)) {
+                            if (!IsFinite(tv.X)
+                                || !IsFinite(tv.Y)
+                                || !IsFinite(tv.Z)) {
                                 errors.Add($"Animation '{alias}': rootBoneTranslation has non-finite component");
                             }
                         }
@@ -263,6 +272,7 @@ namespace Engine.Animation {
                     }
                 }
             }
+
             // 递归验证状态规则（支持嵌套 rules 决策树）
             void ValidateRules(List<StateRuleConfig> rules, string path, List<string> errors) {
                 for (int i = 0; i < rules.Count; i++) {
@@ -271,10 +281,12 @@ namespace Engine.Animation {
                     if (string.IsNullOrEmpty(rule.Condition)) {
                         errors.Add($"State rule {rulePath}: Condition is required");
                     }
-                    if (rule.Rules != null && rule.Rules.Count == 0) {
+                    if (rule.Rules != null
+                        && rule.Rules.Count == 0) {
                         errors.Add($"State rule {rulePath}: Rules cannot be empty (omit the field or add a child rule)");
                     }
-                    if (rule.HasRules && rule.Animation != null) {
+                    if (rule.HasRules
+                        && rule.Animation != null) {
                         errors.Add($"State rule {rulePath}: cannot have both Rules and Animation");
                     }
                     if (rule.HasRules) {
@@ -288,7 +300,7 @@ namespace Engine.Animation {
             }
         }
 
-        private static bool IsFinite(float f) => !float.IsNaN(f) && !float.IsInfinity(f);
+        static bool IsFinite(float f) => !float.IsNaN(f) && !float.IsInfinity(f);
 
         /// <summary>
         /// 在模型中查找指定名称的动画

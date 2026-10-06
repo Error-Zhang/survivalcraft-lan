@@ -1,5 +1,5 @@
+using System.Text;
 using Engine;
-using Engine.Media;
 using Markdig;
 using Markdig.Extensions.EmphasisExtras;
 using Markdig.Extensions.Tables;
@@ -19,8 +19,7 @@ namespace Game {
         // Strikethrough 扩展：默认 pipeline 不解析 ~~x~~（会留在字面量）
         // PipeTables：默认 pipeline 不解析 GFM 管道表（| a | b |）
         // TaskLists：默认 pipeline 不解析 GFM 任务项（- [ ] / - [x]）
-        static readonly MarkdownPipeline s_pipeline = new MarkdownPipelineBuilder()
-            .UseEmphasisExtras(EmphasisExtraOptions.Strikethrough)
+        static readonly MarkdownPipeline s_pipeline = new MarkdownPipelineBuilder().UseEmphasisExtras(EmphasisExtraOptions.Strikethrough)
             .UsePipeTables()
             .UseTaskLists()
             .Build();
@@ -71,27 +70,15 @@ namespace Game {
                     panel.Children.Add(widget);
                     break;
                 }
-                case ListBlock list:
-                    BuildList(list, panel, listDepth, colorOverride, depth);
-                    break;
-                case QuoteBlock quote:
-                    panel.Children.Add(CreateQuote(quote, listDepth, colorOverride, depth));
-                    break;
+                case ListBlock list: BuildList(list, panel, listDepth, colorOverride, depth); break;
+                case QuoteBlock quote: panel.Children.Add(CreateQuote(quote, listDepth, colorOverride, depth)); break;
                 case FencedCodeBlock fencedCode:
-                    panel.Children.Add(CreateCodeBlock(GetBlockLines(fencedCode.Lines.Lines, fencedCode.Lines.Count)));
-                    break;
+                    panel.Children.Add(CreateCodeBlock(GetBlockLines(fencedCode.Lines.Lines, fencedCode.Lines.Count))); break;
                 case CodeBlock indentedCode:
-                    panel.Children.Add(CreateCodeBlock(GetBlockLines(indentedCode.Lines.Lines, indentedCode.Lines.Count)));
-                    break;
-                case ThematicBreakBlock:
-                    panel.Children.Add(CreateThematicBreak());
-                    break;
-                case Table table:
-                    panel.Children.Add(CreateTable(table, colorOverride));
-                    break;
-                case HtmlBlock htmlBlock:
-                    BuildHtmlBlock(GetBlockText(htmlBlock), panel, listDepth, colorOverride, depth + 1);
-                    break;
+                    panel.Children.Add(CreateCodeBlock(GetBlockLines(indentedCode.Lines.Lines, indentedCode.Lines.Count))); break;
+                case ThematicBreakBlock: panel.Children.Add(CreateThematicBreak()); break;
+                case Table table: panel.Children.Add(CreateTable(table, colorOverride)); break;
+                case HtmlBlock htmlBlock: BuildHtmlBlock(GetBlockText(htmlBlock), panel, listDepth, colorOverride, depth + 1); break;
                 default: {
                     // 未知块（自定义扩展等）：取源文本按段落兜底，避免内容静默丢失
                     string text = GetBlockText(block);
@@ -141,7 +128,18 @@ namespace Game {
             }
             float contentX = MathUtils.Max(ListIndentPerDepth, MarkerOffsetX + maxMarkerWidth + MarkerTextGap);
             foreach (ListItemBlock item in list) {
-                listPanel.Children.Add(CreateListItem(list.IsOrdered, number, listDepth, item, colorOverride, markdigItem: true, depth, contentX));
+                listPanel.Children.Add(
+                    CreateListItem(
+                        list.IsOrdered,
+                        number,
+                        listDepth,
+                        item,
+                        colorOverride,
+                        true,
+                        depth,
+                        contentX
+                    )
+                );
                 number++;
             }
             panel.Children.Add(listPanel);
@@ -151,7 +149,14 @@ namespace Game {
         // 内容列换行宽 = 行宽 - 缩进；行内内容与嵌套块共用一个竖排 StackPanel。
         // 嵌套块/子列表挂在本级文字列内，因此行内坐标全部相对挂载点（marker 4 / 文字列 contentX），
         // 缩进随嵌套层级自然累加一档，不再按 listDepth 绝对档重复累计
-        CanvasWidget CreateListItem(bool ordered, int number, int listDepth, IEnumerable<MdBlock> markdigBlocks, Color? colorOverride, bool markdigItem, int depth, float contentX) {
+        CanvasWidget CreateListItem(bool ordered,
+            int number,
+            int listDepth,
+            IEnumerable<MdBlock> markdigBlocks,
+            Color? colorOverride,
+            bool markdigItem,
+            int depth,
+            float contentX) {
             // 任务项（- [ ] / - [x]）：marker 列换成 CheckboxWidget（GFM 任务项无 •/编号）
             bool isTaskItem = false;
             bool taskChecked = false;
@@ -172,9 +177,7 @@ namespace Game {
             }
             // 行框宽随嵌套收窄（构建时 CurrentIndentX=父累计，未含本档 contentX——文字列挂载点
             // 扣减的 contentX 即本档缩进），li 套 li 时行框/文字列不溢出宿主右缘
-            CanvasWidget row = new() {
-                Size = new Vector2(NestedContentWidth(), -1f)
-            };
+            CanvasWidget row = new() { Size = new Vector2(NestedContentWidth(), -1f) };
             if (!isTaskItem) {
                 FontTextWidget markerLabel = new() {
                     Text = HtmlTextUtils.GetListMarker(ordered, number, listDepth + 1),
@@ -249,7 +252,8 @@ namespace Game {
                 return false;
             }
             foreach (Inline child in inline) {
-                if (child is LinkInline link && link.IsImage) {
+                if (child is LinkInline link
+                    && link.IsImage) {
                     (images ??= []).Add(link);
                     any = true;
                 }
@@ -283,22 +287,20 @@ namespace Game {
         // 表格：Table→TableRow(IsHeader)→TableCell（1.4.0 无 Inline 属性，行内挂在 cell 内 ParagraphBlock.Inline 上）；
         // 列对齐在 Table.ColumnDefinitions[i].Alignment；表头行染粗体 span（跟随换行）
         MarkdownTableWidget CreateTable(Table table, Color? colorOverride) {
-            MarkdownTableWidget widget = new() {
-                Font = Font,
-                FontScale = FontScale,
-                DefaultColor = colorOverride ?? DefaultColor
-            };
+            MarkdownTableWidget widget = new() { Font = Font, FontScale = FontScale, DefaultColor = colorOverride ?? DefaultColor };
             if (LinkClicked != null) {
                 widget.LinkClicked += href => LinkClicked(href);
             }
-            var alignments = new List<MarkdownTableAlignment?>();
+            List<MarkdownTableAlignment?> alignments = new();
             foreach (TableColumnDefinition definition in table.ColumnDefinitions) {
-                alignments.Add(definition.Alignment switch {
-                    TableColumnAlign.Center => MarkdownTableAlignment.Center,
-                    TableColumnAlign.Right => MarkdownTableAlignment.Right,
-                    TableColumnAlign.Left => MarkdownTableAlignment.Left,
-                    _ => null
-                });
+                alignments.Add(
+                    definition.Alignment switch {
+                        TableColumnAlign.Center => MarkdownTableAlignment.Center,
+                        TableColumnAlign.Right => MarkdownTableAlignment.Right,
+                        TableColumnAlign.Left => MarkdownTableAlignment.Left,
+                        _ => null
+                    }
+                );
             }
             widget.SetColumnAlignments(alignments);
             foreach (MdBlock child in table) {
@@ -336,9 +338,7 @@ namespace Game {
             return result;
         }
 
-        static string GetBlockText(MdBlock block) {
-            return GetBlockText(block, 0);
-        }
+        static string GetBlockText(MdBlock block) => GetBlockText(block, 0);
 
         static string GetBlockText(MdBlock block, int depth) {
             if (depth > MaxDepth) {
@@ -347,7 +347,7 @@ namespace Game {
             if (block is LeafBlock leafBlock) {
                 return string.Join("\n", GetBlockLines(leafBlock.Lines.Lines, leafBlock.Lines.Count));
             }
-            var builder = new System.Text.StringBuilder();
+            StringBuilder builder = new();
             if (block is ContainerBlock container) {
                 foreach (MdBlock child in container) {
                     builder.AppendLine(GetBlockText(child, depth + 1));

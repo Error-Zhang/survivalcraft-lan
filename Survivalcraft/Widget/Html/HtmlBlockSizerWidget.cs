@@ -54,6 +54,7 @@ namespace Game {
             }
             return avail;
         }
+
         // 固定像素宽（width:300px → 300；builder 已做 content-box 补偿=声明值+水平 pad/border），
         // <0=未声明
         public float FixedWidth = -1f;
@@ -67,9 +68,7 @@ namespace Game {
         // 百分比宽上限（max-width:50% → 50），null=未声明；解析基准=测量期宿主可用宽
         public float? MaxWidthPercent;
 
-        public HtmlBlockSizerWidget() {
-            Direction = LayoutDirection.Vertical;
-        }
+        public HtmlBlockSizerWidget() => Direction = LayoutDirection.Vertical;
 
         public override void MeasureOverride(Vector2 parentAvailableSize) {
             float availX = parentAvailableSize.X;
@@ -104,11 +103,9 @@ namespace Game {
         // 目标宽：width 声明优先（固定 > 百分比），缺省=宿主可用宽；max-width 声明再取小。
         // 固定值在 ∞ 宽宿主下恒生效（绝对值语义）；仅 % 在 ∞ 时无解析基准跳过
         float ResolveTargetWidth(float availX) {
-            float width = FixedWidth >= 0f
-                ? FixedWidth
-                : float.IsPositiveInfinity(availX)
-                    ? float.PositiveInfinity
-                    : WidthPercent.HasValue ? availX * WidthPercent.Value / 100f : availX;
+            float width = FixedWidth >= 0f ? FixedWidth :
+                float.IsPositiveInfinity(availX) ? float.PositiveInfinity :
+                WidthPercent.HasValue ? availX * WidthPercent.Value / 100f : availX;
             float maxWidth = float.PositiveInfinity;
             if (MaxFixedWidth >= 0f) {
                 maxWidth = MaxFixedWidth;

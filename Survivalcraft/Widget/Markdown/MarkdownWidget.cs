@@ -62,7 +62,10 @@ namespace Game {
                 if (FlexPanelWidget.IsInsideFlex(codeBlock, this)) {
                     continue;
                 }
-                codeBlock.Size = new Vector2(MathUtils.Max(MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(codeBlock, this, contentWidth)), 50f), codeBlock.Size.Y);
+                codeBlock.Size = new Vector2(
+                    MathUtils.Max(MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(codeBlock, this, contentWidth)), 50f),
+                    codeBlock.Size.Y
+                );
             }
             // 图片块同机制（min cap 同源，flex 内不跳过照 HtmlWidget 图片循环口径：pending 占位
             // 帧回填必须保留——frame.Size.X>0 才能被 ResolvePendingWidths 收口适配上屏）；
@@ -71,7 +74,13 @@ namespace Game {
             foreach ((CanvasWidget imageBlock, float indentX) in m_builder.ImageBlocks) {
                 if (!m_imageLoader.IsFrameApplied(imageBlock)
                     && !m_imageLoader.IsFrameExplicit(imageBlock)) {
-                    imageBlock.Size = new Vector2(MathUtils.Max(MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(imageBlock, this, contentWidth)), 50f), imageBlock.Size.Y);
+                    imageBlock.Size = new Vector2(
+                        MathUtils.Max(
+                            MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(imageBlock, this, contentWidth)),
+                            50f
+                        ),
+                        imageBlock.Size.Y
+                    );
                 }
             }
             // 宽已解析的挂起 frame（纹理先于测量就绪：缓存命中/秒图）此刻补适配上屏
@@ -117,12 +126,9 @@ namespace Game {
                 // 同一输入结果确定，清脏防每帧 Measure 重试
                 m_builder.CodeBlocks.Clear();
                 m_builder.ImageBlocks.Clear();
-                Children.Add(new FontTextWidget {
-                    Text = "(Markdown 渲染失败：" + e.Message + ")",
-                    Font = m_builder.Font,
-                    Color = DefaultColor,
-                    WordWrap = true
-                });
+                Children.Add(
+                    new FontTextWidget { Text = "(Markdown 渲染失败：" + e.Message + ")", Font = m_builder.Font, Color = DefaultColor, WordWrap = true }
+                );
             }
             m_needsBuild = false;
         }

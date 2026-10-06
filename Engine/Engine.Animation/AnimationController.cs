@@ -31,6 +31,7 @@ namespace Engine.Animation {
 
         /// <summary>Base 层访问器（root motion 仅 Base 层参与）</summary>
         AnimationLayer BaseLayer => m_layers?.FirstOrDefault(layer => layer.Index == 0);
+
         /// <summary>当前 Base 层根运动配置（读点：ApplyRootMotion/HasRootMotion；写须走 SetRootMotionConfig）</summary>
         public RootMotionConfig m_currentRootMotionConfig => BaseLayer?.m_rootMotionConfig;
 
@@ -38,6 +39,7 @@ namespace Engine.Animation {
         /// 是否有活动的根运动配置
         /// </summary>
         public bool HasRootMotion => m_currentRootMotionConfig != null;
+
         public float m_prevRootMotionTime;
 
         // 缓存的父骨骼链旋转（将动画局部空间速度变换到模型空间）
@@ -100,7 +102,7 @@ namespace Engine.Animation {
         /// 根骨骼旋转角度（弧度），用于修正模型朝向
         /// 某些 glTF 模型的前方方向可能与游戏不一致，需要旋转修正
         /// </summary>
-        public float RootBoneRotation { get; set; } = 0f;
+        public float RootBoneRotation { get; set; }
 
         // ===== 根骨骼变换（rotation Vector3 扩展 + translation + 每动画覆盖混合） =====
         // 顶层配置目标
@@ -123,6 +125,7 @@ namespace Engine.Animation {
 
         /// <summary>当前有效根骨骼旋转（已混合）。ComponentModel 与 root motion 读取。</summary>
         public Quaternion EffectiveRootRotation => m_effectiveRootRotation;
+
         /// <summary>当前有效根骨骼平移（已混合）。</summary>
         public Vector3 EffectiveRootTranslation => m_effectiveRootTranslation;
 
@@ -172,7 +175,6 @@ namespace Engine.Animation {
                 // 使用简单模板作为后备
                 m_template = AnimationTemplateManager.Get("Simple");
             }
-
             if (model.RootBone != null) {
                 RootBoneName = FindAnimatableRootBoneName(model);
             }
@@ -207,7 +209,9 @@ namespace Engine.Animation {
             // 收集所有动画中出现的目标骨骼名
             HashSet<string> animatedBones = new();
             foreach (ModelAnimation anim in model.Animations) {
-                if (anim.Channels == null) continue;
+                if (anim.Channels == null) {
+                    continue;
+                }
                 foreach (ModelAnimation.AnimationChannel ch in anim.Channels) {
                     if (ch.TargetBoneName != null) {
                         animatedBones.Add(ch.TargetBoneName);
@@ -374,39 +378,39 @@ namespace Engine.Animation {
                         float startPhase = player.StartPhase;
                         float endPhase = player.EndPhase;
                         bool forward = endPhase >= startPhase;
-                        float impulsePhase = translationConfig.ImpulsePhase < 0
-                            ? (forward ? endPhase : startPhase)
-                            : translationConfig.ImpulsePhase;
-
+                        float impulsePhase = translationConfig.ImpulsePhase < 0 ? forward ? endPhase : startPhase : translationConfig.ImpulsePhase;
                         float prevNorm = duration > 0 ? m_prevRootMotionTime / duration : 0f;
                         float currNorm = duration > 0 ? currentTime / duration : 0f;
                         bool crossed = false;
-
                         if (animChanged) {
                             if (forward && currNorm >= impulsePhase) {
                                 crossed = true;
                             }
-                            else if (!forward && currNorm <= impulsePhase) {
+                            else if (!forward
+                                && currNorm <= impulsePhase) {
                                 crossed = true;
                             }
                         }
                         else if (forward) {
-                            if (prevNorm < impulsePhase && currNorm >= impulsePhase) {
+                            if (prevNorm < impulsePhase
+                                && currNorm >= impulsePhase) {
                                 crossed = true;
                             }
-                            else if (player.Loop && currNorm < prevNorm) {
+                            else if (player.Loop
+                                && currNorm < prevNorm) {
                                 crossed = prevNorm < impulsePhase || currNorm >= impulsePhase;
                             }
                         }
                         else {
-                            if (prevNorm > impulsePhase && currNorm <= impulsePhase) {
+                            if (prevNorm > impulsePhase
+                                && currNorm <= impulsePhase) {
                                 crossed = true;
                             }
-                            else if (player.Loop && currNorm > prevNorm) {
+                            else if (player.Loop
+                                && currNorm > prevNorm) {
                                 crossed = prevNorm > impulsePhase || currNorm <= impulsePhase;
                             }
                         }
-
                         if (crossed) {
                             impulse = CalculateRootMotionImpulse(translationConfig, rootMotionCache, startPhase, endPhase, impulsePhase);
                         }
@@ -432,8 +436,7 @@ namespace Engine.Animation {
             // 应用位移
             // AddImpulse: 仅在有冲量时应用
             // Blend/Override: 始终应用（包括零速度，确保 SmoothDamp 能减速）
-            bool shouldApply = translationConfig.Mode != TranslationMode.None
-                && Velocity.HasValue;
+            bool shouldApply = translationConfig.Mode != TranslationMode.None && Velocity.HasValue;
             if (translationConfig.Mode == TranslationMode.AddImpulse) {
                 shouldApply = shouldApply && impulse.HasValue;
             }
@@ -457,8 +460,11 @@ namespace Engine.Animation {
         /// <summary>
         /// 计算根运动冲量
         /// </summary>
-        public Vector3 CalculateRootMotionImpulse(TranslationConfig config, RootMotionCache cache,
-            float startPhase, float endPhase, float impulsePhase) {
+        public Vector3 CalculateRootMotionImpulse(TranslationConfig config,
+            RootMotionCache cache,
+            float startPhase,
+            float endPhase,
+            float impulsePhase) {
             // 优先使用配置覆盖值（已在实体空间，不需要变换）
             if (config.ImpulseOverride.HasValue) {
                 return config.ImpulseOverride.Value;
@@ -517,12 +523,8 @@ namespace Engine.Animation {
         /// 设置顶层根骨骼旋转配置（度）。同步更新 legacy float RootBoneRotation（Y 弧度，向后兼容）。
         /// </summary>
         public void SetRootRotationConfig(Vector3? eulerDegrees) {
-            m_configRootRotation = eulerDegrees.HasValue
-                ? EulerDegreesToQuaternion(eulerDegrees.Value)
-                : (Quaternion?)null;
-            RootBoneRotation = eulerDegrees.HasValue
-                ? eulerDegrees.Value.Y * MathF.PI / 180f
-                : 0f;
+            m_configRootRotation = eulerDegrees.HasValue ? EulerDegreesToQuaternion(eulerDegrees.Value) : null;
+            RootBoneRotation = eulerDegrees.HasValue ? eulerDegrees.Value.Y * MathF.PI / 180f : 0f;
         }
 
         /// <summary>
@@ -582,9 +584,7 @@ namespace Engine.Animation {
                 return;
             }
             m_rootBlendElapsed += deltaTime;
-            float raw = m_rootBlendDuration > 0f
-                ? m_rootBlendElapsed / m_rootBlendDuration
-                : 1f;
+            float raw = m_rootBlendDuration > 0f ? m_rootBlendElapsed / m_rootBlendDuration : 1f;
             float t = Math.Clamp(raw, 0f, 1f);
             float s = t * t * (3f - 2f * t); // smoothstep
             m_effectiveRootRotation = Quaternion.Slerp(m_rootRotFrom, m_rootRotTo, s);
@@ -597,7 +597,8 @@ namespace Engine.Animation {
         }
 
         Quaternion ResolveRotationTarget(AnimationReference animRef) {
-            if (animRef != null && animRef.HasRootBoneRotation) {
+            if (animRef != null
+                && animRef.HasRootBoneRotation) {
                 return RootRotationValueToQuaternion(animRef.RootBoneRotationValue);
             }
             return m_configRootRotation ?? Quaternion.Identity;
@@ -722,7 +723,9 @@ namespace Engine.Animation {
             bool isLooping = m_layerLooping.GetValueOrDefault(layerName, true);
             bool wasPlaying = m_layerWasPlaying.GetValueOrDefault(layerName, false);
             bool isPlaying = layer.AnimationPlayer?.IsPlaying ?? false;
-            if (wasPlaying && isPlaying && !isLooping) {
+            if (wasPlaying
+                && isPlaying
+                && !isLooping) {
                 ExecuteOnCompleteAction(oldRef.OnInterrupt);
             }
         }
@@ -797,14 +800,15 @@ namespace Engine.Animation {
 
                 // path 变化检测（路径 = 外层 idx → 内层 idx → ...）
                 bool pathChanged = !m_lastMatchedRuleIndex.TryGetValue(stateName, out int[] lastPath)
-                                || lastPath == null || !lastPath.SequenceEqual(path);
+                    || lastPath == null
+                    || !lastPath.SequenceEqual(path);
                 // source 名变化检测（支持 source: "[param]" 动态换动画）：path 相同时比较解析后 source 名。
                 // 字面量 source 恒同 → 不重切；[param] source 随参数值变 → 重切播新动画。
                 string resolvedSource = ResolveSource(matchedRule.Animation) ?? string.Empty;
                 if (!pathChanged) {
                     if (m_lastResolvedSource.TryGetValue(stateName, out string lastSrc)
                         && lastSrc == resolvedSource) {
-                        continue;  // path + source 都同 → 跳过
+                        continue; // path + source 都同 → 跳过
                     }
                 }
                 else {
@@ -850,10 +854,7 @@ namespace Engine.Animation {
                     // Base 层停用时清除根运动配置，根骨骼变换回退顶层
                     if (layerConfig.Layer == "Base") {
                         SetRootMotionConfig(null);
-                        SetRootTransformTarget(
-                            m_configRootRotation ?? Quaternion.Identity,
-                            m_configRootTranslation,
-                            0.2f);
+                        SetRootTransformTarget(m_configRootRotation ?? Quaternion.Identity, m_configRootTranslation, 0.2f);
                     }
                 }
             }
@@ -870,8 +871,7 @@ namespace Engine.Animation {
             for (int i = 0; i < rules.Count; i++) {
                 StateRuleConfig rule = rules[i];
                 bool result = !string.IsNullOrEmpty(rule.Condition)
-                    && (rule.Condition == "true"
-                        || m_ruleEvaluator.EvaluateCondition(rule.Condition, m_parameters));
+                    && (rule.Condition == "true" || m_ruleEvaluator.EvaluateCondition(rule.Condition, m_parameters));
                 if (!result) {
                     continue;
                 }
@@ -898,32 +898,30 @@ namespace Engine.Animation {
         /// 动态字段（speed/loop/phase/blendDuration/preservePose）按 HasXxx 判断 caller 是否显式设置；
         /// 引用类型字段（driverArgs/events/onComplete/rootMotion）按 null 判断。
         /// </summary>
-        private static AnimationReference MergeWithAlias(AnimationReference caller, AnimationReference alias) {
-            return new AnimationReference {
-                Source = alias.Source,
-                SpeedValue = caller.HasSpeed ? caller.SpeedValue : alias.SpeedValue,
-                LoopValue = caller.HasLoop ? caller.LoopValue : alias.LoopValue,
-                StartPhaseValue = caller.HasStartPhase ? caller.StartPhaseValue : alias.StartPhaseValue,
-                EndPhaseValue = caller.HasEndPhase ? caller.EndPhaseValue : alias.EndPhaseValue,
-                BlendDurationValue = caller.HasBlendDuration ? caller.BlendDurationValue : alias.BlendDurationValue,
-                PreservePose = caller.HasPreservePose ? caller.PreservePose : alias.PreservePose,
-                DriverArgs = caller.DriverArgs ?? alias.DriverArgs,
-                Events = caller.Events ?? alias.Events,
-                OnComplete = caller.OnComplete ?? alias.OnComplete,
-                OnInterrupt = caller.OnInterrupt ?? alias.OnInterrupt,
-                RootBoneRotationValue = caller.HasRootBoneRotation ? caller.RootBoneRotationValue : alias.RootBoneRotationValue,
-                RootBoneTranslation = caller.HasRootBoneTranslation ? caller.RootBoneTranslation : alias.RootBoneTranslation,
-                HasRootBoneRotation = caller.HasRootBoneRotation || alias.HasRootBoneRotation,
-                HasRootBoneTranslation = caller.HasRootBoneTranslation || alias.HasRootBoneTranslation,
-                RootMotion = caller.RootMotion ?? alias.RootMotion
-            };
-        }
+        static AnimationReference MergeWithAlias(AnimationReference caller, AnimationReference alias) => new() {
+            Source = alias.Source,
+            SpeedValue = caller.HasSpeed ? caller.SpeedValue : alias.SpeedValue,
+            LoopValue = caller.HasLoop ? caller.LoopValue : alias.LoopValue,
+            StartPhaseValue = caller.HasStartPhase ? caller.StartPhaseValue : alias.StartPhaseValue,
+            EndPhaseValue = caller.HasEndPhase ? caller.EndPhaseValue : alias.EndPhaseValue,
+            BlendDurationValue = caller.HasBlendDuration ? caller.BlendDurationValue : alias.BlendDurationValue,
+            PreservePose = caller.HasPreservePose ? caller.PreservePose : alias.PreservePose,
+            DriverArgs = caller.DriverArgs ?? alias.DriverArgs,
+            Events = caller.Events ?? alias.Events,
+            OnComplete = caller.OnComplete ?? alias.OnComplete,
+            OnInterrupt = caller.OnInterrupt ?? alias.OnInterrupt,
+            RootBoneRotationValue = caller.HasRootBoneRotation ? caller.RootBoneRotationValue : alias.RootBoneRotationValue,
+            RootBoneTranslation = caller.HasRootBoneTranslation ? caller.RootBoneTranslation : alias.RootBoneTranslation,
+            HasRootBoneRotation = caller.HasRootBoneRotation || alias.HasRootBoneRotation,
+            HasRootBoneTranslation = caller.HasRootBoneTranslation || alias.HasRootBoneTranslation,
+            RootMotion = caller.RootMotion ?? alias.RootMotion
+        };
 
         /// <summary>
         /// 按名称精确查找模型动画（大小写不敏感）。
         /// 不做模糊包含——短名误命中太坑（如 "Idle_Loop" 命中 "Crouch_Idle_Loop"）。
         /// </summary>
-        private ModelAnimation FindAnimation(string name) {
+        ModelAnimation FindAnimation(string name) {
             if (string.IsNullOrEmpty(name)) {
                 return null;
             }
@@ -941,8 +939,10 @@ namespace Engine.Animation {
         /// </summary>
         string ResolveSource(AnimationReference animRef) {
             string source = animRef?.Source;
-            if (!string.IsNullOrEmpty(source) && source.Length > 2
-                && source[0] == '[' && source[source.Length - 1] == ']') {
+            if (!string.IsNullOrEmpty(source)
+                && source.Length > 2
+                && source[0] == '['
+                && source[source.Length - 1] == ']') {
                 return m_parameters.GetString(source.Substring(1, source.Length - 2));
             }
             return source;
@@ -1340,11 +1340,7 @@ namespace Engine.Animation {
                 // 修复：之前整体用 alias 替换，导致 alias 的 rootMotion/events/onComplete 等虽能继承，
                 // 但语义不统一；现统一走 MergeWithAlias。
                 AnimationReference caller = new() {
-                    Source = animationNameOrAlias,
-                    LoopValue = loop,
-                    BlendDurationValue = blendDuration,
-                    HasLoop = true,
-                    HasBlendDuration = true
+                    Source = animationNameOrAlias, LoopValue = loop, BlendDurationValue = blendDuration, HasLoop = true, HasBlendDuration = true
                 };
                 animRef = MergeWithAlias(caller, aliasRef);
             }

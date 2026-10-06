@@ -61,21 +61,13 @@ namespace Game {
             Opacity = 1f;
         }
 
-        public TextSpan(string text) : this() {
-            Text = text ?? string.Empty;
-        }
+        public TextSpan(string text) : this() => Text = text ?? string.Empty;
 
-        public TextSpan(string text, Color? color) : this(text) {
-            Color = color;
-        }
+        public TextSpan(string text, Color? color) : this(text) => Color = color;
 
-        public TextSpan(string text, Color? color, RichTextStyle style) : this(text, color) {
-            Style = style;
-        }
+        public TextSpan(string text, Color? color, RichTextStyle style) : this(text, color) => Style = style;
 
-        public TextSpan(string text, Color? color, RichTextStyle style, string href) : this(text, color, style) {
-            Href = href;
-        }
+        public TextSpan(string text, Color? color, RichTextStyle style, string href) : this(text, color, style) => Href = href;
 
         public bool IsBold => Style is RichTextStyle.Bold or RichTextStyle.BoldItalic;
 

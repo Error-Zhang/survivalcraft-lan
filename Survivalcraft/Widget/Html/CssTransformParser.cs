@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using Engine;
 
@@ -28,7 +26,7 @@ namespace Game {
     //（matrix/skew/3d 系列/透视图）解析到即整条 false——不支持整体拒、防半解析错观感；
     // 空/none 也 false。长度单位口径同 TryParseWidthValue：px 直读、em/rem×16（引擎无字号
     // 上下文，按浏览器根字号定口径）、% 存比例愿望 Arrange 期解析、无单位数从宽当 px
-    internal static class CssTransformParser {
+    static class CssTransformParser {
         // transform 复合列表解析：逐个 name(args) 函数（大小写不敏感，函数间空白分隔，
         // 参数逗号或空白分隔均可）。任一函数不识别/参数非法 → 整条 false（无部分生效）
         public static bool TryParseTransform(string value, out List<CssTransformFunc> funcs) {
@@ -144,8 +142,7 @@ namespace Game {
             }
         }
 
-        static bool IsUsableScale(float s) => float.IsFinite(s)
-            && s != 0f;
+        static bool IsUsableScale(float s) => float.IsFinite(s) && s != 0f;
 
         // 平移参数：%/px/em/rem/无单位数（负值允许）。% 存百分数愿望（50% → 50），px 类归一 px。
         // ∞/NaN 拒（IsUsableScale 同口径；.NET TryParse 接受 "Infinity" 字面量，须显式设防）
@@ -188,8 +185,12 @@ namespace Game {
         }
 
         // 缩放参数：无单位数（大小写敏感无关，纯数字），负值允许（镜像）
-        static bool TryParseUnitless(string token, out float number) =>
-            float.TryParse(token.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out number);
+        static bool TryParseUnitless(string token, out float number) => float.TryParse(
+            token.Trim(),
+            NumberStyles.Float,
+            CultureInfo.InvariantCulture,
+            out number
+        );
 
         // 角度：deg/rad（大小写不敏感）归一为度；裸数从宽只认 0 的 CSS 合法形（rotate(0)），
         // 非零裸数拒（CSS 要求非零角带单位）。尾部 IsFinite 设防（"Infinity" 字面量可过
@@ -225,7 +226,8 @@ namespace Game {
             int start = -1;
             for (int i = 0; i < text.Length; i++) {
                 char c = text[i];
-                if (c == ',' || char.IsWhiteSpace(c)) {
+                if (c == ','
+                    || char.IsWhiteSpace(c)) {
                     if (start >= 0) {
                         args.Add(text[start..i]);
                         start = -1;

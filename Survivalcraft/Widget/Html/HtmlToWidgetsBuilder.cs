@@ -1,3 +1,4 @@
+using System.Text;
 using Engine;
 using Engine.Graphics;
 
@@ -83,6 +84,7 @@ namespace Game {
                 }
             }
         }
+
         // 领取全部挂起锚点名 → block（行内 a name/id 落容纳块、块 id 落块根，未产件的空容器
         // 自然滚存给后继块——空目标与后继块顶同位近似）；同名先到先得（浏览器 duplicate-id 口径）
         void ClaimAnchors(Widget block) {
@@ -101,7 +103,8 @@ namespace Game {
         // text= 语义——浏览器标题继承 body 色是另一口径，留档不跟）
         protected override RichTextWidget CreateRichText(Color? colorOverride) {
             RichTextWidget widget = base.CreateRichText(colorOverride);
-            if (colorOverride == null && m_bodyTextColor.HasValue) {
+            if (colorOverride == null
+                && m_bodyTextColor.HasValue) {
                 widget.Color = m_bodyTextColor.Value;
             }
             return widget;
@@ -139,15 +142,18 @@ namespace Game {
         // 单件版：叶子块（标题/引用/代码块/hr/表格/列表整体）。
         // fontScaleCtx：所在元素继承的字号 ctx（tier-1.5，BoxLengthContext 消费；默认 1f=
         // tier-1 口径，Markdown 转发路径零改）
-        Widget WrapInStyleBox(HtmlAgilityPack.HtmlNode node, Widget widget, Color? colorOverride, bool backgroundViaShell = true, float fontScaleCtx = 1f) {
+        Widget WrapInStyleBox(HtmlAgilityPack.HtmlNode node,
+            Widget widget,
+            Color? colorOverride,
+            bool backgroundViaShell = true,
+            float fontScaleCtx = 1f) {
             string style = node.GetAttributeValue("style", null);
             // margin/padding em/% 上下文（tier-1.5 口径见 BoxLengthContext 留档）
             (float emBase, float percentBase) = BoxLengthContext(style, fontScaleCtx);
             bool hasMargin = CssStyleParser.TryGetBox(style, "margin", out Vector4 margin, emBase, percentBase);
             bool hasPadding = CssStyleParser.TryGetBox(style, "padding", out Vector4 padding, emBase, percentBase);
             // TryGetBorder 返回=有声明（含全禁），起壳查 HasAny（全禁=无边框不起壳）
-            bool hasBorder = CssStyleParser.TryGetBorder(style, out CssStyleParser.CssBorderSpec border)
-                && border.HasAny;
+            bool hasBorder = CssStyleParser.TryGetBorder(style, out CssStyleParser.CssBorderSpec border) && border.HasAny;
             // background-color：TryParse 失败=无效值整条丢弃不起壳（CSS 解析期丢弃口径）。
             // bgColor 预声明：&& 右侧 out 隔着 bool 变量不保明确赋值（C# 条件调用模式）
             Color bgColor = default;
@@ -166,12 +172,16 @@ namespace Game {
             bool hasRadius = CssStyleParser.TryParseBorderRadius(style, out Vector4 cornerPx, out Vector4 cornerPct);
             // 纯 opacity 不起壳：壳无装饰可淡（文字淡出走 ctx 递归链），白付一层 wrapper+
             // 对齐移交；有 margin/padding/border/background 时壳装饰随 v 淡出
-            if (!hasMargin && !hasPadding && !hasBorder && !hasBackground) {
+            if (!hasMargin
+                && !hasPadding
+                && !hasBorder
+                && !hasBackground) {
                 return null;
             }
             // CSS border-box：border 宽并入内缩（内容区=壳宽−border−padding），边框画壳外缘不压内容
-            ApplyBoxEdges(widget, padding + (hasBorder ? border.Widths : Vector4.Zero), applyTop: true, applyBottom: true);
+            ApplyBoxEdges(widget, padding + (hasBorder ? border.Widths : Vector4.Zero), true, true);
             HtmlStyleBoxWidget shell = new() { Direction = LayoutDirection.Vertical };
+
             // 壳装饰色乘 v（预乘淡出，与 GlobalColorTransform 乘法交换；==1 恒等零回归）——
             // 壳不走 ColorTransform：Arrange 会级联浸透子树，与 ctx 落点双淡
             Color? Decoration(Color? c) => hasOpacity && c.HasValue ? c.Value * nodeOpacity : c;
@@ -210,7 +220,11 @@ namespace Game {
         // 变换壳恒最外（sizer/盒壳之上），CSS transform 作用于整个盒含 margin 效果近似。
         // fontScaleCtx：所在元素继承的字号 ctx（标题 case 传入=进 case 已乘阶梯，自身盒壳
         // em/% 按阶梯字号解析——<h2 style="padding:0.5em">=11.2px；默认 1f=tier-1 口径）
-        Widget FinalizeBlock(HtmlAgilityPack.HtmlNode node, Widget widget, Color? colorOverride, bool backgroundViaShell = true, float fontScaleCtx = 1f) {
+        Widget FinalizeBlock(HtmlAgilityPack.HtmlNode node,
+            Widget widget,
+            Color? colorOverride,
+            bool backgroundViaShell = true,
+            float fontScaleCtx = 1f) {
             Widget shell = WrapInStyleBox(node, widget, colorOverride, backgroundViaShell, fontScaleCtx);
             return ApplyBlockSizing(node, shell ?? widget, fontScaleCtx);
         }
@@ -313,12 +327,10 @@ namespace Game {
         }
 
         // 块级 sizing 声明检出：width/max-width 任一有效（解析通过）即 true
-        static bool HasBlockSizing(string style) {
-            return (CssStyleParser.TryGetDeclaration(style, "width", out string widthDecl)
-                    && CssStyleParser.TryParseWidthValue(widthDecl, out _, out _))
-                || (CssStyleParser.TryGetDeclaration(style, "max-width", out string maxWidthDecl)
-                    && CssStyleParser.TryParseWidthValue(maxWidthDecl, out _, out _));
-        }
+        static bool HasBlockSizing(string style) =>
+            (CssStyleParser.TryGetDeclaration(style, "width", out string widthDecl) && CssStyleParser.TryParseWidthValue(widthDecl, out _, out _))
+            || (CssStyleParser.TryGetDeclaration(style, "max-width", out string maxWidthDecl)
+                && CssStyleParser.TryParseWidthValue(maxWidthDecl, out _, out _));
 
         // margin 水平 auto 检出（级联 last-wins，镜像 TryGetBox 的简写/长手结构）：margin 简写
         // 按声明序整条重置两侧（任一 token 非法=简写丢弃不重置），margin-left/right 长手覆写
@@ -362,8 +374,7 @@ namespace Game {
                     bool isAuto = declaration.Value.Trim().Equals("auto", StringComparison.OrdinalIgnoreCase);
                     // 长手合法性同简写口径（TryParseLengthUnit：em/% token 也能覆写 auto 位；
                     // 数值换算归 TryGetBox，本函数只判 auto 位）
-                    if (isAuto
-                        || CssStyleParser.TryParseLengthUnit(declaration.Value, out _, out _, out _)) {
+                    if (isAuto || CssStyleParser.TryParseLengthUnit(declaration.Value, out _, out _, out _)) {
                         if (declaration.Key == "margin-left") {
                             leftAuto = isAuto;
                         }
@@ -384,15 +395,18 @@ namespace Game {
         // border 宽并入 padding 返回值：EndStyleBox 铺边距与 CurrentIndentX 自动含 border。
         // fontScaleCtx：所在元素继承的字号 ctx（tier-1.5，BoxLengthContext 消费；默认 1f=
         // tier-1 口径）
-        bool TryBeginStyleBox(HtmlAgilityPack.HtmlNode node, Color? colorOverride, out StackPanelWidget shell, out Vector4 padding, float fontScaleCtx = 1f) {
+        bool TryBeginStyleBox(HtmlAgilityPack.HtmlNode node,
+            Color? colorOverride,
+            out StackPanelWidget shell,
+            out Vector4 padding,
+            float fontScaleCtx = 1f) {
             string style = node.GetAttributeValue("style", null);
             // margin/padding em/% 上下文（tier-1.5 口径见 BoxLengthContext 留档）
             (float emBase, float percentBase) = BoxLengthContext(style, fontScaleCtx);
             bool hasMargin = CssStyleParser.TryGetBox(style, "margin", out Vector4 margin, emBase, percentBase);
             bool hasPadding = CssStyleParser.TryGetBox(style, "padding", out padding, emBase, percentBase);
             // TryGetBorder 返回=有声明（含全禁），起壳查 HasAny（全禁=无边框不起壳）
-            bool hasBorder = CssStyleParser.TryGetBorder(style, out CssStyleParser.CssBorderSpec border)
-                && border.HasAny;
+            bool hasBorder = CssStyleParser.TryGetBorder(style, out CssStyleParser.CssBorderSpec border) && border.HasAny;
             // background-color：TryParse 失败=无效值整条丢弃不起壳（CSS 解析期丢弃口径）。
             // bgColor 预声明：&& 右侧 out 隔着 bool 变量不保明确赋值（C# 条件调用模式）；
             // transparent（A=0）=无背景免壳省每帧 Draw 调度
@@ -416,11 +430,17 @@ namespace Game {
             bool hasRadius = CssStyleParser.TryParseBorderRadius(style, out Vector4 cornerPx, out Vector4 cornerPct);
             // 纯 opacity 不起壳：壳无装饰可淡（文字淡出走 ctx 递归链），白付一层 wrapper+
             // 对齐移交；有 margin/padding/border/background 时壳装饰随 v 淡出
-            if (!hasMargin && !hasPadding && !hasBorder && !hasBackground && !hasSizing && !hasTransform) {
+            if (!hasMargin
+                && !hasPadding
+                && !hasBorder
+                && !hasBackground
+                && !hasSizing
+                && !hasTransform) {
                 shell = null;
                 return false;
             }
             HtmlStyleBoxWidget styleShell = new() { Direction = LayoutDirection.Vertical };
+
             // 壳装饰色乘 v（预乘淡出，与 GlobalColorTransform 乘法交换；==1 恒等零回归）——
             // 壳不走 ColorTransform：Arrange 会级联浸透子树，与 ctx 落点双淡
             Color? Decoration(Color? c) => hasOpacity && c.HasValue ? c.Value * nodeOpacity : c;
@@ -496,7 +516,7 @@ namespace Game {
                 return false;
             }
             for (int i = 0; i < shell.Children.Count; i++) {
-                ApplyBoxEdges(shell.Children[i], padding, applyTop: i == 0, applyBottom: i == shell.Children.Count - 1);
+                ApplyBoxEdges(shell.Children[i], padding, i == 0, i == shell.Children.Count - 1);
             }
             return true;
         }
@@ -542,7 +562,19 @@ namespace Game {
         //（ResolveUaTagFontScale，small/big/sub/sup/font 包块可达流）、通用块 case 乘本节点
         // style font-size 声明（ResolveFontScaleCtx——CSS font-size 块级继承：绝对单位换底
         // ratio、相对单位 ctx×ratio）。默认 1f=tier-1 口径
-        void BuildHtmlNodes(IEnumerable<HtmlAgilityPack.HtmlNode> nodes, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, TextWordBreak wordBreakCtx = TextWordBreak.BreakWord, bool noWrapCtx = false, float lineHeightMul = 0f, float lineHeightPx = 0f, float opacityCtx = 1f, float letterSpacingCtx = 0f, float fontScaleCtx = 1f) {
+        void BuildHtmlNodes(IEnumerable<HtmlAgilityPack.HtmlNode> nodes,
+            StackPanelWidget panel,
+            int listDepth,
+            Color? colorOverride,
+            int depth,
+            TextAnchor blockAlign = TextAnchor.Default,
+            TextWordBreak wordBreakCtx = TextWordBreak.BreakWord,
+            bool noWrapCtx = false,
+            float lineHeightMul = 0f,
+            float lineHeightPx = 0f,
+            float opacityCtx = 1f,
+            float letterSpacingCtx = 0f,
+            float fontScaleCtx = 1f) {
             if (depth > MaxDepth) {
                 return;
             }
@@ -550,6 +582,7 @@ namespace Game {
             // 行内段冲刷目标：带 style 盒属性的段落类标签（p/dt/summary/footer 行内形态）重定向
             // 进壳，其余场景恒等于 panel（壳方案 WrapInStyleBox 只覆盖单件块，段落壳在此换目标）
             StackPanelWidget flowPanel = panel;
+
             // paraOverride 四元组：word-break / white-space / line-height 段落级声明（p/dt/summary/
             // footer-inline 等在调用点已 Resolve 自身），null=纯继承上下文。LetterSpacing 第五元同链
             // 并入（ResolveParaOverrideCtx 打包）——「段落级声明经 override 叠入」与 opacityOverride
@@ -558,7 +591,9 @@ namespace Game {
             // opacityOverride：段落类元素（p/dt/summary/footer 行内形态等）自身 opacity 需叠进
             // 段落件——内容冲刷时闭包里的 opacityCtx 还是外层值（本节点声明不落 span 上下文），
             // 调用点把 resolve 后的值经此传入；null=纯继承 ctx（其余 Flush 调用点）
-            void Flush(TextAnchor? alignOverride = null, (TextWordBreak WordBreak, bool NoWrap, float LineHeightMul, float LineHeightPx, float LetterSpacing)? paraOverride = null, float? opacityOverride = null) {
+            void Flush(TextAnchor? alignOverride = null,
+                (TextWordBreak WordBreak, bool NoWrap, float LineHeightMul, float LineHeightPx, float LetterSpacing)? paraOverride = null,
+                float? opacityOverride = null) {
                 TextAnchor effectiveAlign = alignOverride ?? blockAlign;
                 if (pendingSpans.Count > 0) {
                     HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
@@ -576,8 +611,8 @@ namespace Game {
                         widget.TextAnchor = effectiveAlign;
                     }
                     // 段落级 word-break/white-space/line-height/letter-spacing 声明覆盖容器继承上下文（CSS 元素级口径）
-                    (TextWordBreak paraBreak, bool paraNoWrap, float paraLhMul, float paraLhPx, float paraLs) =
-                        paraOverride ?? (wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, letterSpacingCtx);
+                    (TextWordBreak paraBreak, bool paraNoWrap, float paraLhMul, float paraLhPx, float paraLs) = paraOverride
+                        ?? (wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, letterSpacingCtx);
                     widget.WordBreak = paraBreak;
                     if (paraNoWrap) {
                         widget.WordWrap = false;
@@ -608,6 +643,7 @@ namespace Game {
                     pendingSpans.Clear();
                 }
             }
+
             // 行内上下文透传：子节点里的 <img> 升级为图片块（富文本编辑器帖图最常见 <p><img> 包裹，
             // img 无文本子节点会被 span 解析静默丢弃），其余照常 span 累积。
             // fontCtx：img 升级块自身盒壳（AddImageBlockWithAttributes→WrapInStyleBox）的字号
@@ -632,6 +668,7 @@ namespace Game {
                     HtmlSpanParser.ParseHtmlNode(child, pendingSpans, default, EffectiveTextColor(inlineColorOverride), linkColor: m_bodyLinkColor);
                 }
             }
+
             // text-indent 挂载（声明节点自身行内内容首段吃缩进）：调用点须在块边界 Flush 之后
             //——先关上一段边界再挂，防被上一段的收尾 Flush 误消费
             void PendTextIndent(HtmlAgilityPack.HtmlNode indentNode) {
@@ -641,6 +678,7 @@ namespace Game {
                     m_pendingIndentOwner = indentNode;
                 }
             }
+
             // 待挂缩进所有权回收：挂接 case 在子树递归完成后、下一块边界 Flush 前调用——
             // 所有者仍是本节点=子树内无任何段落消费（空段/仅直建块/仅列表等），块外截断
             void ClearUnconsumedTextIndent(HtmlAgilityPack.HtmlNode owner) {
@@ -650,11 +688,13 @@ namespace Game {
                     m_pendingIndentOwner = null;
                 }
             }
+
             // 块件挂载统一咽喉：先领取挂起锚点再挂树
             void AttachBlock(StackPanelWidget target, Widget block) {
                 ClaimAnchors(block);
                 target.Children.Add(block);
             }
+
             foreach (HtmlAgilityPack.HtmlNode node in nodes) {
                 if (node.NodeType != HtmlAgilityPack.HtmlNodeType.Element
                     && node.NodeType != HtmlAgilityPack.HtmlNodeType.Text) {
@@ -684,7 +724,20 @@ namespace Game {
                     PendAnchor(node);
                     // 字号 ctx：容器壳（FinalizeBlock）吃继承 ctx，容器内子项吃本节点声明叠加
                     //（CreateFlexContainer 内 ResolveFontScaleCtx，与 div 容器同口径）
-                    Widget flexBlock = CreateFlexContainer(node, listDepth, colorOverride, depth, blockAlign, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, opacityCtx, letterSpacingCtx, fontScaleCtx);
+                    Widget flexBlock = CreateFlexContainer(
+                        node,
+                        listDepth,
+                        colorOverride,
+                        depth,
+                        blockAlign,
+                        wordBreakCtx,
+                        noWrapCtx,
+                        lineHeightMul,
+                        lineHeightPx,
+                        opacityCtx,
+                        letterSpacingCtx,
+                        fontScaleCtx
+                    );
                     if (flexBlock != null) {
                         AttachBlock(panel, FinalizeBlock(node, flexBlock, colorOverride, fontScaleCtx: fontScaleCtx));
                     }
@@ -694,8 +747,7 @@ namespace Game {
                     case "script":
                     case "style":
                         // 体源码非可见内容（HasVisibleText 同口径），块级直挂场景兜底跳过
-                        Flush();
-                        break;
+                        Flush(); break;
                     case "h1":
                     case "h2":
                     case "h3":
@@ -735,10 +787,19 @@ namespace Game {
                         if (styledPara) {
                             flowPanel = paraShell;
                         }
-                        AppendInlineChildren(node, colorOverride, opacityCtx * ResolveOpacityMultiplier(node), ResolveFontScaleCtx(node, fontScaleCtx));
+                        AppendInlineChildren(
+                            node,
+                            colorOverride,
+                            opacityCtx * ResolveOpacityMultiplier(node),
+                            ResolveFontScaleCtx(node, fontScaleCtx)
+                        );
                         // p 自身 opacity：壳只淡出壳装饰，文字件须叠进同一系数——Flush 闭包只看
                         // 外层 ctx，经 opacityOverride 把「ctx × p 自身系数」传入（无声明=×1 原值）
-                        Flush(ParseBlockAlignment(node), ResolveParaOverrideCtx(node, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, letterSpacingCtx), opacityCtx * ResolveOpacityMultiplier(node));
+                        Flush(
+                            ParseBlockAlignment(node),
+                            ResolveParaOverrideCtx(node, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, letterSpacingCtx),
+                            opacityCtx * ResolveOpacityMultiplier(node)
+                        );
                         if (styledPara) {
                             flowPanel = panel;
                             if (EndStyleBox(paraShell, paraPad)) {
@@ -761,7 +822,21 @@ namespace Game {
                         float divLs = ResolveLetterSpacingCtx(node, letterSpacingCtx);
                         // 子树 ctx 叠进本节点系数（壳只淡出壳装饰，文字淡出靠 ctx 传导）；
                         // 字号 ctx 叠本节点 style font-size 声明（CSS 块级继承，ResolveFontScaleCtx）
-                        BuildHtmlNodes(node.ChildNodes, styledDiv ? divShell : panel, listDepth, colorOverride, depth + 1, ParseBlockAlignment(node) ?? blockAlign, divBreak, divNoWrap, divLhMul, divLhPx, opacityCtx * ResolveOpacityMultiplier(node), divLs, ResolveFontScaleCtx(node, fontScaleCtx));
+                        BuildHtmlNodes(
+                            node.ChildNodes,
+                            styledDiv ? divShell : panel,
+                            listDepth,
+                            colorOverride,
+                            depth + 1,
+                            ParseBlockAlignment(node) ?? blockAlign,
+                            divBreak,
+                            divNoWrap,
+                            divLhMul,
+                            divLhPx,
+                            opacityCtx * ResolveOpacityMultiplier(node),
+                            divLs,
+                            ResolveFontScaleCtx(node, fontScaleCtx)
+                        );
                         if (styledDiv && EndStyleBox(divShell, divPad)) {
                             AttachBlock(panel, ApplyBlockSizing(node, divShell, fontScaleCtx));
                         }
@@ -794,7 +869,21 @@ namespace Game {
                         (float shellLhMul, float shellLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
                         float shellLs = ResolveLetterSpacingCtx(node, letterSpacingCtx);
                         // body font-size 声明是 CSS 继承链经典根（同 div 容器口径）
-                        BuildHtmlNodes(node.ChildNodes, panel, listDepth, colorOverride, depth + 1, ParseBlockAlignment(node) ?? blockAlign, shellBreak, shellNoWrap, shellLhMul, shellLhPx, opacityCtx * ResolveOpacityMultiplier(node), shellLs, ResolveFontScaleCtx(node, fontScaleCtx));
+                        BuildHtmlNodes(
+                            node.ChildNodes,
+                            panel,
+                            listDepth,
+                            colorOverride,
+                            depth + 1,
+                            ParseBlockAlignment(node) ?? blockAlign,
+                            shellBreak,
+                            shellNoWrap,
+                            shellLhMul,
+                            shellLhPx,
+                            opacityCtx * ResolveOpacityMultiplier(node),
+                            shellLs,
+                            ResolveFontScaleCtx(node, fontScaleCtx)
+                        );
                         break;
                     }
                     case "ul":
@@ -805,7 +894,22 @@ namespace Game {
                         // 列表整体 CSS width/max-width 接线（sizer 包列表壳/面板，case 出口统一咽喉点）
                         Flush();
                         PendAnchor(node);
-                        Widget listBlock = BuildHtmlList(node, node.Name.Equals("ol", StringComparison.Ordinal), panel, listDepth, colorOverride, depth, blockAlign, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, opacityCtx, letterSpacingCtx, fontScaleCtx);
+                        Widget listBlock = BuildHtmlList(
+                            node,
+                            node.Name.Equals("ol", StringComparison.Ordinal),
+                            panel,
+                            listDepth,
+                            colorOverride,
+                            depth,
+                            blockAlign,
+                            wordBreakCtx,
+                            noWrapCtx,
+                            lineHeightMul,
+                            lineHeightPx,
+                            opacityCtx,
+                            letterSpacingCtx,
+                            fontScaleCtx
+                        );
                         if (listBlock != null) {
                             AttachBlock(panel, ApplyBlockSizing(node, listBlock, fontScaleCtx));
                         }
@@ -820,7 +924,20 @@ namespace Game {
                         // CSS opacity：标题文字件同主链口径（ctx × 自身声明）→ ColorTransform。
                         // 字号 ctx：引用内子树吃本节点 style font-size 声明（自身盒壳由 FinalizeBlock
                         // 按继承 ctx 解析，同 div 容器两段口径）
-                        Widget quote = CreateHtmlQuote(node, listDepth, colorOverride, depth, blockAlign, quoteBreak, quoteNoWrap, quoteLhMul, quoteLhPx, opacityCtx * ResolveOpacityMultiplier(node), quoteLs, ResolveFontScaleCtx(node, fontScaleCtx));
+                        Widget quote = CreateHtmlQuote(
+                            node,
+                            listDepth,
+                            colorOverride,
+                            depth,
+                            blockAlign,
+                            quoteBreak,
+                            quoteNoWrap,
+                            quoteLhMul,
+                            quoteLhPx,
+                            opacityCtx * ResolveOpacityMultiplier(node),
+                            quoteLs,
+                            ResolveFontScaleCtx(node, fontScaleCtx)
+                        );
                         AttachBlock(panel, FinalizeBlock(node, quote, colorOverride, fontScaleCtx: fontScaleCtx));
                         ClearUnconsumedTextIndent(node);
                         break;
@@ -829,8 +946,21 @@ namespace Game {
                         Flush();
                         PendAnchor(node);
                         HtmlAgilityPack.HtmlNode code = node.Element("code") ?? node;
-                        ParseCodeTextStyle(node, out Color? codeTextColor, out float? codeScaleOverride, out float? codeRoundingRadius, out Color? codeBackgroundColor);
-                        Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), codeTextColor, codeScaleOverride, codeRoundingRadius, flexNaturalBasis: m_flexDepth > 0, backgroundColor: codeBackgroundColor);
+                        ParseCodeTextStyle(
+                            node,
+                            out Color? codeTextColor,
+                            out float? codeScaleOverride,
+                            out float? codeRoundingRadius,
+                            out Color? codeBackgroundColor
+                        );
+                        Widget codeBlock = CreateCodeBlock(
+                            ReplaceBrWithNewline(code).Split('\n'),
+                            codeTextColor,
+                            codeScaleOverride,
+                            codeRoundingRadius,
+                            m_flexDepth > 0,
+                            codeBackgroundColor
+                        );
                         // 代码块随 ctx×自身声明淡出（BevelledRect 框+Label 行全子树浸透）
                         codeBlock.ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(node));
                         AttachBlock(panel, FinalizeBlock(node, codeBlock, colorOverride, fontScaleCtx: fontScaleCtx));
@@ -869,11 +999,32 @@ namespace Game {
                         float tableFontCtx = ResolveFontScaleCtx(node, fontScaleCtx);
                         HtmlAgilityPack.HtmlNode captionNode = node.Element("caption");
                         if (captionNode != null) {
-                            BuildHtmlNodes(captionNode.ChildNodes, panel, listDepth, colorOverride, depth + 1, TextAnchor.HorizontalCenter, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, opacityCtx * ResolveOpacityMultiplier(captionNode), letterSpacingCtx, ResolveFontScaleCtx(captionNode, tableFontCtx));
+                            BuildHtmlNodes(
+                                captionNode.ChildNodes,
+                                panel,
+                                listDepth,
+                                colorOverride,
+                                depth + 1,
+                                TextAnchor.HorizontalCenter,
+                                wordBreakCtx,
+                                noWrapCtx,
+                                lineHeightMul,
+                                lineHeightPx,
+                                opacityCtx * ResolveOpacityMultiplier(captionNode),
+                                letterSpacingCtx,
+                                ResolveFontScaleCtx(captionNode, tableFontCtx)
+                            );
                         }
-                        TablePanelWidget table = CreateHtmlTable(node, colorOverride, depth, blockAlign, opacityCtx * ResolveOpacityMultiplier(node), tableFontCtx);
+                        TablePanelWidget table = CreateHtmlTable(
+                            node,
+                            colorOverride,
+                            depth,
+                            blockAlign,
+                            opacityCtx * ResolveOpacityMultiplier(node),
+                            tableFontCtx
+                        );
                         if (table != null) {
-                            AttachBlock(panel, FinalizeBlock(node, table, colorOverride, backgroundViaShell: false, fontScaleCtx));
+                            AttachBlock(panel, FinalizeBlock(node, table, colorOverride, false, fontScaleCtx));
                         }
                         break;
                     }
@@ -888,11 +1039,31 @@ namespace Game {
                         Flush();
                         PendAnchor(node);
                         PendTextIndent(node);
-                        bool styledCenter = TryBeginStyleBox(node, colorOverride, out StackPanelWidget centerShell, out Vector4 centerPad, fontScaleCtx);
+                        bool styledCenter = TryBeginStyleBox(
+                            node,
+                            colorOverride,
+                            out StackPanelWidget centerShell,
+                            out Vector4 centerPad,
+                            fontScaleCtx
+                        );
                         (TextWordBreak centerBreak, bool centerNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
                         (float centerLhMul, float centerLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
                         float centerLs = ResolveLetterSpacingCtx(node, letterSpacingCtx);
-                        BuildHtmlNodes(node.ChildNodes, styledCenter ? centerShell : panel, listDepth, colorOverride, depth + 1, TextAnchor.HorizontalCenter, centerBreak, centerNoWrap, centerLhMul, centerLhPx, opacityCtx * ResolveOpacityMultiplier(node), centerLs, ResolveFontScaleCtx(node, fontScaleCtx));
+                        BuildHtmlNodes(
+                            node.ChildNodes,
+                            styledCenter ? centerShell : panel,
+                            listDepth,
+                            colorOverride,
+                            depth + 1,
+                            TextAnchor.HorizontalCenter,
+                            centerBreak,
+                            centerNoWrap,
+                            centerLhMul,
+                            centerLhPx,
+                            opacityCtx * ResolveOpacityMultiplier(node),
+                            centerLs,
+                            ResolveFontScaleCtx(node, fontScaleCtx)
+                        );
                         if (styledCenter && EndStyleBox(centerShell, centerPad)) {
                             AttachBlock(panel, ApplyBlockSizing(node, centerShell, fontScaleCtx));
                         }
@@ -909,7 +1080,21 @@ namespace Game {
                         (TextWordBreak dlBreak, bool dlNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
                         (float dlLhMul, float dlLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
                         float dlLs = ResolveLetterSpacingCtx(node, letterSpacingCtx);
-                        BuildHtmlNodes(node.ChildNodes, styledDl ? dlShell : panel, listDepth, colorOverride, depth + 1, blockAlign, dlBreak, dlNoWrap, dlLhMul, dlLhPx, opacityCtx * ResolveOpacityMultiplier(node), dlLs, ResolveFontScaleCtx(node, fontScaleCtx));
+                        BuildHtmlNodes(
+                            node.ChildNodes,
+                            styledDl ? dlShell : panel,
+                            listDepth,
+                            colorOverride,
+                            depth + 1,
+                            blockAlign,
+                            dlBreak,
+                            dlNoWrap,
+                            dlLhMul,
+                            dlLhPx,
+                            opacityCtx * ResolveOpacityMultiplier(node),
+                            dlLs,
+                            ResolveFontScaleCtx(node, fontScaleCtx)
+                        );
                         if (styledDl && EndStyleBox(dlShell, dlPad)) {
                             AttachBlock(panel, ApplyBlockSizing(node, dlShell, fontScaleCtx));
                         }
@@ -924,9 +1109,18 @@ namespace Game {
                         if (styledDt) {
                             flowPanel = dtShell;
                         }
-                        AppendInlineChildren(node, colorOverride, opacityCtx * ResolveOpacityMultiplier(node), ResolveFontScaleCtx(node, fontScaleCtx));
+                        AppendInlineChildren(
+                            node,
+                            colorOverride,
+                            opacityCtx * ResolveOpacityMultiplier(node),
+                            ResolveFontScaleCtx(node, fontScaleCtx)
+                        );
                         // dt 自身 opacity 叠进段落件（同 p 口径：Flush 闭包只看外层 ctx）
-                        Flush(null, ResolveParaOverrideCtx(node, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, letterSpacingCtx), opacityCtx * ResolveOpacityMultiplier(node));
+                        Flush(
+                            null,
+                            ResolveParaOverrideCtx(node, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, letterSpacingCtx),
+                            opacityCtx * ResolveOpacityMultiplier(node)
+                        );
                         if (styledDt) {
                             flowPanel = panel;
                             if (EndStyleBox(dtShell, dtPad)) {
@@ -953,7 +1147,21 @@ namespace Game {
                         (TextWordBreak ddBreak, bool ddNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
                         (float ddLhMul, float ddLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
                         float ddLs = ResolveLetterSpacingCtx(node, letterSpacingCtx);
-                        BuildHtmlNodes(node.ChildNodes, ddPanel, listDepth, colorOverride, depth + 1, blockAlign, ddBreak, ddNoWrap, ddLhMul, ddLhPx, opacityCtx * ResolveOpacityMultiplier(node), ddLs, ResolveFontScaleCtx(node, fontScaleCtx));
+                        BuildHtmlNodes(
+                            node.ChildNodes,
+                            ddPanel,
+                            listDepth,
+                            colorOverride,
+                            depth + 1,
+                            blockAlign,
+                            ddBreak,
+                            ddNoWrap,
+                            ddLhMul,
+                            ddLhPx,
+                            opacityCtx * ResolveOpacityMultiplier(node),
+                            ddLs,
+                            ResolveFontScaleCtx(node, fontScaleCtx)
+                        );
                         CurrentIndentX = prevIndentDd;
                         CanvasWidget ddOuter = new() { Size = new Vector2(NestedContentWidth(), -1f) };
                         if (blockAlign != TextAnchor.Default) {
@@ -978,14 +1186,29 @@ namespace Game {
                         Flush();
                         PendAnchor(node);
                         PendTextIndent(node);
-                        bool styledSummary = TryBeginStyleBox(node, colorOverride, out StackPanelWidget summaryShell, out Vector4 summaryPad, fontScaleCtx);
+                        bool styledSummary = TryBeginStyleBox(
+                            node,
+                            colorOverride,
+                            out StackPanelWidget summaryShell,
+                            out Vector4 summaryPad,
+                            fontScaleCtx
+                        );
                         if (styledSummary) {
                             flowPanel = summaryShell;
                         }
                         HtmlSpanParser.AddText("▼ ", pendingSpans, default, EffectiveTextColor(colorOverride));
-                        AppendInlineChildren(node, colorOverride, opacityCtx * ResolveOpacityMultiplier(node), ResolveFontScaleCtx(node, fontScaleCtx));
+                        AppendInlineChildren(
+                            node,
+                            colorOverride,
+                            opacityCtx * ResolveOpacityMultiplier(node),
+                            ResolveFontScaleCtx(node, fontScaleCtx)
+                        );
                         // summary 自身 opacity 叠进段落件（同 p 口径：Flush 闭包只看外层 ctx）
-                        Flush(null, ResolveParaOverrideCtx(node, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, letterSpacingCtx), opacityCtx * ResolveOpacityMultiplier(node));
+                        Flush(
+                            null,
+                            ResolveParaOverrideCtx(node, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, letterSpacingCtx),
+                            opacityCtx * ResolveOpacityMultiplier(node)
+                        );
                         if (styledSummary) {
                             flowPanel = panel;
                             if (EndStyleBox(summaryShell, summaryPad)) {
@@ -1005,17 +1228,43 @@ namespace Game {
                         PendAnchor(node);
                         PendTextIndent(node);
                         if (ContainsBlockChild(node)) {
-                            bool styledFooter = TryBeginStyleBox(node, colorOverride, out StackPanelWidget footerShell, out Vector4 footerPad, fontScaleCtx);
+                            bool styledFooter = TryBeginStyleBox(
+                                node,
+                                colorOverride,
+                                out StackPanelWidget footerShell,
+                                out Vector4 footerPad,
+                                fontScaleCtx
+                            );
                             (TextWordBreak footerBreak, bool footerNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
                             (float footerLhMul, float footerLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
                             float footerLs = ResolveLetterSpacingCtx(node, letterSpacingCtx);
-                            BuildHtmlNodes(node.ChildNodes, styledFooter ? footerShell : panel, listDepth, colorOverride, depth + 1, blockAlign, footerBreak, footerNoWrap, footerLhMul, footerLhPx, opacityCtx * ResolveOpacityMultiplier(node), footerLs, ResolveFontScaleCtx(node, fontScaleCtx));
+                            BuildHtmlNodes(
+                                node.ChildNodes,
+                                styledFooter ? footerShell : panel,
+                                listDepth,
+                                colorOverride,
+                                depth + 1,
+                                blockAlign,
+                                footerBreak,
+                                footerNoWrap,
+                                footerLhMul,
+                                footerLhPx,
+                                opacityCtx * ResolveOpacityMultiplier(node),
+                                footerLs,
+                                ResolveFontScaleCtx(node, fontScaleCtx)
+                            );
                             if (styledFooter && EndStyleBox(footerShell, footerPad)) {
                                 AttachBlock(panel, ApplyBlockSizing(node, footerShell, fontScaleCtx));
                             }
                         }
                         else {
-                            bool styledFooterInline = TryBeginStyleBox(node, colorOverride, out StackPanelWidget footerShell, out Vector4 footerInlinePad, fontScaleCtx);
+                            bool styledFooterInline = TryBeginStyleBox(
+                                node,
+                                colorOverride,
+                                out StackPanelWidget footerShell,
+                                out Vector4 footerInlinePad,
+                                fontScaleCtx
+                            );
                             if (styledFooterInline) {
                                 flowPanel = footerShell;
                             }
@@ -1024,7 +1273,11 @@ namespace Game {
                             // span.Opacity——Flush 用外层 ctx 原值，再乘即 v² 双淡出（与 p 的
                             // AppendInlineChildren 只解析子节点不同口径）。letter-spacing 不受此限：
                             // span 解析不消费该声明，经 paraOverride 叠入无重复计算（替换语义）
-                            Flush(null, ResolveParaOverrideCtx(node, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, letterSpacingCtx), opacityCtx);
+                            Flush(
+                                null,
+                                ResolveParaOverrideCtx(node, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, letterSpacingCtx),
+                                opacityCtx
+                            );
                             if (styledFooterInline) {
                                 flowPanel = panel;
                                 if (EndStyleBox(footerShell, footerInlinePad)) {
@@ -1057,11 +1310,31 @@ namespace Game {
                             PendAnchor(node);
                             PendTextIndent(node);
                             float uaFontCtx = fontScaleCtx * ResolveUaTagFontScale(node);
-                            bool styledUnknown = TryBeginStyleBox(node, colorOverride, out StackPanelWidget unknownShell, out Vector4 unknownPad, uaFontCtx);
+                            bool styledUnknown = TryBeginStyleBox(
+                                node,
+                                colorOverride,
+                                out StackPanelWidget unknownShell,
+                                out Vector4 unknownPad,
+                                uaFontCtx
+                            );
                             (TextWordBreak unknownBreak, bool unknownNoWrap) = ResolveWordBreakCtx(node, wordBreakCtx, noWrapCtx);
                             (float unknownLhMul, float unknownLhPx) = ResolveLineHeightCtx(node, lineHeightMul, lineHeightPx);
                             float unknownLs = ResolveLetterSpacingCtx(node, letterSpacingCtx);
-                            BuildHtmlNodes(node.ChildNodes, styledUnknown ? unknownShell : panel, listDepth, colorOverride, depth + 1, blockAlign, unknownBreak, unknownNoWrap, unknownLhMul, unknownLhPx, opacityCtx * ResolveOpacityMultiplier(node), unknownLs, ResolveFontScaleCtx(node, uaFontCtx));
+                            BuildHtmlNodes(
+                                node.ChildNodes,
+                                styledUnknown ? unknownShell : panel,
+                                listDepth,
+                                colorOverride,
+                                depth + 1,
+                                blockAlign,
+                                unknownBreak,
+                                unknownNoWrap,
+                                unknownLhMul,
+                                unknownLhPx,
+                                opacityCtx * ResolveOpacityMultiplier(node),
+                                unknownLs,
+                                ResolveFontScaleCtx(node, uaFontCtx)
+                            );
                             if (styledUnknown && EndStyleBox(unknownShell, unknownPad)) {
                                 AttachBlock(panel, ApplyBlockSizing(node, unknownShell, uaFontCtx));
                             }
@@ -1072,11 +1345,22 @@ namespace Game {
                             PendAnchor(node);
                             PendTextIndent(node);
                             float uaFontCtx = fontScaleCtx * ResolveUaTagFontScale(node);
-                            bool styledImgPara = TryBeginStyleBox(node, colorOverride, out StackPanelWidget imgParaShell, out Vector4 imgParaPad, uaFontCtx);
+                            bool styledImgPara = TryBeginStyleBox(
+                                node,
+                                colorOverride,
+                                out StackPanelWidget imgParaShell,
+                                out Vector4 imgParaPad,
+                                uaFontCtx
+                            );
                             if (styledImgPara) {
                                 flowPanel = imgParaShell;
                             }
-                            AppendInlineChildren(node, colorOverride, opacityCtx * ResolveOpacityMultiplier(node), ResolveFontScaleCtx(node, uaFontCtx));
+                            AppendInlineChildren(
+                                node,
+                                colorOverride,
+                                opacityCtx * ResolveOpacityMultiplier(node),
+                                ResolveFontScaleCtx(node, uaFontCtx)
+                            );
                             if (styledImgPara) {
                                 // 尾冲刷：img 之后的尾随文本仍滞 pendingSpans，不冲就逃出壳落外层
                                 //（审查 P0，同 p/dt/summary/footer 行内分支口径）；
@@ -1127,15 +1411,25 @@ namespace Game {
         // fontScaleCtx：容器继承字号 ctx——容器自身 style font-size 声明经 ResolveFontScaleCtx
         // 叠加后传块级子树重入（匿名行内 item 走 span 解析不吃）；子项透明度归 1 防双淡的
         // ColorTransform 路线对字号 ctx 不适用（emBase 无壳可落），必须显式透传
-        Widget CreateFlexContainer(HtmlAgilityPack.HtmlNode node, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign, TextWordBreak wordBreakCtx, bool noWrapCtx, float lineHeightMul, float lineHeightPx, float opacityCtx, float letterSpacingCtx, float fontScaleCtx = 1f) {
+        Widget CreateFlexContainer(HtmlAgilityPack.HtmlNode node,
+            int listDepth,
+            Color? colorOverride,
+            int depth,
+            TextAnchor blockAlign,
+            TextWordBreak wordBreakCtx,
+            bool noWrapCtx,
+            float lineHeightMul,
+            float lineHeightPx,
+            float opacityCtx,
+            float letterSpacingCtx,
+            float fontScaleCtx = 1f) {
             if (depth > MaxDepth) {
                 return null;
             }
             FlexPanelWidget flexPanel = new() {
                 // 块级盒语义：display:flex 占满宿主宽（Near 塌缩内容宽会让 justify-content/
                 // flex-grow 失去可分配空间），对齐移交由壳/sizer 出口按既有链覆盖
-                HorizontalAlignment = WidgetAlignment.Stretch,
-                ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(node))
+                HorizontalAlignment = WidgetAlignment.Stretch, ColorTransform = Color.White * (opacityCtx * ResolveOpacityMultiplier(node))
             };
             string style = node.GetAttributeValue("style", null);
             // 容器属性声明序循环（简写重置槽位、长手随序覆写，CSS 级联口径统一）：
@@ -1148,12 +1442,8 @@ namespace Game {
             Vector2 gap = Vector2.Zero;
             foreach (KeyValuePair<string, string> declaration in CssStyleParser.ParseDeclarations(style)) {
                 switch (declaration.Key) {
-                    case "flex-direction":
-                        direction = ParseFlexDirection(declaration.Value) ?? direction;
-                        break;
-                    case "flex-wrap":
-                        wrap = ParseFlexWrap(declaration.Value) ?? wrap;
-                        break;
+                    case "flex-direction": direction = ParseFlexDirection(declaration.Value) ?? direction; break;
+                    case "flex-wrap": wrap = ParseFlexWrap(declaration.Value) ?? wrap; break;
                     case "flex-flow": {
                         // <direction> || <wrap> 双 token 任意序分发（`row wrap`/`column` 单 token
                         // 合法）；任一 token 不识别整条拒（简写原子性）
@@ -1201,12 +1491,8 @@ namespace Game {
                             gap = new Vector2(columnGapOnly, gap.Y);
                         }
                         break;
-                    case "justify-content":
-                        justify = ParseFlexJustify(declaration.Value) ?? justify;
-                        break;
-                    case "align-items":
-                        align = ParseFlexAlign(declaration.Value) ?? align;
-                        break;
+                    case "justify-content": justify = ParseFlexJustify(declaration.Value) ?? justify; break;
+                    case "align-items": align = ParseFlexAlign(declaration.Value) ?? align; break;
                 }
             }
             flexPanel.Direction = direction;
@@ -1222,6 +1508,7 @@ namespace Game {
             float itemLs = ResolveLetterSpacingCtx(node, letterSpacingCtx);
             float itemFontCtx = ResolveFontScaleCtx(node, fontScaleCtx);
             List<TextSpan> pendingSpans = [];
+
             // 行内子节点累积 → 匿名段落 item（块级元素子边界与收尾处冲刷；纯空白经
             // TrimLeadingWhitespace 蒸发不产件，同 Flush 口径）。容器 ctx 已落
             // flexPanel.ColorTransform 浸透，匿名件不再叠（叠乘即双淡）
@@ -1254,6 +1541,7 @@ namespace Game {
                 flexPanel.Children.Add(widget);
                 pendingSpans.Clear();
             }
+
             // flex 子项构建期深度 +1（覆盖全子项构建循环：img 升级件/匿名行内累积/块级子树
             // 重入 BuildHtmlNodes——子树内 pre 直发块与顶层 pre case 均经 m_flexDepth 判定走
             // flexNaturalBasis）。构建中途异常的减配平由构建入口 m_flexDepth=0 统一清零兜底
@@ -1301,7 +1589,21 @@ namespace Game {
                 // 块 default 同口径）：临时面板收集，单件上提直挂（少一层无谓嵌套），多件（一元素
                 // 拆多块）整面板作一件。子项透明度归 1（容器 ColorTransform 担），字号 ctx 照传
                 StackPanelWidget itemPanel = CreatePanel();
-                BuildHtmlNodes([child], itemPanel, listDepth, colorOverride, depth + 1, itemAlign, itemBreak, itemNoWrap, itemLhMul, itemLhPx, 1f, itemLs, itemFontCtx);
+                BuildHtmlNodes(
+                    [child],
+                    itemPanel,
+                    listDepth,
+                    colorOverride,
+                    depth + 1,
+                    itemAlign,
+                    itemBreak,
+                    itemNoWrap,
+                    itemLhMul,
+                    itemLhPx,
+                    1f,
+                    itemLs,
+                    itemFontCtx
+                );
                 if (itemPanel.Children.Count == 0) {
                     // 空元素子（如 `<div style="flex:1"></div>`）：CSS 口径仍是 flex item（空盒
                     // 参与 grow 分配）——补零尺寸空载体件承接 attached 属性（CanvasWidget 无子
@@ -1324,19 +1626,20 @@ namespace Game {
         // gap/basis 值解析：TryParseWidthValue 收 px/em/rem/pt；% 拒（相对主轴尺寸布局期不可
         // 得）；∞/NaN 拒（"Infinity"/"1e40" 字面量会经 float.TryParse 通过——∞ gap 无限放大
         // 行宽、∞ basis 把主轴期望带成 ∞，均毁排）
-        static bool TryParseFlexGapValue(string token, out float px) {
-            return CssStyleParser.TryParseWidthValue(token, out bool isPercent, out px)
-                && !isPercent
-                && float.IsFinite(px);
-        }
+        static bool TryParseFlexGapValue(string token, out float px) => CssStyleParser.TryParseWidthValue(token, out bool isPercent, out px)
+            && !isPercent
+            && float.IsFinite(px);
 
         // flex-grow/shrink 数值（CSS 非负 number；负值/垃圾/∞/NaN 拒——grow=∞ 会让
         // free×grow/Σgrow 除零出 NaN 毁行分配）
-        static bool TryParseFlexNumber(string token, out float value) {
-            return float.TryParse(token.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value)
-                && value >= 0f
-                && float.IsFinite(value);
-        }
+        static bool TryParseFlexNumber(string token, out float value) => float.TryParse(
+                token.Trim(),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out value
+            )
+            && value >= 0f
+            && float.IsFinite(value);
 
         // flex-direction 值解析（无效返回 null 整条丢）
         static FlexDirection? ParseFlexDirection(string value) {
@@ -1437,8 +1740,7 @@ namespace Game {
                             }
                         }
                         // number 形省略 basis 位按 CSS 补 0%（flex:1 ≡ 1 1 0%）
-                        if (sawNumber
-                            && !basisSeen) {
+                        if (sawNumber && !basisSeen) {
                             basis = 0f;
                         }
                         break;
@@ -1476,7 +1778,20 @@ namespace Game {
         // fontScaleCtx：列表继承字号 ctx（tier-1.5）——列表节点自身 style font-size 声明经
         // ResolveFontScaleCtx 叠加进 li 子树（li 内容段落/li 直发块/嵌套列表/行内 img 同吃）；
         // 列表自身壳（WrapInStyleBox(listNode)）吃继承 ctx，自身声明归 BoxLengthContext 内部
-        Widget BuildHtmlList(HtmlAgilityPack.HtmlNode listNode, bool ordered, StackPanelWidget panel, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, TextWordBreak wordBreakCtx = TextWordBreak.BreakWord, bool noWrapCtx = false, float lineHeightMul = 0f, float lineHeightPx = 0f, float opacityCtx = 1f, float letterSpacingCtx = 0f, float fontScaleCtx = 1f) {
+        Widget BuildHtmlList(HtmlAgilityPack.HtmlNode listNode,
+            bool ordered,
+            StackPanelWidget panel,
+            int listDepth,
+            Color? colorOverride,
+            int depth,
+            TextAnchor blockAlign = TextAnchor.Default,
+            TextWordBreak wordBreakCtx = TextWordBreak.BreakWord,
+            bool noWrapCtx = false,
+            float lineHeightMul = 0f,
+            float lineHeightPx = 0f,
+            float opacityCtx = 1f,
+            float letterSpacingCtx = 0f,
+            float fontScaleCtx = 1f) {
             if (depth > MaxDepth) {
                 return null;
             }
@@ -1514,19 +1829,14 @@ namespace Game {
             int scanNumber = number;
             for (int i = 0; i < items.Count; i++) {
                 markers[i] = MarkerText(items[i], ordered, listType, scanNumber, listDepth + 1, out int nextNumber);
-                maxMarkerWidth = MathUtils.Max(
-                    maxMarkerWidth,
-                    Font.MeasureText(markers[i], new Vector2(markerScale), Vector2.Zero).X
-                );
+                maxMarkerWidth = MathUtils.Max(maxMarkerWidth, Font.MeasureText(markers[i], new Vector2(markerScale), Vector2.Zero).X);
                 scanNumber = nextNumber;
             }
             float contentX = MathUtils.Max(ListIndentPerDepth, MarkerOffsetX + maxMarkerWidth + MarkerTextGap);
             for (int itemIndex = 0; itemIndex < items.Count; itemIndex++) {
                 HtmlAgilityPack.HtmlNode li = items[itemIndex];
                 // 行框宽随嵌套收窄（同 MarkdownToWidgetsBuilder.CreateListItem）
-                CanvasWidget row = new() {
-                    Size = new Vector2(NestedContentWidth(), -1f)
-                };
+                CanvasWidget row = new() { Size = new Vector2(NestedContentWidth(), -1f) };
                 if (blockAlign != TextAnchor.Default) {
                     // 对齐容器内列表：行框撑满列表宽（NestedContentWidth()=-1 时 desired 收缩），
                     // 文字列 Stretch+锚点才有居中空间
@@ -1540,10 +1850,7 @@ namespace Game {
                 // 回填（IndentX=行框挂载点缩进；消除格内 li 定宽/natural 污染列协商的 D1 源）
                 CurrentPanel?.Shells.Add(new ShellEntry { Frame = row, IndentX = CurrentIndentX, Kind = ShellKind.FlowShell });
                 FontTextWidget markerLabel = new() {
-                    Text = markers[itemIndex],
-                    Font = Font,
-                    Color = EffectiveTextColor(colorOverride),
-                    FontScale = markerScale
+                    Text = markers[itemIndex], Font = Font, Color = EffectiveTextColor(colorOverride), FontScale = markerScale
                 };
                 // marker 随列表 opacity 声明淡出（FontTextWidget 色×GlobalColorTransform；
                 // 不含 li 自身声明——li 声明只管 li 内容，marker 归列表级）
@@ -1573,6 +1880,7 @@ namespace Game {
                 // li 自身 style font-size 声明叠加（CSS 块级继承，li 内容各流同吃）
                 float liOpacityCtx = opacityCtx * ResolveOpacityMultiplier(li);
                 float liFontCtx = ResolveFontScaleCtx(li, listFontCtx);
+
                 void FlushLi() {
                     if (pendingSpans.Count > 0) {
                         HtmlSpanParser.TrimLeadingWhitespace(pendingSpans);
@@ -1601,13 +1909,39 @@ namespace Game {
                         pendingSpans = [];
                     }
                 }
+
                 foreach (HtmlAgilityPack.HtmlNode child in li.ChildNodes) {
                     bool isBlock = child.NodeType == HtmlAgilityPack.HtmlNodeType.Element
-                        && child.Name.ToLowerInvariant() is "ul" or "ol" or "menu" or "blockquote" or "pre" or "p" or "div"
-                            or "section" or "article" or "table" or "footer" or "address"
-                            or "center" or "dl" or "dt" or "dd" or "figure" or "figcaption" or "details" or "summary"
+                        && child.Name.ToLowerInvariant() is "ul"
+                            or "ol"
+                            or "menu"
+                            or "blockquote"
+                            or "pre"
+                            or "p"
+                            or "div"
+                            or "section"
+                            or "article"
+                            or "table"
+                            or "footer"
+                            or "address"
+                            or "center"
+                            or "dl"
+                            or "dt"
+                            or "dd"
+                            or "figure"
+                            or "figcaption"
+                            or "details"
+                            or "summary"
                             or "caption"
-                            or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr" or "html" or "body";
+                            or "h1"
+                            or "h2"
+                            or "h3"
+                            or "h4"
+                            or "h5"
+                            or "h6"
+                            or "hr"
+                            or "html"
+                            or "body";
                     if (isBlock) {
                         // li 直发块不经 BuildHtmlNodes 分发，hidden 在此补拦（default case 重入
                         // 顶层分发自带拦截，blockquote/pre/hr/h1-6/列表直发只认此处）
@@ -1625,13 +1959,42 @@ namespace Game {
                             case "menu":
                                 // li 级 width 不吃：嵌套列表不经 ApplyBlockSizing（li 行框内
                                 // % 分母/钳制口径未定，留档不做；顶层列表整体已接）
-                                contentPanel.Children.Add(BuildHtmlList(child, child.Name.Equals("ol", StringComparison.Ordinal), contentPanel, listDepth + 1, colorOverride, depth + 1, blockAlign, liBreak, liNoWrap, liLhMul, liLhPx, liOpacityCtx, liLs, liFontCtx));
-                                break;
+                                contentPanel.Children.Add(
+                                    BuildHtmlList(
+                                        child,
+                                        child.Name.Equals("ol", StringComparison.Ordinal),
+                                        contentPanel,
+                                        listDepth + 1,
+                                        colorOverride,
+                                        depth + 1,
+                                        blockAlign,
+                                        liBreak,
+                                        liNoWrap,
+                                        liLhMul,
+                                        liLhPx,
+                                        liOpacityCtx,
+                                        liLs,
+                                        liFontCtx
+                                    )
+                                ); break;
                             case "blockquote": {
                                 (TextWordBreak liQuoteBreak, bool liQuoteNoWrap) = ResolveWordBreakCtx(child, liBreak, liNoWrap);
                                 (float liQuoteLhMul, float liQuoteLhPx) = ResolveLineHeightCtx(child, liLhMul, liLhPx);
                                 float liQuoteLs = ResolveLetterSpacingCtx(child, liLs);
-                                Widget quote = CreateHtmlQuote(child, listDepth + 1, colorOverride, depth + 1, blockAlign, liQuoteBreak, liQuoteNoWrap, liQuoteLhMul, liQuoteLhPx, liOpacityCtx * ResolveOpacityMultiplier(child), liQuoteLs, ResolveFontScaleCtx(child, liFontCtx));
+                                Widget quote = CreateHtmlQuote(
+                                    child,
+                                    listDepth + 1,
+                                    colorOverride,
+                                    depth + 1,
+                                    blockAlign,
+                                    liQuoteBreak,
+                                    liQuoteNoWrap,
+                                    liQuoteLhMul,
+                                    liQuoteLhPx,
+                                    liOpacityCtx * ResolveOpacityMultiplier(child),
+                                    liQuoteLs,
+                                    ResolveFontScaleCtx(child, liFontCtx)
+                                );
                                 Widget liQuote = WrapInStyleBox(child, quote, colorOverride, fontScaleCtx: liFontCtx) ?? quote;
                                 ClaimAnchors(liQuote);
                                 contentPanel.Children.Add(liQuote);
@@ -1639,8 +2002,21 @@ namespace Game {
                             }
                             case "pre": {
                                 HtmlAgilityPack.HtmlNode code = child.Element("code") ?? child;
-                                ParseCodeTextStyle(child, out Color? liCodeTextColor, out float? liCodeScaleOverride, out float? liCodeRoundingRadius, out Color? liCodeBackgroundColor);
-                                Widget codeBlock = CreateCodeBlock(ReplaceBrWithNewline(code).Split('\n'), liCodeTextColor, liCodeScaleOverride, liCodeRoundingRadius, flexNaturalBasis: m_flexDepth > 0, backgroundColor: liCodeBackgroundColor);
+                                ParseCodeTextStyle(
+                                    child,
+                                    out Color? liCodeTextColor,
+                                    out float? liCodeScaleOverride,
+                                    out float? liCodeRoundingRadius,
+                                    out Color? liCodeBackgroundColor
+                                );
+                                Widget codeBlock = CreateCodeBlock(
+                                    ReplaceBrWithNewline(code).Split('\n'),
+                                    liCodeTextColor,
+                                    liCodeScaleOverride,
+                                    liCodeRoundingRadius,
+                                    m_flexDepth > 0,
+                                    liCodeBackgroundColor
+                                );
                                 // 代码块随 ctx×自身声明淡出（同顶层 pre 口径）
                                 codeBlock.ColorTransform = Color.White * (liOpacityCtx * ResolveOpacityMultiplier(child));
                                 Widget liCode = WrapInStyleBox(child, codeBlock, colorOverride, fontScaleCtx: liFontCtx) ?? codeBlock;
@@ -1669,7 +2045,13 @@ namespace Game {
                                 // case 同款）——li 直发 h2 自身 padding em 按 1.4 阶梯解析
                                 widget.ColorTransform = Color.White * (liOpacityCtx * ResolveOpacityMultiplier(child));
                                 HtmlSpanParser.ParseHtmlNode(child, widget.Spans, default, widget.Color, linkColor: m_bodyLinkColor);
-                                Widget liHeading = WrapInStyleBox(child, widget, colorOverride, fontScaleCtx: liFontCtx * HeadingScale(child.Name[1] - '0')) ?? widget;
+                                Widget liHeading = WrapInStyleBox(
+                                        child,
+                                        widget,
+                                        colorOverride,
+                                        fontScaleCtx: liFontCtx * HeadingScale(child.Name[1] - '0')
+                                    )
+                                    ?? widget;
                                 ClaimAnchors(liHeading);
                                 contentPanel.Children.Add(liHeading);
                                 break;
@@ -1686,7 +2068,21 @@ namespace Game {
                             default: {
                                 // p/div/section/article/table：单节点重入顶层分发（BuildHtmlNodes），
                                 // 与顶层同口径——纯行内整块成段、嵌块递归、li 内 p>img 不再静默丢
-                                BuildHtmlNodes([child], contentPanel, listDepth + 1, colorOverride, depth + 1, blockAlign, liBreak, liNoWrap, liLhMul, liLhPx, liOpacityCtx, liLs, liFontCtx);
+                                BuildHtmlNodes(
+                                    [child],
+                                    contentPanel,
+                                    listDepth + 1,
+                                    colorOverride,
+                                    depth + 1,
+                                    blockAlign,
+                                    liBreak,
+                                    liNoWrap,
+                                    liLhMul,
+                                    liLhPx,
+                                    liOpacityCtx,
+                                    liLs,
+                                    liFontCtx
+                                );
                                 break;
                             }
                         }
@@ -1741,8 +2137,7 @@ namespace Game {
         // 列表项 marker 文本与下一项编号（两遍共用口径）：li value 先行重编号（HTML 渲染语义，
         // 后续项顺延）、li type 覆写列表级 type。next 输出编号已 +1（ordered 与否调用方皆直用）
         static string MarkerText(HtmlAgilityPack.HtmlNode li, bool ordered, char listType, int number, int depth, out int next) {
-            if (ordered
-                && int.TryParse(li.GetAttributeValue("value", null), out int value)) {
+            if (ordered && int.TryParse(li.GetAttributeValue("value", null), out int value)) {
                 number = value;
             }
             char type = ParseListType(li, ordered) ?? listType;
@@ -1772,7 +2167,18 @@ namespace Game {
             };
         }
 
-        CanvasWidget CreateHtmlQuote(HtmlAgilityPack.HtmlNode quoteNode, int listDepth, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, TextWordBreak wordBreakCtx = TextWordBreak.BreakWord, bool noWrapCtx = false, float lineHeightMul = 0f, float lineHeightPx = 0f, float opacityCtx = 1f, float letterSpacingCtx = 0f, float fontScaleCtx = 1f) {
+        CanvasWidget CreateHtmlQuote(HtmlAgilityPack.HtmlNode quoteNode,
+            int listDepth,
+            Color? colorOverride,
+            int depth,
+            TextAnchor blockAlign = TextAnchor.Default,
+            TextWordBreak wordBreakCtx = TextWordBreak.BreakWord,
+            bool noWrapCtx = false,
+            float lineHeightMul = 0f,
+            float lineHeightPx = 0f,
+            float opacityCtx = 1f,
+            float letterSpacingCtx = 0f,
+            float fontScaleCtx = 1f) {
             CanvasWidget outer = CreateQuoteFrame(out StackPanelWidget inner);
             if (blockAlign != TextAnchor.Default) {
                 // 对齐容器内引用：外壳与 inner 双层 Stretch 撑满（HtmlWidget 壳路径 ContentWidth=-1，
@@ -1791,7 +2197,21 @@ namespace Game {
             // 恒等，嵌套子块自身声明从 1 起步照吃
             outer.ColorTransform = Color.White * opacityCtx;
             // fontScaleCtx：调用点已叠引用节点 style font-size 声明（CSS 块级继承），直传子树
-            BuildHtmlNodes(quoteNode.ChildNodes, inner, listDepth, QuoteColor, depth + 1, blockAlign, wordBreakCtx, noWrapCtx, lineHeightMul, lineHeightPx, 1f, letterSpacingCtx, fontScaleCtx);
+            BuildHtmlNodes(
+                quoteNode.ChildNodes,
+                inner,
+                listDepth,
+                QuoteColor,
+                depth + 1,
+                blockAlign,
+                wordBreakCtx,
+                noWrapCtx,
+                lineHeightMul,
+                lineHeightPx,
+                1f,
+                letterSpacingCtx,
+                fontScaleCtx
+            );
             CurrentIndentX = prevIndent;
             return outer;
         }
@@ -1804,7 +2224,12 @@ namespace Game {
         // 口径）。无滚动兜底（包装类超宽横向滚动不随迁）：Σmin 超宿主时底座定格列 min 溢出。
         // fontScaleCtx：表节点 style font-size 声明叠加后的格内容子树 ctx（调用点 Resolve，
         // 逐格透传 CreateHtmlCell）
-        TablePanelWidget CreateHtmlTable(HtmlAgilityPack.HtmlNode tableNode, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, float opacityCtx = 1f, float fontScaleCtx = 1f) {
+        TablePanelWidget CreateHtmlTable(HtmlAgilityPack.HtmlNode tableNode,
+            Color? colorOverride,
+            int depth,
+            TextAnchor blockAlign = TextAnchor.Default,
+            float opacityCtx = 1f,
+            float fontScaleCtx = 1f) {
             // 格内容相对格左缘定位（spec §5.3）：入口清零外层嵌套缩进——格 shell 的回填扣减基准
             // 是格净宽，li 内嵌套表格时外层缩进已由挂载位置体现，再计入会双扣；全部出口恢复
             //（prevIndent 纪律同 CreateHtmlQuote，含两处早退）
@@ -1842,12 +2267,10 @@ namespace Game {
             widget.ColorTransform = Color.White * opacityCtx;
             // bgcolor 回退链根：table CSS 声明 → table 属性 → body 属性（整页包装场景）。
             // 同一元素 CSS 声明胜旧属性（与 text-align 同规），链结构不变
-            Color? tableBackground = CssStyleParser.TryGetDeclaration(tableNode.GetAttributeValue("style", null), "background-color", out string tableCssBg)
-                && CssColorParser.TryParse(tableCssBg, out Color tableCssColor)
-                ? tableCssColor
-                : CssColorParser.TryParse(tableNode.GetAttributeValue("bgcolor", null), out Color tableBg)
-                    ? tableBg
-                    : m_bodyBackground;
+            Color? tableBackground =
+                CssStyleParser.TryGetDeclaration(tableNode.GetAttributeValue("style", null), "background-color", out string tableCssBg)
+                && CssColorParser.TryParse(tableCssBg, out Color tableCssColor) ? tableCssColor :
+                CssColorParser.TryParse(tableNode.GetAttributeValue("bgcolor", null), out Color tableBg) ? tableBg : m_bodyBackground;
             List<(HtmlAgilityPack.HtmlNode Row, bool FromThead)> rows = [];
             // tfoot 行收集沉底（HTML 渲染语义：footer 行无论 DOM 位置恒在表尾），行数设
             // FooterRows 驱动底座表尾结构（FooterSeparator 语义对称 HeaderSeparator）
@@ -1941,12 +2364,14 @@ namespace Game {
                     position++;
                 }
             }
-            int[] liveRank = new int[domColumns + 1];   // [p]=p 之前活位数（前缀和）
+            int[] liveRank = new int[domColumns + 1]; // [p]=p 之前活位数（前缀和）
             for (int p = 0; p < domColumns; p++) {
                 liveRank[p + 1] = liveRank[p] + (hiddenSlot[p] && !visibleSlot[p] ? 0 : 1);
             }
+
             void ApplyColPreference(int domStart, int domSpan, float px, float pct) {
-                if (px <= 0f && pct <= 0f) {
+                if (px <= 0f
+                    && pct <= 0f) {
                     return;
                 }
                 for (int p = domStart; p < MathUtils.Min(domStart + domSpan, domColumns); p++) {
@@ -1961,6 +2386,7 @@ namespace Game {
                     prefPct[track] = MathUtils.Max(prefPct[track], pct);
                 }
             }
+
             int domCursor = 0;
             foreach (HtmlAgilityPack.HtmlNode child in tableNode.ChildNodes) {
                 if (child.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
@@ -2017,11 +2443,8 @@ namespace Game {
                 // 挂行壳整体铺（覆盖 rowspan 空隙，浏览器同视觉），格级 CSS/属性由 SetCellBackground
                 // 覆盖其上
                 Color? rowBackground = CssStyleParser.TryGetDeclaration(tr.GetAttributeValue("style", null), "background-color", out string rowCssBg)
-                    && CssColorParser.TryParse(rowCssBg, out Color rowCssColor)
-                    ? rowCssColor
-                    : CssColorParser.TryParse(tr.GetAttributeValue("bgcolor", null), out Color rowBg)
-                        ? rowBg
-                        : tableBackground;
+                    && CssColorParser.TryParse(rowCssBg, out Color rowCssColor) ? rowCssColor :
+                    CssColorParser.TryParse(tr.GetAttributeValue("bgcolor", null), out Color rowBg) ? rowBg : tableBackground;
                 TextAnchor? rowVerticalAlignment = ParseVerticalAlignment(tr, tr);
                 List<Widget> cells = [];
                 int column = 0;
@@ -2043,7 +2466,16 @@ namespace Game {
                     // 格内 ctx 恒传 1：表 ctx 已落表根 ColorTransform 浸透全子树，格内再叠即
                     // 双淡；格自身声明由 CreateHtmlCell 内 Resolve 从 1 起步照吃。
                     // 字号 ctx 照传（emBase 无 ColorTransform 等价壳，必须显式透传）
-                    Widget cell = CreateHtmlCell(cellNode, isHeader, colorOverride, depth, blockAlign, cellPaddingX, 1f, fontScaleCtx);
+                    Widget cell = CreateHtmlCell(
+                        cellNode,
+                        isHeader,
+                        colorOverride,
+                        depth,
+                        blockAlign,
+                        cellPaddingX,
+                        1f,
+                        fontScaleCtx
+                    );
                     if (colSpan > 1) {
                         TablePanelWidget.SetColSpan(cell, colSpan);
                     }
@@ -2110,7 +2542,14 @@ namespace Game {
         // 格自身声明走行内 span 路径已落 span.Opacity，widget 只补祖先 ctx，避免双乘）。
         // fontScaleCtx：格继承字号 ctx——块级格递归叠格自身 style font-size 声明
         //（ResolveFontScaleCtx，CSS 块级继承）；纯行内格走 span 解析不吃
-        Widget CreateHtmlCell(HtmlAgilityPack.HtmlNode cellNode, bool isHeader, Color? colorOverride, int depth, TextAnchor blockAlign = TextAnchor.Default, float cellPaddingX = 6f, float opacityCtx = 1f, float fontScaleCtx = 1f) {
+        Widget CreateHtmlCell(HtmlAgilityPack.HtmlNode cellNode,
+            bool isHeader,
+            Color? colorOverride,
+            int depth,
+            TextAnchor blockAlign = TextAnchor.Default,
+            float cellPaddingX = 6f,
+            float opacityCtx = 1f,
+            float fontScaleCtx = 1f) {
             bool hasBlockChild = false;
             bool imgOnly = ImageLoader != null;
             foreach (HtmlAgilityPack.HtmlNode child in cellNode.ChildNodes) {
@@ -2119,8 +2558,7 @@ namespace Game {
                         hasBlockChild = true;
                         break;
                     }
-                    if (imgOnly
-                        && !child.Name.Equals("img", StringComparison.OrdinalIgnoreCase)) {
+                    if (imgOnly && !child.Name.Equals("img", StringComparison.OrdinalIgnoreCase)) {
                         imgOnly = false;
                     }
                 }
@@ -2130,8 +2568,7 @@ namespace Game {
                     imgOnly = false;
                 }
             }
-            if (hasBlockChild
-                || imgOnly) {
+            if (hasBlockChild || imgOnly) {
                 // 格容器升级 RichContentPanel：本格块级 shell（代码块/图片/引用外壳/列表行框）
                 // 注册进本格 panel，由其 MeasureOverride 在底座高度轮按格净宽回填宽度——构建期
                 // ContentWidth 是顶层近似值，对格内不成立（task-8-report 局限的机制化消解）
@@ -2152,7 +2589,21 @@ namespace Game {
                 float cellLs = ResolveLetterSpacingCtx(cellNode, 0f);
                 // 块级格：格自身 opacity 叠进子树 ctx（格子节点不落 span 上下文）；
                 // 格自身 style font-size 声明叠加进字号 ctx（CSS 块级继承）
-                BuildHtmlNodes(cellNode.ChildNodes, panel, 0, colorOverride, depth + 1, blockAlign, cellBreak, cellNoWrap, cellLhMul, cellLhPx, opacityCtx * ResolveOpacityMultiplier(cellNode), cellLs, ResolveFontScaleCtx(cellNode, fontScaleCtx));
+                BuildHtmlNodes(
+                    cellNode.ChildNodes,
+                    panel,
+                    0,
+                    colorOverride,
+                    depth + 1,
+                    blockAlign,
+                    cellBreak,
+                    cellNoWrap,
+                    cellLhMul,
+                    cellLhPx,
+                    opacityCtx * ResolveOpacityMultiplier(cellNode),
+                    cellLs,
+                    ResolveFontScaleCtx(cellNode, fontScaleCtx)
+                );
                 CurrentPanel = prevPanel;
                 if (isHeader) {
                     BoldWidgetSpans(panel);
@@ -2178,11 +2629,8 @@ namespace Game {
                 WordWrap = !cellInlineNoWrap,
                 // td nowrap：老版防换行属性 → KeepAll（CJK/单词整体不破，浏览器 white-space:nowrap
                 // 对纯文本格的近似口径）
-                WordBreak = (hasCellBreak && cellInlineBreak.HasValue)
-                    ? cellInlineBreak.Value
-                    : cellNode.GetAttributeValue("nowrap", null) != null
-                        ? TextWordBreak.KeepAll
-                        : TextWordBreak.BreakWord,
+                WordBreak = hasCellBreak && cellInlineBreak.HasValue ? cellInlineBreak.Value :
+                    cellNode.GetAttributeValue("nowrap", null) != null ? TextWordBreak.KeepAll : TextWordBreak.BreakWord,
                 // 拉满格矩形（track−2×CellPadding）：TextAnchor 居中/右对齐按 ActualSize 定偏移，
                 // Near 会塌缩到内容宽
                 HorizontalAlignment = WidgetAlignment.Stretch,
@@ -2218,20 +2666,42 @@ namespace Game {
         // td 直下块级子标签判定（li 内块级同名单）：命中即整格走块级直装。footer/address 独立成段
         //（footer 用户裁定；address HTML 块级语义），switch 有显式 case；center/dl/dt/dd/figure/
         // figcaption/details/summary 同批块级化（article 本就在名单）
-        static bool IsBlockTag(string tag) {
-            return tag.ToLowerInvariant() is "p" or "div" or "section" or "article" or "table"
-                or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "hr" or "pre" or "blockquote"
-                or "ul" or "ol" or "menu" or "footer" or "address"
-                or "center" or "dl" or "dt" or "dd" or "figure" or "figcaption" or "details" or "summary"
-                or "caption" or "html" or "body";
-        }
+        static bool IsBlockTag(string tag) => tag.ToLowerInvariant() is "p"
+            or "div"
+            or "section"
+            or "article"
+            or "table"
+            or "h1"
+            or "h2"
+            or "h3"
+            or "h4"
+            or "h5"
+            or "h6"
+            or "hr"
+            or "pre"
+            or "blockquote"
+            or "ul"
+            or "ol"
+            or "menu"
+            or "footer"
+            or "address"
+            or "center"
+            or "dl"
+            or "dt"
+            or "dd"
+            or "figure"
+            or "figcaption"
+            or "details"
+            or "summary"
+            or "caption"
+            or "html"
+            or "body";
 
         // colspan/rowspan 属性解析：空/非法/≤0 → 1，上限钳 1000（HTML 标准同值）——不可信源
         // `<td colspan="2000000000">` 不钳会经 alignments 扩容 + 底座 new float[columns] 双重内存爆炸；
         // SetColSpan/SetRowSpan 内部还有 max(·,1) 钳制兜底，越界 span 由底座 ExpandSlots 钳到实际列数
-        static int ParseSpanAttribute(HtmlAgilityPack.HtmlNode cell, string name) {
-            return int.TryParse(cell.GetAttributeValue(name, null), out int value) && value > 0 ? Math.Min(value, 1000) : 1;
-        }
+        static int ParseSpanAttribute(HtmlAgilityPack.HtmlNode cell, string name) =>
+            int.TryParse(cell.GetAttributeValue(name, null), out int value) && value > 0 ? Math.Min(value, 1000) : 1;
 
         // col/colgroup 宽偏好解析：style width 声明胜旧 width 属性（同 bgcolor/text-align 规），
         // TryParseWidthValue 解析 px/%/em/rem/pt（负/auto 拒）。返回 (px, %) 之一，无效 (0,0)
@@ -2391,7 +2861,9 @@ namespace Game {
         // 节点级 word-break/nowrap 解析并入继承上下文：节点声明覆盖（CSS 继承属性口径），
         // 无声明沿用继承值。white-space 显式 normal 撤销继承 nowrap 不支持（bool ctx 无三态，
         // 留档：nowrap 只会向下传导）
-        static (TextWordBreak WordBreak, bool NoWrap) ResolveWordBreakCtx(HtmlAgilityPack.HtmlNode node, TextWordBreak? inherited, bool inheritedNoWrap) {
+        static (TextWordBreak WordBreak, bool NoWrap) ResolveWordBreakCtx(HtmlAgilityPack.HtmlNode node,
+            TextWordBreak? inherited,
+            bool inheritedNoWrap) {
             bool has = ParseWordBreakStyle(node, out TextWordBreak? wordBreak, out bool noWrap);
             return (has && wordBreak.HasValue ? wordBreak.Value : inherited ?? TextWordBreak.BreakWord, noWrap || inheritedNoWrap);
         }
@@ -2413,11 +2885,16 @@ namespace Game {
                 || v.Equals("unset", StringComparison.OrdinalIgnoreCase)) {
                 return false;
             }
+
             // 值体解析（单位大小写不敏感）；rem 判定须先于 em（"1.5rem" 以 "em" 结尾）
-            bool TryMagnitude(string text, out float value) {
-                return float.TryParse(text.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value)
-                    && value > 0f;
-            }
+            bool TryMagnitude(string text, out float value) => float.TryParse(
+                    text.Trim(),
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out value
+                )
+                && value > 0f;
+
             if (v.EndsWith("%", StringComparison.Ordinal)) {
                 if (TryMagnitude(v[..^1], out float percent)) {
                     mul = percent / 100f;
@@ -2463,9 +2940,8 @@ namespace Game {
 
         // 节点级 line-height 解析并入继承上下文：节点有声明整体替换（不做倍率/绝对值混算），
         // 无声明沿用继承值（CSS 继承属性口径）。随块级容器递归链透传
-        static (float Mul, float Px) ResolveLineHeightCtx(HtmlAgilityPack.HtmlNode node, float inheritedMul, float inheritedPx) {
-            return ParseLineHeightStyle(node, out float mul, out float px) ? (mul, px) : (inheritedMul, inheritedPx);
-        }
+        static (float Mul, float Px) ResolveLineHeightCtx(HtmlAgilityPack.HtmlNode node, float inheritedMul, float inheritedPx) =>
+            ParseLineHeightStyle(node, out float mul, out float px) ? (mul, px) : (inheritedMul, inheritedPx);
 
         // style letter-spacing 解析：px 直取、pt×4/3、rem×16（根字号口径）→ 绝对 px；em×16
         // 为根字号近似（严格 CSS 应随元素字号，引擎块级链无字号 ctx，留档取舍）。normal/unset
@@ -2480,11 +2956,16 @@ namespace Game {
                 || v.Equals("unset", StringComparison.OrdinalIgnoreCase)) {
                 return false;
             }
+
             // 值体解析（单位大小写不敏感）；rem 判定须先于 em（"1.5rem" 以 "em" 结尾）。
             // 负值/0 均合法（与 line-height 的 >0 门槛不同），只拒解析失败
-            bool TryLength(string text, out float value) {
-                return float.TryParse(text.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value);
-            }
+            bool TryLength(string text, out float value) => float.TryParse(
+                text.Trim(),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out value
+            );
+
             if (v.EndsWith("rem", StringComparison.OrdinalIgnoreCase)) {
                 if (TryLength(v[..^3], out float rems)) {
                     px = rems * 16f;
@@ -2520,9 +3001,8 @@ namespace Game {
         // 节点级 letter-spacing 解析并入继承上下文：节点有声明整体替换，无声明沿用继承值。
         // 替换语义（与 opacity 叠乘不同——字距是长度值，嵌套声明不累加，浏览器同口径）。
         // 随块级容器递归链透传（与 word-break/line-height 同链同挂载点）
-        static float ResolveLetterSpacingCtx(HtmlAgilityPack.HtmlNode node, float inherited) {
-            return ParseLetterSpacingStyle(node, out float px) ? px : inherited;
-        }
+        static float ResolveLetterSpacingCtx(HtmlAgilityPack.HtmlNode node, float inherited) =>
+            ParseLetterSpacingStyle(node, out float px) ? px : inherited;
 
         // style text-indent 解析（块级首行缩进，非继承属性——只吃声明节点自身行内内容首段）：
         // px 直取、pt×4/3、rem/em×16（根字号口径）→ 绝对 px；% → percent=pct 数值（50=50%，
@@ -2539,12 +3019,17 @@ namespace Game {
                 || v.Equals("unset", StringComparison.OrdinalIgnoreCase)) {
                 return false;
             }
+
             // 值体解析（单位大小写不敏感）；rem 判定须先于 em（"1.5rem" 以 "em" 结尾）。
             // IsFinite 拒 ∞（1e40px 之类）：∞ resolved 会把首行预算钳 1px 且 Draw 偏移成 ∞
-            bool TryMagnitude(string text, out float value) {
-                return float.TryParse(text.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out value)
-                    && float.IsFinite(value);
-            }
+            bool TryMagnitude(string text, out float value) => float.TryParse(
+                    text.Trim(),
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out value
+                )
+                && float.IsFinite(value);
+
             if (v.EndsWith("%", StringComparison.Ordinal)) {
                 if (TryMagnitude(v[..^1], out float percent)
                     && percent > 0f) {
@@ -2606,9 +3091,7 @@ namespace Game {
         // 叠乘嵌套，与 word-break/line-height 的替换语义不同——CSS opacity 是可组合数值，嵌套
         // 元素各施各的 0..1 相乘得合成透明度，浏览器同款）。与壳装饰色乘同源解析：壳只承担
         // 装饰淡出、ctx 只承担子树 ColorTransform 淡出，同一声明两路消费不双乘
-        static float ResolveOpacityMultiplier(HtmlAgilityPack.HtmlNode node) {
-            return ParseOpacityStyle(node, out float v) ? v : 1f;
-        }
+        static float ResolveOpacityMultiplier(HtmlAgilityPack.HtmlNode node) => ParseOpacityStyle(node, out float v) ? v : 1f;
 
         // 子树字号 ctx 传导（tier-1.5 style font-size 块级继承，CSS font-size 继承口径）：
         // 声明绝对单位（px/pt/rem）=ctx 整体换底 ratio（16px 根基准，绝对值覆盖继承链）；
@@ -2629,17 +3112,12 @@ namespace Game {
         // 其余标签 1f。仅包块可达流消费——纯行内形态的字号走 span 解析自有 Scale 链
         static float ResolveUaTagFontScale(HtmlAgilityPack.HtmlNode node) {
             switch (node.Name.ToLowerInvariant()) {
-                case "small":
-                    return 0.8f;
-                case "big":
-                    return 1.2f;
+                case "small": return 0.8f;
+                case "big": return 1.2f;
                 case "sub":
-                case "sup":
-                    return 0.833f;
-                case "font":
-                    return HtmlSpanParser.TryParseFontSizeAttribute(node.GetAttributeValue("size", null), out float ratio) ? ratio : 1f;
-                default:
-                    return 1f;
+                case "sup": return 0.833f;
+                case "font": return HtmlSpanParser.TryParseFontSizeAttribute(node.GetAttributeValue("size", null), out float ratio) ? ratio : 1f;
+                default: return 1f;
             }
         }
 
@@ -2651,7 +3129,11 @@ namespace Game {
         // 弧（% 忽略、斜杠取前半在解析层——引擎 BevelledShapeRenderer 石皮斜切观感 vs CSS 扁平圆
         // 角有差，便宜档近似留档）。其余行内属性（font-weight 等）等宽管线不进 span 解析，维持
         // 不吃（留档）。内容提取逻辑不受影响——只读 code 节点属性，不碰子树
-        void ParseCodeTextStyle(HtmlAgilityPack.HtmlNode preNode, out Color? textColor, out float? fontScaleOverride, out float? roundingRadius, out Color? backgroundColor) {
+        void ParseCodeTextStyle(HtmlAgilityPack.HtmlNode preNode,
+            out Color? textColor,
+            out float? fontScaleOverride,
+            out float? roundingRadius,
+            out Color? backgroundColor) {
             textColor = null;
             fontScaleOverride = null;
             roundingRadius = null;
@@ -2704,7 +3186,13 @@ namespace Game {
         // 段落级覆盖五元组打包（Flush/ApplyParagraphBreakStyle 消费）：word-break/white-space 沿用
         // ResolveWordBreakCtx，line-height 并入 ResolveLineHeightCtx，letter-spacing 并入
         // ResolveLetterSpacingCtx——p/dt/summary/footer-inline 与标题直建路径共用，消除手写组合
-        static (TextWordBreak WordBreak, bool NoWrap, float LineHeightMul, float LineHeightPx, float LetterSpacing) ResolveParaOverrideCtx(HtmlAgilityPack.HtmlNode node, TextWordBreak? inheritedBreak, bool inheritedNoWrap, float inheritedLhMul, float inheritedLhPx, float inheritedLs) {
+        static (TextWordBreak WordBreak, bool NoWrap, float LineHeightMul, float LineHeightPx, float LetterSpacing) ResolveParaOverrideCtx(
+            HtmlAgilityPack.HtmlNode node,
+            TextWordBreak? inheritedBreak,
+            bool inheritedNoWrap,
+            float inheritedLhMul,
+            float inheritedLhPx,
+            float inheritedLs) {
             (TextWordBreak wordBreak, bool noWrap) = ResolveWordBreakCtx(node, inheritedBreak, inheritedNoWrap);
             (float lhMul, float lhPx) = ResolveLineHeightCtx(node, inheritedLhMul, inheritedLhPx);
             float ls = ResolveLetterSpacingCtx(node, inheritedLs);
@@ -2713,7 +3201,8 @@ namespace Game {
 
         // 直建段落件（标题路径不经 Flush）铺 word-break/nowrap/line-height/letter-spacing
         //（标题同吃容器继承与自身声明）
-        static void ApplyParagraphBreakStyle(RichTextWidget widget, (TextWordBreak WordBreak, bool NoWrap, float LineHeightMul, float LineHeightPx, float LetterSpacing) ctx) {
+        static void ApplyParagraphBreakStyle(RichTextWidget widget,
+            (TextWordBreak WordBreak, bool NoWrap, float LineHeightMul, float LineHeightPx, float LetterSpacing) ctx) {
             widget.WordBreak = ctx.WordBreak;
             if (ctx.NoWrap) {
                 widget.WordWrap = false;
@@ -2738,11 +3227,21 @@ namespace Game {
             string widthAttr = node.GetAttributeValue("width", null)?.Trim();
             if (!string.IsNullOrEmpty(widthAttr)) {
                 if (widthAttr.EndsWith("%", StringComparison.Ordinal)
-                    && float.TryParse(widthAttr[..^1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float percent)
+                    && float.TryParse(
+                        widthAttr[..^1],
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out float percent
+                    )
                     && NestedContentWidth() > 0f) {
                     width = NestedContentWidth() * MathUtils.Clamp(percent / 100f, 0f, 1f);
                 }
-                else if (float.TryParse(widthAttr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float pixels)) {
+                else if (float.TryParse(
+                        widthAttr,
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out float pixels
+                    )) {
                     width = MathUtils.Max(pixels, 0f);
                 }
             }
@@ -2776,7 +3275,11 @@ namespace Game {
         // 会与壳装饰 Decoration 叠成装饰 v²。
         // fontScaleCtx：img 自身盒壳（WrapInStyleBox）em/% 基准的继承字号 ctx（tier-1.5，
         // 调用点按所在流传——p/img 升级块=声明元素子树 ctx、li 行内=liFontCtx 等）
-        Widget AddImageBlockWithAttributes(StackPanelWidget target, HtmlAgilityPack.HtmlNode img, Color? colorOverride, float opacityCtx = 1f, float fontScaleCtx = 1f) {
+        Widget AddImageBlockWithAttributes(StackPanelWidget target,
+            HtmlAgilityPack.HtmlNode img,
+            Color? colorOverride,
+            float opacityCtx = 1f,
+            float fontScaleCtx = 1f) {
             Vector2? explicitSize = ParseImageSize(img);
             // CSS max-width：px 直取；% 相对容器净宽（与 width 属性 % 同口径，钳 1-4096，容器宽
             // 未知跳过）。消费分两路：显式 width 属性直接 min 钳（构建期可算）；仅 height（X=-1
@@ -2787,7 +3290,7 @@ namespace Game {
             if (CssStyleParser.TryGetDeclaration(img.GetAttributeValue("style", null), "max-width", out string maxWidthDecl)
                 && CssStyleParser.TryParseWidthValue(maxWidthDecl, out bool maxIsPercent, out float maxNumber)) {
                 cssMaxWidth = maxIsPercent
-                    ? (NestedContentWidth() > 0f ? MathUtils.Clamp(NestedContentWidth() * maxNumber / 100f, 1f, 4096f) : -1f)
+                    ? NestedContentWidth() > 0f ? MathUtils.Clamp(NestedContentWidth() * maxNumber / 100f, 1f, 4096f) : -1f
                     : MathUtils.Clamp(maxNumber, 1f, 4096f);
             }
             if (explicitSize.HasValue
@@ -2796,13 +3299,22 @@ namespace Game {
                 explicitSize = new Vector2(MathUtils.Min(explicitSize.Value.X, cssMaxWidth), explicitSize.Value.Y);
             }
             Vector2 margin = new(0f, 8f);
-            if (float.TryParse(img.GetAttributeValue("hspace", null), out float hspace) && hspace > 0f) {
+            if (float.TryParse(img.GetAttributeValue("hspace", null), out float hspace)
+                && hspace > 0f) {
                 margin.X = MathUtils.Min(hspace * 2f, 100f);
             }
-            if (float.TryParse(img.GetAttributeValue("vspace", null), out float vspace) && vspace > 0f) {
+            if (float.TryParse(img.GetAttributeValue("vspace", null), out float vspace)
+                && vspace > 0f) {
                 margin.Y = MathUtils.Min(vspace * 2f, 100f);
             }
-            CanvasWidget frame = AddImageBlock(target, img.GetAttributeValue("src", null), img.GetAttributeValue("alt", null), explicitSize, margin, cssMaxWidth);
+            CanvasWidget frame = AddImageBlock(
+                target,
+                img.GetAttributeValue("src", null),
+                img.GetAttributeValue("alt", null),
+                explicitSize,
+                margin,
+                cssMaxWidth
+            );
             // AddImageBlock 已挂树；摘回统一由调用方挂（摘下重挂同位追加，顺序不变）
             target.Children.Remove(frame);
             frame.ColorTransform = Color.White * ResolveOpacityMultiplier(img);
@@ -2818,8 +3330,8 @@ namespace Game {
         // img width/height：px 直取；width 的 % 相对容器（容器宽未知跳过该维）；height 的 %
         // 不做（无解析基准）。两维均未给返回 null（走自适应管线）。显式值钳 1-4096 防御
         Vector2? ParseImageSize(HtmlAgilityPack.HtmlNode img) {
-            float width = ParseImageDimension(img.GetAttributeValue("width", null), allowPercent: true);
-            float height = ParseImageDimension(img.GetAttributeValue("height", null), allowPercent: false);
+            float width = ParseImageDimension(img.GetAttributeValue("width", null), true);
+            float height = ParseImageDimension(img.GetAttributeValue("height", null), false);
             if (width <= 0f
                 && height <= 0f) {
                 return null;
@@ -2834,13 +3346,23 @@ namespace Game {
             string trimmed = attribute.Trim();
             if (trimmed.EndsWith("%", StringComparison.Ordinal)) {
                 if (!allowPercent
-                    || !float.TryParse(trimmed[..^1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float percent)
+                    || !float.TryParse(
+                        trimmed[..^1],
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out float percent
+                    )
                     || NestedContentWidth() <= 0f) {
                     return -1f;
                 }
                 return MathUtils.Clamp(NestedContentWidth() * percent / 100f, 1f, 4096f);
             }
-            return float.TryParse(trimmed, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float pixels)
+            return float.TryParse(
+                trimmed,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out float pixels
+            )
                 ? MathUtils.Clamp(pixels, 1f, 4096f)
                 : -1f;
         }
@@ -2871,8 +3393,10 @@ namespace Game {
         }
 
         // 左边界 lookbehind：防自定义属性（如 --my-text-align）内的 text-align 子串误配（同 HtmlSpanParser 惯例）
-        static readonly System.Text.RegularExpressions.Regex s_textAlignRegex =
-            new("(?<![\\w-])text-align\\s*:\\s*([a-zA-Z]+)", System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        static readonly System.Text.RegularExpressions.Regex s_textAlignRegex = new(
+            "(?<![\\w-])text-align\\s*:\\s*([a-zA-Z]+)",
+            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase
+        );
 
         static MarkdownTableAlignment? ParseAlignmentToken(string token) {
             return token?.ToLowerInvariant() switch {
@@ -2903,10 +3427,34 @@ namespace Game {
                 if (child.NodeType != HtmlAgilityPack.HtmlNodeType.Element) {
                     continue;
                 }
-                if (child.Name.ToLowerInvariant() is "pre" or "ul" or "ol" or "menu" or "blockquote" or "p" or "div" or "hr" or "table"
-                    or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "footer" or "address"
-                    or "center" or "dl" or "dt" or "dd" or "figure" or "figcaption" or "details" or "summary"
-                    or "caption" or "html" or "body") {
+                if (child.Name.ToLowerInvariant() is "pre"
+                    or "ul"
+                    or "ol"
+                    or "menu"
+                    or "blockquote"
+                    or "p"
+                    or "div"
+                    or "hr"
+                    or "table"
+                    or "h1"
+                    or "h2"
+                    or "h3"
+                    or "h4"
+                    or "h5"
+                    or "h6"
+                    or "footer"
+                    or "address"
+                    or "center"
+                    or "dl"
+                    or "dt"
+                    or "dd"
+                    or "figure"
+                    or "figcaption"
+                    or "details"
+                    or "summary"
+                    or "caption"
+                    or "html"
+                    or "body") {
                     return true;
                 }
                 if (ContainsBlockChild(child, depth + 1)) {
@@ -2917,15 +3465,13 @@ namespace Game {
         }
 
         // pre/code 内的 <br> 当换行；其余取原始文本
-        static string ReplaceBrWithNewline(HtmlAgilityPack.HtmlNode node) {
-            return ReplaceBrWithNewline(node, 0);
-        }
+        static string ReplaceBrWithNewline(HtmlAgilityPack.HtmlNode node) => ReplaceBrWithNewline(node, 0);
 
         static string ReplaceBrWithNewline(HtmlAgilityPack.HtmlNode node, int depth) {
             if (depth > MaxDepth) {
                 return string.Empty;
             }
-            var builder = new System.Text.StringBuilder();
+            StringBuilder builder = new();
             foreach (HtmlAgilityPack.HtmlNode child in node.ChildNodes) {
                 if (child.NodeType == HtmlAgilityPack.HtmlNodeType.Text) {
                     builder.Append(child.InnerText);

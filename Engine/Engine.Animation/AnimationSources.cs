@@ -129,7 +129,6 @@ namespace Engine.Animation {
                 || m_model == null) {
                 return;
             }
-
             if (m_model.RootBone != null) {
                 RootBoneName = m_model.RootBone.Name;
             }

@@ -7,7 +7,7 @@ namespace Engine.Animation {
     /// </summary>
     public readonly struct RootStripInfo {
         public readonly bool NeedsStrip;
-        public readonly string SourceBone;   // 剥离链起点；config.SourceBone 或 rootBoneName 回退
+        public readonly string SourceBone; // 剥离链起点；config.SourceBone 或 rootBoneName 回退
 
         public RootStripInfo(bool needsStrip, string sourceBone) {
             NeedsStrip = needsStrip;
@@ -19,9 +19,7 @@ namespace Engine.Animation {
             if (config?.Translation is { Mode: var mode }
                 && mode != TranslationMode.None
                 && mode != TranslationMode.AddImpulse) {
-                string bone = !string.IsNullOrEmpty(config.SourceBone)
-                    ? config.SourceBone
-                    : fallbackBone;
+                string bone = !string.IsNullOrEmpty(config.SourceBone) ? config.SourceBone : fallbackBone;
                 return new RootStripInfo(true, bone);
             }
             return default;

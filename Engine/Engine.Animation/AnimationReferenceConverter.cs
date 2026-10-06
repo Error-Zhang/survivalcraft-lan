@@ -36,12 +36,30 @@ namespace Engine.Animation {
                 reader.Read();
                 switch (propertyName.ToLowerInvariant()) {
                     case "source": reference.Source = reader.GetString(); break;
-                    case "speed": reference.SpeedValue = ReadDynamicValue(ref reader); reference.HasSpeed = true; break;
-                    case "loop": reference.LoopValue = ReadDynamicValue(ref reader); reference.HasLoop = true; break;
-                    case "startphase": reference.StartPhaseValue = ReadDynamicValue(ref reader); reference.HasStartPhase = true; break;
-                    case "endphase": reference.EndPhaseValue = ReadDynamicValue(ref reader); reference.HasEndPhase = true; break;
-                    case "preservepose": reference.PreservePose = reader.GetBoolean(); reference.HasPreservePose = true; break;
-                    case "blendduration": reference.BlendDurationValue = ReadDynamicValue(ref reader); reference.HasBlendDuration = true; break;
+                    case "speed":
+                        reference.SpeedValue = ReadDynamicValue(ref reader);
+                        reference.HasSpeed = true;
+                        break;
+                    case "loop":
+                        reference.LoopValue = ReadDynamicValue(ref reader);
+                        reference.HasLoop = true;
+                        break;
+                    case "startphase":
+                        reference.StartPhaseValue = ReadDynamicValue(ref reader);
+                        reference.HasStartPhase = true;
+                        break;
+                    case "endphase":
+                        reference.EndPhaseValue = ReadDynamicValue(ref reader);
+                        reference.HasEndPhase = true;
+                        break;
+                    case "preservepose":
+                        reference.PreservePose = reader.GetBoolean();
+                        reference.HasPreservePose = true;
+                        break;
+                    case "blendduration":
+                        reference.BlendDurationValue = ReadDynamicValue(ref reader);
+                        reference.HasBlendDuration = true;
+                        break;
                     case "driverargs": reference.DriverArgs = ReadDriverArgs(ref reader, options); break;
                     case "events": reference.Events = JsonSerializer.Deserialize<List<AnimationEventConfig>>(ref reader, options); break;
                     case "oncomplete": reference.OnComplete = JsonSerializer.Deserialize<OnCompleteAction>(ref reader, options); break;
@@ -63,8 +81,7 @@ namespace Engine.Animation {
                         reference.RootBoneTranslation = ReadVector3Nullable(ref reader, options);
                         reference.HasRootBoneTranslation = true;
                         break;
-                    default:
-                        reader.Skip(); break;
+                    default: reader.Skip(); break;
                 }
             }
             return reference;
@@ -115,7 +132,8 @@ namespace Engine.Animation {
                 writer.WritePropertyName("rootBoneRotation");
                 WriteRootBoneRotationValue(writer, value.RootBoneRotationValue);
             }
-            if (value.HasRootBoneTranslation && value.RootBoneTranslation.HasValue) {
+            if (value.HasRootBoneTranslation
+                && value.RootBoneTranslation.HasValue) {
                 writer.WritePropertyName("rootBoneTranslation");
                 JsonSerializer.Serialize(writer, value.RootBoneTranslation.Value, options);
             }
@@ -148,19 +166,16 @@ namespace Engine.Animation {
             }
         }
 
-        private object ReadRootBoneRotationValue(ref Utf8JsonReader reader, JsonSerializerOptions options) {
+        object ReadRootBoneRotationValue(ref Utf8JsonReader reader, JsonSerializerOptions options) {
             switch (reader.TokenType) {
-                case JsonTokenType.Number:
-                    return reader.TryGetInt32(out int intVal) ? intVal : (object)reader.GetSingle();
+                case JsonTokenType.Number: return reader.TryGetInt32(out int intVal) ? intVal : (object)reader.GetSingle();
                 case JsonTokenType.StartArray:
-                case JsonTokenType.StartObject:
-                    return JsonSerializer.Deserialize<Vector3>(ref reader, options);
-                default:
-                    throw new JsonException($"Invalid rootBoneRotation token: {reader.TokenType} (expected number, array, or object)");
+                case JsonTokenType.StartObject: return JsonSerializer.Deserialize<Vector3>(ref reader, options);
+                default: throw new JsonException($"Invalid rootBoneRotation token: {reader.TokenType} (expected number, array, or object)");
             }
         }
 
-        private Vector3? ReadVector3Nullable(ref Utf8JsonReader reader, JsonSerializerOptions options) {
+        Vector3? ReadVector3Nullable(ref Utf8JsonReader reader, JsonSerializerOptions options) {
             if (reader.TokenType == JsonTokenType.Null) {
                 return null;
             }
@@ -171,13 +186,14 @@ namespace Engine.Animation {
             throw new JsonException($"Invalid rootBoneTranslation token: {reader.TokenType} (expected array or object)");
         }
 
-        private void WriteRootBoneRotationValue(Utf8JsonWriter writer, object value) {
+        void WriteRootBoneRotationValue(Utf8JsonWriter writer, object value) {
             switch (value) {
                 case float f: writer.WriteNumberValue(f); break;
                 case int i: writer.WriteNumberValue(i); break;
                 case double d: writer.WriteNumberValue(d); break;
                 case Vector3 v:
-                    if (v.X == 0f && v.Z == 0f) {
+                    if (v.X == 0f
+                        && v.Z == 0f) {
                         writer.WriteNumberValue(v.Y);
                     }
                     else {

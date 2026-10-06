@@ -19,17 +19,20 @@ namespace Game {
             }
         }
 
-        public static void ParseHtmlNode(HtmlAgilityPack.HtmlNode node, List<TextSpan> spans, MarkdownSpanStyle style, Color defaultColor, int depth = 0, Color? linkColor = null) {
+        public static void ParseHtmlNode(HtmlAgilityPack.HtmlNode node,
+            List<TextSpan> spans,
+            MarkdownSpanStyle style,
+            Color defaultColor,
+            int depth = 0,
+            Color? linkColor = null) {
             switch (node.NodeType) {
                 case HtmlAgilityPack.HtmlNodeType.Text:
                     // HTML 空白语义：元素间源码换行/缩进是排版噪声，折叠为单空格。
                     // 不 trim（行中 "a <b>b</b>" 的尾空格保衔接），段首空白由块级 Flush 清理
                     AddText(CollapseWhitespace(WebUtility.HtmlDecode(node.InnerText)), spans, style, defaultColor);
                     return;
-                case HtmlAgilityPack.HtmlNodeType.Element:
-                    break;
-                default:
-                    return;
+                case HtmlAgilityPack.HtmlNodeType.Element: break;
+                default: return;
             }
             if (depth > MaxDepth) {
                 return;
@@ -63,13 +66,26 @@ namespace Game {
                 return;
             }
             MarkdownSpanStyle inner = ApplyOpenTag(node, style, out Color? background, out Color? forceColor, linkColor);
-            ParseHtmlChildren(node, spans, inner, defaultColor, depth, forceColor, background, linkColor);
+            ParseHtmlChildren(
+                node,
+                spans,
+                inner,
+                defaultColor,
+                depth,
+                forceColor,
+                background,
+                linkColor
+            );
         }
 
         // 单个开标签对样式上下文的累积效果；background/forceColor 需后刷到生成的 span（code/span 场景）
         // linkColor：body link= 属性的链接色覆写（null=用调色板默认）；Markdown 行内路径不传，
         // 保持调色板口径
-        static MarkdownSpanStyle ApplyOpenTag(HtmlAgilityPack.HtmlNode node, MarkdownSpanStyle style, out Color? background, out Color? forceColor, Color? linkColor = null) {
+        static MarkdownSpanStyle ApplyOpenTag(HtmlAgilityPack.HtmlNode node,
+            MarkdownSpanStyle style,
+            out Color? background,
+            out Color? forceColor,
+            Color? linkColor = null) {
             background = null;
             forceColor = null;
             MarkdownSpanStyle inner = style;
@@ -80,36 +96,24 @@ namespace Game {
             // 嵌套带边框标签：内层替换外层（同片段只画一框），与嵌套 color 覆盖同语义
             if (CssStyleParser.TryGetBorder(node.GetAttributeValue("style", null), out CssStyleParser.CssBorderSpec borderSpec)) {
                 inner.Border = new SpanBorder {
-                    Widths = borderSpec.Widths,
-                    Left = borderSpec.Left,
-                    Top = borderSpec.Top,
-                    Right = borderSpec.Right,
-                    Bottom = borderSpec.Bottom
+                    Widths = borderSpec.Widths, Left = borderSpec.Left, Top = borderSpec.Top, Right = borderSpec.Right, Bottom = borderSpec.Bottom
                 };
             }
             switch (node.Name.ToLowerInvariant()) {
                 case "b":
-                case "strong":
-                    inner.Bold = true;
-                    break;
+                case "strong": inner.Bold = true; break;
                 case "i":
-                case "em":
-                    inner.Italic = true;
-                    break;
+                case "em": inner.Italic = true; break;
                 case "del":
                 case "s":
-                case "strike":
-                    inner.Strikethrough = true;
-                    break;
+                case "strike": inner.Strikethrough = true; break;
                 case "ins":
                 case "u":
                     // u 与 ins 视觉同效（CSS 默认 text-decoration: underline）
-                    inner.Underline = true;
-                    break;
+                    inner.Underline = true; break;
                 case "small":
                     // CSS smaller：相对父级累乘（small>small 连缩）
-                    inner.Scale = (inner.Scale > 0f ? inner.Scale : 1f) * 0.8f;
-                    break;
+                    inner.Scale = (inner.Scale > 0f ? inner.Scale : 1f) * 0.8f; break;
                 case "sub":
                 case "sup": {
                     // 字号同 CSS smaller 惯例 0.833；基线偏移取浏览器近似（super ≈ 升 0.33em、sub ≈ 降 0.25em），
@@ -145,13 +149,11 @@ namespace Game {
                     break;
                 case "big":
                     // big/small 对：用户裁定 ×1.2（CSS 惯例 1.25 弃用），嵌套累乘同 small
-                    inner.Scale = (inner.Scale > 0f ? inner.Scale : 1f) * 1.2f;
-                    break;
+                    inner.Scale = (inner.Scale > 0f ? inner.Scale : 1f) * 1.2f; break;
                 case "var":
                 case "address":
                     // var（变量）与 address（联系地址）HTML 默认渲染同为斜体
-                    inner.Italic = true;
-                    break;
+                    inner.Italic = true; break;
                 case "font": {
                     // 旧版表现属性三件套：color（CSS 色值全口径）/size（1-7 与 ±N 相对）/face（全仓
                     // 唯一位图字体 Pericles，无字库可换，静默忽略）。color 直写样式上下文——套在 <a>
@@ -243,15 +245,9 @@ namespace Game {
                 bool sawNone = false;
                 foreach (string token in textDecoration.Split(' ', StringSplitOptions.RemoveEmptyEntries)) {
                     switch (token.ToLowerInvariant()) {
-                        case "underline":
-                            style.Underline = true;
-                            break;
-                        case "line-through":
-                            style.Strikethrough = true;
-                            break;
-                        case "none":
-                            sawNone = true;
-                            break;
+                        case "underline": style.Underline = true; break;
+                        case "line-through": style.Strikethrough = true; break;
+                        case "none": sawNone = true; break;
                     }
                 }
                 if (sawNone) {
@@ -323,34 +319,59 @@ namespace Game {
             string v = value.Trim().ToLowerInvariant();
             float scale;
             if (v.EndsWith("px", StringComparison.Ordinal)) {
-                if (!float.TryParse(v.AsSpan(0, v.Length - 2), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out scale)
+                if (!float.TryParse(
+                        v.AsSpan(0, v.Length - 2),
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out scale
+                    )
                     || scale <= 0f) {
                     return false;
                 }
                 scale /= 16f;
             }
             else if (v.EndsWith("pt", StringComparison.Ordinal)) {
-                if (!float.TryParse(v.AsSpan(0, v.Length - 2), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out scale)
+                if (!float.TryParse(
+                        v.AsSpan(0, v.Length - 2),
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out scale
+                    )
                     || scale <= 0f) {
                     return false;
                 }
                 scale /= 12f;
             }
             else if (v.EndsWith("%", StringComparison.Ordinal)) {
-                if (!float.TryParse(v.AsSpan(0, v.Length - 1), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out scale)
+                if (!float.TryParse(
+                        v.AsSpan(0, v.Length - 1),
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out scale
+                    )
                     || scale <= 0f) {
                     return false;
                 }
                 scale /= 100f;
             }
             else if (v.EndsWith("rem", StringComparison.Ordinal)) {
-                if (!float.TryParse(v.AsSpan(0, v.Length - 3), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out scale)
+                if (!float.TryParse(
+                        v.AsSpan(0, v.Length - 3),
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out scale
+                    )
                     || scale <= 0f) {
                     return false;
                 }
             }
             else if (v.EndsWith("em", StringComparison.Ordinal)) {
-                if (!float.TryParse(v.AsSpan(0, v.Length - 2), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out scale)
+                if (!float.TryParse(
+                        v.AsSpan(0, v.Length - 2),
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out scale
+                    )
                     || scale <= 0f) {
                     return false;
                 }
@@ -399,7 +420,12 @@ namespace Game {
         // （"<b>" 无子节点、"</b>" 被丢弃），样式全静默失效——用标签栈把开/闭标签串起来。
         // 局限留档：此路径不识别全局 hidden（无 DOM 子树、需跨开/闭标签携带抑制态，成本高），
         // MD 行内 <span hidden> 照常渲染；hidden 拦截只在 DOM 路径（ParseHtmlNode/BuildHtmlNodes）生效
-        public static MarkdownSpanStyle ApplyInlineHtmlTag(string tag, List<TextSpan> spans, MarkdownSpanStyle style, Color defaultColor, Stack<MarkdownSpanStyle> htmlStack, int depth) {
+        public static MarkdownSpanStyle ApplyInlineHtmlTag(string tag,
+            List<TextSpan> spans,
+            MarkdownSpanStyle style,
+            Color defaultColor,
+            Stack<MarkdownSpanStyle> htmlStack,
+            int depth) {
             if (string.IsNullOrEmpty(tag)) {
                 return style;
             }
@@ -449,12 +475,20 @@ namespace Game {
             return match.Success && match.Groups[1].Value.ToLowerInvariant() is "br" or "hr" or "img" or "wbr";
         }
 
-        static void ParseHtmlChildren(HtmlAgilityPack.HtmlNode node, List<TextSpan> spans, MarkdownSpanStyle style, Color defaultColor, int depth, Color? forceColor = null, Color? background = null, Color? linkColor = null) {
+        static void ParseHtmlChildren(HtmlAgilityPack.HtmlNode node,
+            List<TextSpan> spans,
+            MarkdownSpanStyle style,
+            Color defaultColor,
+            int depth,
+            Color? forceColor = null,
+            Color? background = null,
+            Color? linkColor = null) {
             int firstNew = spans.Count;
             foreach (HtmlAgilityPack.HtmlNode child in node.ChildNodes) {
                 ParseHtmlNode(child, spans, style, defaultColor, depth + 1, linkColor);
             }
-            if (forceColor != null || background != null) {
+            if (forceColor != null
+                || background != null) {
                 for (int i = firstNew; i < spans.Count; i++) {
                     // 前景色跳过链接（浏览器 UA 样式：kbd/code/mark 内的链接保持链接色）；底色照刷
                     if (forceColor != null
@@ -474,20 +508,21 @@ namespace Game {
             // text-transform 出口施加：变换后的文本进排版（测宽/换行按变换后字形算，浏览器同款）
             text = ApplyTextTransform(text, style.TextTransform);
             // 粗斜体并存时用 BoldItalic（原三目链 Bold 优先会丢斜体）
-            RichTextStyle richStyle = style.Bold
-                ? (style.Italic ? RichTextStyle.BoldItalic : RichTextStyle.Bold)
-                : style.Italic ? RichTextStyle.Italic : RichTextStyle.Normal;
-            spans.Add(new TextSpan(text, style.Color ?? defaultColor, richStyle, style.Href) {
-                BackgroundColor = style.Background,
-                Strikethrough = style.Strikethrough,
-                FontScale = style.Scale,
-                Underline = style.Underline,
-                BaselineShift = style.BaselineShift,
-                Border = style.Border,
-                LinkUnderlineSuppressed = style.LinkUnderlineSuppressed,
-                // 行内 opacity 透传 span（未声明=1f）：Draw 期与宿主 ColorTransform 叠乘淡出
-                Opacity = style.HasOpacity ? style.Opacity : 1f
-            });
+            RichTextStyle richStyle = style.Bold ? style.Italic ? RichTextStyle.BoldItalic : RichTextStyle.Bold :
+                style.Italic ? RichTextStyle.Italic : RichTextStyle.Normal;
+            spans.Add(
+                new TextSpan(text, style.Color ?? defaultColor, richStyle, style.Href) {
+                    BackgroundColor = style.Background,
+                    Strikethrough = style.Strikethrough,
+                    FontScale = style.Scale,
+                    Underline = style.Underline,
+                    BaselineShift = style.BaselineShift,
+                    Border = style.Border,
+                    LinkUnderlineSuppressed = style.LinkUnderlineSuppressed,
+                    // 行内 opacity 透传 span（未声明=1f）：Draw 期与宿主 ColorTransform 叠乘淡出
+                    Opacity = style.HasOpacity ? style.Opacity : 1f
+                }
+            );
         }
 
         // text-transform 施加：Capitalize=每词首字母大写、其余原样（CSS 口径，不做
@@ -522,9 +557,7 @@ namespace Game {
 
         // DOM 文本节点空白规范化：连续空白（含换行/缩进）折叠为单空格。
         // 行首 \\n 不处理会让 RichTextLayout 整段 runs 清空（真实帖子 HTML 多行格式必踩）
-        static string CollapseWhitespace(string text) {
-            return string.IsNullOrEmpty(text) ? text : s_whitespaceRegex.Replace(text, " ");
-        }
+        static string CollapseWhitespace(string text) => string.IsNullOrEmpty(text) ? text : s_whitespaceRegex.Replace(text, " ");
 
         // 段首空白清理：剥掉首个 span 的前导空白（&nbsp; 不算——排版意图，帖子常用它做首行缩进，
         // 被 TrimStart 整体吃掉会丢），纯空白 span 整个移除，直至遇到非空白开头。
@@ -551,31 +584,39 @@ namespace Game {
         }
 
         // font size 属性倍率表：Chrome 16px medium 基准的绝对字号映射（10/13/16/18/24/32/48px ÷ 16）
-    static readonly float[] s_fontSizeRatios = [0.625f, 0.8125f, 1f, 1.125f, 1.5f, 2f, 3f];
+        static readonly float[] s_fontSizeRatios = [
+            0.625f,
+            0.8125f,
+            1f,
+            1.125f,
+            1.5f,
+            2f,
+            3f
+        ];
 
-    // font size 属性：绝对 1-7 或 ±N 相对（"+2"/"-1"，int.TryParse 吞掉前导符号得 2/-1）。
-    // 相对值以基准 3 折算后钳 1-7（HTML 规范：不随嵌套累加，浏览器同款）；绝对越界（0/8+）
-    // 规范规定无效果——返回 false 不缩放。
-    // internal：HtmlToWidgetsBuilder UA 标签块级字号 ctx 乘点复用（同行内口径，签名不动）
-    internal static bool TryParseFontSizeAttribute(string attribute, out float ratio) {
-        ratio = 1f;
-        if (string.IsNullOrWhiteSpace(attribute)) {
-            return false;
-        }
-        string trimmed = attribute.Trim();
-        if (trimmed[0] is '+' or '-') {
-            if (!int.TryParse(trimmed, out int relative)) {
+        // font size 属性：绝对 1-7 或 ±N 相对（"+2"/"-1"，int.TryParse 吞掉前导符号得 2/-1）。
+        // 相对值以基准 3 折算后钳 1-7（HTML 规范：不随嵌套累加，浏览器同款）；绝对越界（0/8+）
+        // 规范规定无效果——返回 false 不缩放。
+        // internal：HtmlToWidgetsBuilder UA 标签块级字号 ctx 乘点复用（同行内口径，签名不动）
+        internal static bool TryParseFontSizeAttribute(string attribute, out float ratio) {
+            ratio = 1f;
+            if (string.IsNullOrWhiteSpace(attribute)) {
                 return false;
             }
-            ratio = s_fontSizeRatios[MathUtils.Clamp(3 + relative, 1, 7) - 1];
+            string trimmed = attribute.Trim();
+            if (trimmed[0] is '+' or '-') {
+                if (!int.TryParse(trimmed, out int relative)) {
+                    return false;
+                }
+                ratio = s_fontSizeRatios[MathUtils.Clamp(3 + relative, 1, 7) - 1];
+                return true;
+            }
+            if (!int.TryParse(trimmed, out int absolute)
+                || absolute is < 1 or > 7) {
+                return false;
+            }
+            ratio = s_fontSizeRatios[absolute - 1];
             return true;
         }
-        if (!int.TryParse(trimmed, out int absolute)
-            || absolute is < 1 or > 7) {
-            return false;
-        }
-        ratio = s_fontSizeRatios[absolute - 1];
-        return true;
-    }
     }
 }

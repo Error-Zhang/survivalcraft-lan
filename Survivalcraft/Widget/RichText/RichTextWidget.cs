@@ -56,7 +56,7 @@ namespace Game {
         public TextAnchor TextAnchor { get; set; }
 
         public BitmapFont Font {
-            get => m_font ?? (LabelWidget.BitmapFont ?? BitmapFont.DebugFont);
+            get => m_font ?? LabelWidget.BitmapFont ?? BitmapFont.DebugFont;
             set {
                 if (value != m_font) {
                     m_font = value;
@@ -354,13 +354,27 @@ namespace Game {
                                 QueueTransformedQuad(flatBatch2D, boxLeft, boxTop, boxWidth, bt, BorderColor(border.Top, run.Span, fade));
                             }
                             if (bb > 0f) {
-                                QueueTransformedQuad(flatBatch2D, boxLeft, boxTop + boxHeight - bb, boxWidth, bb, BorderColor(border.Bottom, run.Span, fade));
+                                QueueTransformedQuad(
+                                    flatBatch2D,
+                                    boxLeft,
+                                    boxTop + boxHeight - bb,
+                                    boxWidth,
+                                    bb,
+                                    BorderColor(border.Bottom, run.Span, fade)
+                                );
                             }
                             if (bl > 0f) {
                                 QueueTransformedQuad(flatBatch2D, boxLeft, boxTop, bl, boxHeight, BorderColor(border.Left, run.Span, fade));
                             }
                             if (br > 0f) {
-                                QueueTransformedQuad(flatBatch2D, boxLeft + boxWidth - br, boxTop, br, boxHeight, BorderColor(border.Right, run.Span, fade));
+                                QueueTransformedQuad(
+                                    flatBatch2D,
+                                    boxLeft + boxWidth - br,
+                                    boxTop,
+                                    br,
+                                    boxHeight,
+                                    BorderColor(border.Right, run.Span, fade)
+                                );
                             }
                         }
                     }
@@ -416,33 +430,16 @@ namespace Game {
                         float thickness = MathUtils.Max(FontScale * Font.Scale, 1f);
                         float strikeY = position.Y + Font.GlyphHeight * scale.X * Font.Scale * 0.5f - thickness * 0.5f;
                         strikeY = MathF.Round(strikeY + drawDelta.Y + GlobalTransform.M42) - drawDelta.Y - GlobalTransform.M42;
-                        QueueTransformedQuad(
-                            overlayBatch2D,
-                            position.X + drawDelta.X,
-                            strikeY + drawDelta.Y,
-                            run.Width,
-                            thickness,
-                            color
-                        );
+                        QueueTransformedQuad(overlayBatch2D, position.X + drawDelta.X, strikeY + drawDelta.Y, run.Width, thickness, color);
                     }
-                    bool underline = !run.Span.LinkUnderlineSuppressed
-                        && (run.Span.Underline
-                            || (run.Span.IsLink && ShowLinkUnderline));
-                    if (underline
-                        && flatBatch2D != null) {
+                    bool underline = !run.Span.LinkUnderlineSuppressed && (run.Span.Underline || (run.Span.IsLink && ShowLinkUnderline));
+                    if (underline && flatBatch2D != null) {
                         // 下划线（HTML ins/链接）：字形下方 1px 处、厚度同删除线；GlyphHeight 须乘
                         // Font.Scale（与 CalculateLineHeight 一致），否则落在下一行；基线偏移已融
                         // position 自动跟随
                         float underlineY = position.Y + Font.GlyphHeight * scale.X * Font.Scale + 1f;
                         float thickness = MathUtils.Max(FontScale * Font.Scale, 1f);
-                        QueueTransformedQuad(
-                            flatBatch2D,
-                            position.X + drawDelta.X,
-                            underlineY + drawDelta.Y,
-                            run.Width,
-                            thickness,
-                            color
-                        );
+                        QueueTransformedQuad(flatBatch2D, position.X + drawDelta.X, underlineY + drawDelta.Y, run.Width, thickness, color);
                     }
                 }
             }
@@ -482,9 +479,7 @@ namespace Game {
         float CalculateBlockY() {
             float totalHeight = 0f;
             foreach (TextLine line in m_layout.Lines) {
-                totalHeight += m_layout.LineHeightPx > 0f
-                    ? m_layout.LineHeightPx
-                    : line.Height * m_layout.LineHeightMultiplier;
+                totalHeight += m_layout.LineHeightPx > 0f ? m_layout.LineHeightPx : line.Height * m_layout.LineHeightMultiplier;
             }
             if ((TextAnchor & TextAnchor.VerticalCenter) != 0) {
                 return (ActualSize.Y - totalHeight) / 2f;
@@ -573,8 +568,7 @@ namespace Game {
             m_layout.Spans = m_spans;
             // 有效缩进解析（% 分母=本件排版可用宽）：超界宽（MaxValue 自测口径/∞）无基准只落 px，
             // 防 %×巨宽溢出成 ∞ 把首行预算钳到 1px
-            float percentBasis = availableWidth > 0f
-                && availableWidth < 1e7f ? availableWidth : 0f;
+            float percentBasis = availableWidth > 0f && availableWidth < 1e7f ? availableWidth : 0f;
             m_resolvedFirstLineIndent = m_firstLineIndent + m_firstLineIndentPercent / 100f * percentBasis;
             m_layout.Layout(availableWidth, availableHeight, m_resolvedFirstLineIndent);
             m_layoutSize = m_layout.MeasuredSize;

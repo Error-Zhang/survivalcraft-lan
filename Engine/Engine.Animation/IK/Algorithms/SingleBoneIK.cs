@@ -88,7 +88,6 @@ namespace Engine.Animation {
             // 对于两骨骼链，旋转应用到根骨骼
             // 使用 ApplyModelRotation 保持骨骼世界位置不变
             int targetBoneIdx = rootIdx;
-
             IKUtils.ApplyModelRotation(boneTransforms, targetBoneIdx, modelRotation, rootPos, model);
 
             // 应用关节限制

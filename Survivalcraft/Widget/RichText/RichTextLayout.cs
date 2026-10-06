@@ -96,16 +96,19 @@ namespace Game {
             }
             paragraphs.Add(current);
             // 首行折行预算=可用宽−缩进（下限 1px 防负/零宽死循环）；可用宽无穷时无缩进口径
-            bool hasIndent = firstLineIndent > 0f
-                && float.IsFinite(availableWidth);
+            bool hasIndent = firstLineIndent > 0f && float.IsFinite(availableWidth);
             float firstLineWidth = hasIndent ? MathF.Max(availableWidth - firstLineIndent, 1f) : availableWidth;
             bool firstLinePending = true;
             int maxLines = MaxLines;
             if (availableHeight < float.PositiveInfinity) {
                 // 约束高→行数换算按行距 pitch（与量测同式）：自然高换算在 line-height>1 时
                 // 超预算约一倍（Ellipsis 落错行、内容画出约束区）
-                maxLines = MathUtils.Min((int)MathF.Floor(availableHeight
-                    / (LineHeightPx > 0f ? LineHeightPx : CalculateLineHeight(DefaultFontScale) * LineHeightMultiplier)), maxLines);
+                maxLines = MathUtils.Min(
+                    (int)MathF.Floor(
+                        availableHeight / (LineHeightPx > 0f ? LineHeightPx : CalculateLineHeight(DefaultFontScale) * LineHeightMultiplier)
+                    ),
+                    maxLines
+                );
             }
             foreach (List<Cell> paragraph in paragraphs) {
                 if (Lines.Count >= maxLines) {
@@ -123,20 +126,23 @@ namespace Game {
                     bool lineEllipsized = false;
                     float lineBudget = firstLinePending ? firstLineWidth : availableWidth;
                     if (WordWrap) {
-                        if (Ellipsis
-                            && Lines.Count + 1 >= maxLines) {
+                        if (Ellipsis && Lines.Count + 1 >= maxLines) {
                             // 末行直接按减省略号宽适配剩余内容，放不下才截断补 "..."（与 FontTextWidget flag 路径一致）：
                             // 若先按全宽断行再收缩，断行点空隙≥省略号宽时会静默丢内容且无省略号
-                            int fitCount = CountFittingCells(paragraph, start, end, lineBudget, reserveEllipsis: true);
+                            int fitCount = CountFittingCells(paragraph, start, end, lineBudget, true);
                             if (fitCount < end - start) {
                                 end = start + fitCount;
                                 lineEllipsized = true;
                             }
                         }
                         else {
-                            int fitCount = CountFittingCells(paragraph, start, end, lineBudget, reserveEllipsis: false);
+                            int fitCount = CountFittingCells(paragraph, start, end, lineBudget, false);
                             if (fitCount < end - start) {
-                                int breakPosition = FontTextWidget.FindLineBreakPosition(BuildString(paragraph, start, end), MathUtils.Max(fitCount, 1), WordBreak);
+                                int breakPosition = FontTextWidget.FindLineBreakPosition(
+                                    BuildString(paragraph, start, end),
+                                    MathUtils.Max(fitCount, 1),
+                                    WordBreak
+                                );
                                 if (breakPosition <= 0) {
                                     breakPosition = 1;
                                 }
@@ -146,7 +152,7 @@ namespace Game {
                     }
                     else if (Ellipsis) {
                         // 非换行：段落超宽即截断补 "..."（与 FontTextWidget 非换行分支一致）
-                        int fitCount = CountFittingCells(paragraph, start, end, lineBudget, reserveEllipsis: true);
+                        int fitCount = CountFittingCells(paragraph, start, end, lineBudget, true);
                         if (fitCount < end - start) {
                             end = start + fitCount;
                             lineEllipsized = true;
@@ -194,8 +200,7 @@ namespace Game {
                 // 即剔除纯行间距；pitch<字形项（行高<1）时差值为负=末行向上收（CSS 同义）
                 y -= lastPitch - Font.GlyphHeight * Lines[^1].MaxScale * Font.Scale;
             }
-            if (Lines.Count > 0
-                && hasIndent) {
+            if (Lines.Count > 0 && hasIndent) {
                 // 首行缩进计入测量宽（首行实际宽+缩进）：收缩/裁剪宿主下 DesiredSize.X 不再少报，
                 // 首行不越出宿主盒；空首段耗缩进情形首行宽 0，计入的即缩进本身（行盒占位同义）
                 maxWidth = MathUtils.Max(maxWidth, Lines[0].Width + firstLineIndent);
@@ -233,12 +238,7 @@ namespace Game {
                 if (border != null) {
                     x += MathF.Max(border.Widths.X, 0f);
                 }
-                TextRun run = new() {
-                    Span = span,
-                    Text = new string(text),
-                    X = x,
-                    Width = width
-                };
+                TextRun run = new() { Span = span, Text = new string(text), X = x, Width = width };
                 x += width;
                 if (border != null) {
                     x += MathF.Max(border.Widths.Z, 0f);
@@ -263,12 +263,7 @@ namespace Game {
                     BaselineShift = source?.BaselineShift ?? 0f,
                     Opacity = source?.Opacity ?? 1f
                 };
-                TextRun run = new() {
-                    Span = ellipsis,
-                    Text = "...",
-                    X = x,
-                    Width = MeasureEllipsisWidth(sourceScale)
-                };
+                TextRun run = new() { Span = ellipsis, Text = "...", X = x, Width = MeasureEllipsisWidth(sourceScale) };
                 line.Runs.Add(run);
                 line.Width += run.Width;
             }
@@ -307,7 +302,8 @@ namespace Game {
 
         // 字符推进量唯一出处（AddLine run 宽与 CountFittingCells 折行判定共用）：字距是绝对 px，
         // 不随 span 字号/Font.Scale 缩放（CSS px 口径），kerning 减项保持原样（字距与 kerning 并存）
-        float CharacterAdvance(char c, float fontScale) => (Font.GetGlyph(c).Width + Font.Spacing.X + FontSpacing.X) * fontScale * Font.Scale + LetterSpacing;
+        float CharacterAdvance(char c, float fontScale) =>
+            (Font.GetGlyph(c).Width + Font.Spacing.X + FontSpacing.X) * fontScale * Font.Scale + LetterSpacing;
 
         float MeasureEllipsisWidth(float fontScale) {
             const string text = "...";

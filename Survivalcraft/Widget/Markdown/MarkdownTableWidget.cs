@@ -58,10 +58,7 @@ namespace Game {
         public MarkdownTableWidget() {
             Margin = new Vector2(0f, 4f);
             m_table = new TablePanelWidget {
-                CellPadding = new Vector2(CellPaddingX, CellPaddingY),
-                OuterBorder = true,
-                InnerBorder = true,
-                BorderColor = GridLineColor
+                CellPadding = new Vector2(CellPaddingX, CellPaddingY), OuterBorder = true, InnerBorder = true, BorderColor = GridLineColor
             };
         }
 
@@ -103,7 +100,7 @@ namespace Game {
 
         public override void MeasureOverride(Vector2 parentAvailableSize) {
             IsDrawRequired = true;
-            m_table.BorderColor = GridLineColor;   // 静态字段每帧跟随（case 目验调）
+            m_table.BorderColor = GridLineColor; // 静态字段每帧跟随（case 目验调）
             float availX = MathUtils.Max(parentAvailableSize.X, 0f);
             // 先按宿主可用宽测底座：DesiredSize.X 超出可用宽 = 各列压到 min 仍超宽（底座定格 min
             // 交外层），即旧版滚动兜底信号；其余（自然宽/线性收缩）底座已自行协商完成。
@@ -112,8 +109,7 @@ namespace Game {
             m_table.Measure(new Vector2(availX, float.PositiveInfinity));
             m_scrollMode = m_table.DesiredSize.X > availX + 0.01f;
             UpdateChildrenStructure();
-            if (m_scrollMode
-                && m_scrollPanel != null) {
+            if (m_scrollMode && m_scrollPanel != null) {
                 // 滚动兜底按 ∞ 重测拿自然宽（底座 shrink-to-fit 退化=max；定格态底座已把列 max
                 // 钳到 min，故 track=min=token 扫描宽，略 kerning 比旧带 kerning 自然宽约 +2%）
                 m_table.Measure(new Vector2(float.PositiveInfinity, float.PositiveInfinity));
@@ -129,8 +125,7 @@ namespace Game {
         }
 
         public override void ArrangeOverride() {
-            if (m_scrollMode
-                && m_scrollPanel != null) {
+            if (m_scrollMode && m_scrollPanel != null) {
                 m_scrollPanel.Arrange(Vector2.Zero, new Vector2(m_viewportWidth, m_table.DesiredSize.Y + ScrollBarReserve));
                 return;
             }
@@ -142,11 +137,7 @@ namespace Game {
         void UpdateChildrenStructure() {
             if (m_scrollMode) {
                 if (m_scrollPanel == null) {
-                    m_scrollPanel = new ScrollPanelWidget {
-                        Direction = LayoutDirection.Horizontal,
-                        ScrollPosition = 0f,
-                        ScrollSpeed = 0f
-                    };
+                    m_scrollPanel = new ScrollPanelWidget { Direction = LayoutDirection.Horizontal, ScrollPosition = 0f, ScrollSpeed = 0f };
                 }
                 if (m_table.ParentWidget != m_scrollPanel) {
                     Children.Remove(m_table);

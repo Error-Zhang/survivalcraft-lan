@@ -30,7 +30,8 @@ namespace Engine.Animation {
             }
             Vector3 v = value.Value;
             // 纯 Y → 单数字（向后兼容输出）
-            if (v.X == 0f && v.Z == 0f) {
+            if (v.X == 0f
+                && v.Z == 0f) {
                 writer.WriteNumberValue(v.Y);
                 return;
             }

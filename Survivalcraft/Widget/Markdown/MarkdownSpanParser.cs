@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using Engine;
 using Markdig.Syntax.Inlines;
 
@@ -57,8 +58,7 @@ namespace Game {
         // CS8983：带字段初始值设定项的 struct 必须显式声明构造函数（空体即可，初始化由字段
         // 初始值承担）。注意 default(MarkdownSpanStyle) 绕过 ctor：HasOpacity=false、Opacity=0，
         // 消费端（AddText）以 HasOpacity 为准，default 态安全
-        public MarkdownSpanStyle() {
-        }
+        public MarkdownSpanStyle() { }
     }
 
     // Markdig inline 序列 → List<TextSpan>；HtmlInline 片段委托 HtmlSpanParser（Widget/Html/）
@@ -83,11 +83,14 @@ namespace Game {
             }
         }
 
-        static MarkdownSpanStyle ParseInline(Inline inline, List<TextSpan> spans, MarkdownSpanStyle style, Color defaultColor, Stack<MarkdownSpanStyle> htmlStack, int depth) {
+        static MarkdownSpanStyle ParseInline(Inline inline,
+            List<TextSpan> spans,
+            MarkdownSpanStyle style,
+            Color defaultColor,
+            Stack<MarkdownSpanStyle> htmlStack,
+            int depth) {
             switch (inline) {
-                case LiteralInline literal:
-                    HtmlSpanParser.AddText(literal.Content.ToString(), spans, style, defaultColor);
-                    break;
+                case LiteralInline literal: HtmlSpanParser.AddText(literal.Content.ToString(), spans, style, defaultColor); break;
                 case EmphasisInline emphasis: {
                     // DelimiterCount：1=斜体、2=粗体、3=粗斜体；'~' 为删除线（pipeline 开 Strikethrough 扩展才会产出）
                     MarkdownSpanStyle inner = style;
@@ -98,7 +101,8 @@ namespace Game {
                         if (emphasis.DelimiterCount >= 2) {
                             inner.Bold = true;
                         }
-                        if (emphasis.DelimiterCount == 1 || emphasis.DelimiterCount >= 3) {
+                        if (emphasis.DelimiterCount == 1
+                            || emphasis.DelimiterCount >= 3) {
                             inner.Italic = true;
                         }
                     }
@@ -111,14 +115,15 @@ namespace Game {
                     // 行内代码只接 Bold（斜体/删除线不接为既有取舍），装饰/缩放三字段随嵌套上下文透传
                     //（<u><code>、<small><code>、<sub><code> 行内路径不再丢样式）。
                     // TextTransform 同不接（code 字面语义，变换即失真——与斜体同口径留档）
-                    spans.Add(new TextSpan(code.Content, RichContentPalette.CodeColor) {
-                        BackgroundColor = RichContentPalette.CodeBackgroundColor,
-                        Style = style.Bold ? RichTextStyle.Bold : RichTextStyle.Normal,
-                        FontScale = style.Scale,
-                        Underline = style.Underline,
-                        BaselineShift = style.BaselineShift
-                    });
-                    break;
+                    spans.Add(
+                        new TextSpan(code.Content, RichContentPalette.CodeColor) {
+                            BackgroundColor = RichContentPalette.CodeBackgroundColor,
+                            Style = style.Bold ? RichTextStyle.Bold : RichTextStyle.Normal,
+                            FontScale = style.Scale,
+                            Underline = style.Underline,
+                            BaselineShift = style.BaselineShift
+                        }
+                    ); break;
                 case LinkInline link: {
                     if (link.IsImage) {
                         // 图片占位：v1 不真渲染（P3）
@@ -141,14 +146,10 @@ namespace Game {
                 }
                 case LineBreakInline:
                     // 软换行 v1 一律当硬换行
-                    HtmlSpanParser.AddText("\n", spans, style, defaultColor);
-                    break;
+                    HtmlSpanParser.AddText("\n", spans, style, defaultColor); break;
                 case HtmlEntityInline entity:
-                    HtmlSpanParser.AddText(WebUtility.HtmlDecode(entity.Original.ToString()), spans, style, defaultColor);
-                    break;
-                case HtmlInline html:
-                    style = HtmlSpanParser.ApplyInlineHtmlTag(html.Tag, spans, style, defaultColor, htmlStack, depth);
-                    break;
+                    HtmlSpanParser.AddText(WebUtility.HtmlDecode(entity.Original.ToString()), spans, style, defaultColor); break;
+                case HtmlInline html: style = HtmlSpanParser.ApplyInlineHtmlTag(html.Tag, spans, style, defaultColor, htmlStack, depth); break;
                 default:
                     if (inline is ContainerInline fallbackContainer) {
                         Parse(fallbackContainer, spans, style, defaultColor, depth + 1);
@@ -161,26 +162,18 @@ namespace Game {
         }
 
         // 拼接 inline 子树的纯文本（图片 alt 等场景）
-        public static string GetInlineText(ContainerInline container) {
-            return GetInlineText(container, 0);
-        }
+        public static string GetInlineText(ContainerInline container) => GetInlineText(container, 0);
 
         static string GetInlineText(ContainerInline container, int depth) {
             if (depth > MaxDepth) {
                 return string.Empty;
             }
-            var builder = new System.Text.StringBuilder();
+            StringBuilder builder = new();
             foreach (Inline inline in container) {
                 switch (inline) {
-                    case LiteralInline literal:
-                        builder.Append(literal.Content.ToString());
-                        break;
-                    case CodeInline code:
-                        builder.Append(code.Content);
-                        break;
-                    case HtmlEntityInline entity:
-                        builder.Append(WebUtility.HtmlDecode(entity.Original.ToString()));
-                        break;
+                    case LiteralInline literal: builder.Append(literal.Content.ToString()); break;
+                    case CodeInline code: builder.Append(code.Content); break;
+                    case HtmlEntityInline entity: builder.Append(WebUtility.HtmlDecode(entity.Original.ToString())); break;
                     default:
                         if (inline is ContainerInline inner) {
                             builder.Append(GetInlineText(inner, depth + 1));

@@ -1,5 +1,5 @@
-using Engine.Animation.RootMotion;
 using System.Text.Json.Serialization;
+using Engine.Animation.RootMotion;
 
 namespace Engine.Animation {
     /// <summary>

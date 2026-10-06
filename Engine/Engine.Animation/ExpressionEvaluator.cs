@@ -184,7 +184,6 @@ namespace Engine.Animation {
                 expr.Parameters.Clear();
                 return;
             }
-
             foreach (string paramName in requiredParams) {
                 expr.Parameters[paramName] = parameters.GetValue(paramName);
             }

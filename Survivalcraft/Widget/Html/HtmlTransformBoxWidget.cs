@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Engine;
 
 namespace Game {
@@ -23,9 +22,7 @@ namespace Game {
 
         public Vector2 OriginPx;
 
-        public HtmlTransformBoxWidget() {
-            Direction = LayoutDirection.Vertical;
-        }
+        public HtmlTransformBoxWidget() => Direction = LayoutDirection.Vertical;
 
         public override void ArrangeOverride() {
             // ActualSize 此刻已定（Widget.Arrange 先解析后调 ArrangeOverride）；% 参与 origin
@@ -57,10 +54,8 @@ namespace Game {
                     float x = func.X.IsPercent ? func.X.Value * ActualSize.X : func.X.Value;
                     float y = func.Y.IsPercent ? func.Y.Value * ActualSize.Y : func.Y.Value;
                     return Matrix.CreateTranslation(x, y, 0f);
-                case CssTransformFuncKind.Scale:
-                    return Matrix.CreateScale(func.X.Value, func.Y.Value, 1f);
-                default:
-                    return Matrix.CreateRotationZ(MathUtils.DegToRad(func.X.Value));
+                case CssTransformFuncKind.Scale: return Matrix.CreateScale(func.X.Value, func.Y.Value, 1f);
+                default: return Matrix.CreateRotationZ(MathUtils.DegToRad(func.X.Value));
             }
         }
     }

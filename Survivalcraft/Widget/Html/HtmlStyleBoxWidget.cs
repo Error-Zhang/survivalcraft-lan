@@ -62,7 +62,10 @@ namespace Game {
             float rTr = ResolveCornerRadius(CornerRadius.Y, CornerPercent.Y, width, height);
             float rBr = ResolveCornerRadius(CornerRadius.Z, CornerPercent.Z, width, height);
             float rBl = ResolveCornerRadius(CornerRadius.W, CornerPercent.W, width, height);
-            if (rTl <= 0f && rTr <= 0f && rBr <= 0f && rBl <= 0f) {
+            if (rTl <= 0f
+                && rTr <= 0f
+                && rBr <= 0f
+                && rBl <= 0f) {
                 // 直角原路径（全 0 半径逐位不变，零回归）
                 // 背景整幅先入批（FlatBatch 同层按入批序：背景垫在同壳边框之下）；opacity 淡出
                 // 由 builder 侧把 v 乘进装饰色（预乘，与 GlobalColorTransform 乘法交换）
@@ -101,16 +104,48 @@ namespace Game {
                 // 四角扇形：圆心=角内 (r,r) 点，θ 自一条边向另一边扫 90°（屏幕系 y 向下，
                 // θ 增大顺时针）；r=0 角跳过（扇形零面积）
                 if (rTl > 0f) {
-                    QueueFan(batch, rTl, rTl, rTl, MathF.PI, 1.5f * MathF.PI, bg);
+                    QueueFan(
+                        batch,
+                        rTl,
+                        rTl,
+                        rTl,
+                        MathF.PI,
+                        1.5f * MathF.PI,
+                        bg
+                    );
                 }
                 if (rTr > 0f) {
-                    QueueFan(batch, width - rTr, rTr, rTr, 1.5f * MathF.PI, 2f * MathF.PI, bg);
+                    QueueFan(
+                        batch,
+                        width - rTr,
+                        rTr,
+                        rTr,
+                        1.5f * MathF.PI,
+                        2f * MathF.PI,
+                        bg
+                    );
                 }
                 if (rBr > 0f) {
-                    QueueFan(batch, width - rBr, height - rBr, rBr, 0f, 0.5f * MathF.PI, bg);
+                    QueueFan(
+                        batch,
+                        width - rBr,
+                        height - rBr,
+                        rBr,
+                        0f,
+                        0.5f * MathF.PI,
+                        bg
+                    );
                 }
                 if (rBl > 0f) {
-                    QueueFan(batch, rBl, height - rBl, rBl, 0.5f * MathF.PI, MathF.PI, bg);
+                    QueueFan(
+                        batch,
+                        rBl,
+                        height - rBl,
+                        rBl,
+                        0.5f * MathF.PI,
+                        MathF.PI,
+                        bg
+                    );
                 }
             }
             // 边框：直边 quad 各端按相邻角 resolve 值让位（左右边让开上下角、上下边让开左右角，
@@ -132,16 +167,56 @@ namespace Game {
                 // Chrome 对角线渐变分色有差（近似留档）；某侧宽 0 时该侧段条带零宽自然隐去，
                 // 无需特判
                 if (rTl > 0f) {
-                    QueueCornerArc(batch, rTl, rTl, rTl, MathF.PI, left, BorderLeftColor, top, BorderTopColor);
+                    QueueCornerArc(
+                        batch,
+                        rTl,
+                        rTl,
+                        rTl,
+                        MathF.PI,
+                        left,
+                        BorderLeftColor,
+                        top,
+                        BorderTopColor
+                    );
                 }
                 if (rTr > 0f) {
-                    QueueCornerArc(batch, width - rTr, rTr, rTr, 1.5f * MathF.PI, right, BorderTopColor, top, BorderRightColor);
+                    QueueCornerArc(
+                        batch,
+                        width - rTr,
+                        rTr,
+                        rTr,
+                        1.5f * MathF.PI,
+                        right,
+                        BorderTopColor,
+                        top,
+                        BorderRightColor
+                    );
                 }
                 if (rBr > 0f) {
-                    QueueCornerArc(batch, width - rBr, height - rBr, rBr, 0f, right, BorderRightColor, bottom, BorderBottomColor);
+                    QueueCornerArc(
+                        batch,
+                        width - rBr,
+                        height - rBr,
+                        rBr,
+                        0f,
+                        right,
+                        BorderRightColor,
+                        bottom,
+                        BorderBottomColor
+                    );
                 }
                 if (rBl > 0f) {
-                    QueueCornerArc(batch, rBl, height - rBl, rBl, 0.5f * MathF.PI, left, BorderBottomColor, bottom, BorderLeftColor);
+                    QueueCornerArc(
+                        batch,
+                        rBl,
+                        height - rBl,
+                        rBl,
+                        0.5f * MathF.PI,
+                        left,
+                        BorderBottomColor,
+                        bottom,
+                        BorderLeftColor
+                    );
                 }
             }
         }
@@ -165,20 +240,19 @@ namespace Game {
                 return;
             }
             Matrix m = GlobalTransform;
-            batch.QueueQuad(
-                Vector2.Transform(p1, m),
-                Vector2.Transform(p2, m),
-                Vector2.Transform(p3, m),
-                Vector2.Transform(p4, m),
-                0f,
-                color
-            );
+            batch.QueueQuad(Vector2.Transform(p1, m), Vector2.Transform(p2, m), Vector2.Transform(p3, m), Vector2.Transform(p4, m), 0f, color);
         }
 
         // 背景角扇形：CornerFanSegments 段扇楔（p1=p2=圆心的退化 quad），θ 自 a0 扫到 a1
         const int CornerFanSegments = 6;
 
-        void QueueFan(FlatBatch2D batch, float cx, float cy, float r, float a0, float a1, Color color) {
+        void QueueFan(FlatBatch2D batch,
+            float cx,
+            float cy,
+            float r,
+            float a0,
+            float a1,
+            Color color) {
             Vector2 center = new(cx, cy);
             for (int i = 0; i < CornerFanSegments; i++) {
                 float ta = a0 + (a1 - a0) * i / CornerFanSegments;
@@ -195,7 +269,15 @@ namespace Game {
         // 处内点与直边 quad 内角精确贴合，洞消；全等宽退化为圆，行为不变）。vertWidth/horizWidth
         // 即按各角几何位置传入的竖边/横边宽。分段颜色近似=按段中线角 45° 对角线归属相邻两侧
         // 之一（firstColor=θ 起始边侧色）；某侧宽 0 的段条带零宽自然隐去
-        void QueueCornerArc(FlatBatch2D batch, float cx, float cy, float r, float a0, float vertWidth, Color? firstColor, float horizWidth, Color? secondColor) {
+        void QueueCornerArc(FlatBatch2D batch,
+            float cx,
+            float cy,
+            float r,
+            float a0,
+            float vertWidth,
+            Color? firstColor,
+            float horizWidth,
+            Color? secondColor) {
             Vector2 center = new(cx, cy);
             float a1 = a0 + 0.5f * MathF.PI;
             float rx = MathF.Max(r - MathF.Max(vertWidth, 0f), 0f);

@@ -11,154 +11,154 @@ namespace Game {
     public static class CssColorParser {
         // 命名色表（MDN 全表手抄，十六进制逐项核对）：小写键，查表前 ToLowerInvariant
         static readonly Dictionary<string, Color> s_namedColors = new(StringComparer.Ordinal) {
-            ["aliceblue"] = new(240, 248, 255),
-            ["antiquewhite"] = new(250, 235, 215),
-            ["aqua"] = new(0, 255, 255),
-            ["aquamarine"] = new(127, 255, 212),
-            ["azure"] = new(240, 255, 255),
-            ["beige"] = new(245, 245, 220),
-            ["bisque"] = new(255, 228, 196),
-            ["black"] = new(0, 0, 0),
-            ["blanchedalmond"] = new(255, 235, 205),
-            ["blue"] = new(0, 0, 255),
-            ["blueviolet"] = new(138, 43, 226),
-            ["brown"] = new(165, 42, 42),
-            ["burlywood"] = new(222, 184, 135),
-            ["cadetblue"] = new(95, 158, 160),
-            ["chartreuse"] = new(127, 255, 0),
-            ["chocolate"] = new(210, 105, 30),
-            ["coral"] = new(255, 127, 80),
-            ["cornflowerblue"] = new(100, 149, 237),
-            ["cornsilk"] = new(255, 248, 220),
-            ["crimson"] = new(220, 20, 60),
-            ["cyan"] = new(0, 255, 255),
-            ["darkblue"] = new(0, 0, 139),
-            ["darkcyan"] = new(0, 139, 139),
-            ["darkgoldenrod"] = new(184, 134, 11),
-            ["darkgray"] = new(169, 169, 169),
-            ["darkgreen"] = new(0, 100, 0),
-            ["darkgrey"] = new(169, 169, 169),
-            ["darkkhaki"] = new(189, 183, 107),
-            ["darkmagenta"] = new(139, 0, 139),
-            ["darkolivegreen"] = new(85, 107, 47),
-            ["darkorange"] = new(255, 140, 0),
-            ["darkorchid"] = new(153, 50, 204),
-            ["darkred"] = new(139, 0, 0),
-            ["darksalmon"] = new(233, 150, 122),
-            ["darkseagreen"] = new(143, 188, 143),
-            ["darkslateblue"] = new(72, 61, 139),
-            ["darkslategray"] = new(47, 79, 79),
-            ["darkslategrey"] = new(47, 79, 79),
-            ["darkturquoise"] = new(0, 206, 209),
-            ["darkviolet"] = new(148, 0, 211),
-            ["deeppink"] = new(255, 20, 147),
-            ["deepskyblue"] = new(0, 191, 255),
-            ["dimgray"] = new(105, 105, 105),
-            ["dimgrey"] = new(105, 105, 105),
-            ["dodgerblue"] = new(30, 144, 255),
-            ["firebrick"] = new(178, 34, 34),
-            ["floralwhite"] = new(255, 250, 240),
-            ["forestgreen"] = new(34, 139, 34),
-            ["fuchsia"] = new(255, 0, 255),
-            ["gainsboro"] = new(220, 220, 220),
-            ["ghostwhite"] = new(248, 248, 255),
-            ["gold"] = new(255, 215, 0),
-            ["goldenrod"] = new(218, 165, 32),
-            ["gray"] = new(128, 128, 128),
-            ["green"] = new(0, 128, 0),
-            ["greenyellow"] = new(173, 255, 47),
-            ["grey"] = new(128, 128, 128),
-            ["honeydew"] = new(240, 255, 240),
-            ["hotpink"] = new(255, 105, 180),
-            ["indianred"] = new(205, 92, 92),
-            ["indigo"] = new(75, 0, 130),
-            ["ivory"] = new(255, 255, 240),
-            ["khaki"] = new(240, 230, 140),
-            ["lavender"] = new(230, 230, 250),
-            ["lavenderblush"] = new(255, 240, 245),
-            ["lawngreen"] = new(124, 252, 0),
-            ["lemonchiffon"] = new(255, 250, 205),
-            ["lightblue"] = new(173, 216, 230),
-            ["lightcoral"] = new(240, 128, 128),
-            ["lightcyan"] = new(224, 255, 255),
-            ["lightgoldenrodyellow"] = new(250, 250, 210),
-            ["lightgray"] = new(211, 211, 211),
-            ["lightgreen"] = new(144, 238, 144),
-            ["lightgrey"] = new(211, 211, 211),
-            ["lightpink"] = new(255, 182, 193),
-            ["lightsalmon"] = new(255, 160, 122),
-            ["lightseagreen"] = new(32, 178, 170),
-            ["lightskyblue"] = new(135, 206, 250),
-            ["lightslategray"] = new(119, 136, 153),
-            ["lightslategrey"] = new(119, 136, 153),
-            ["lightsteelblue"] = new(176, 196, 222),
-            ["lightyellow"] = new(255, 255, 224),
-            ["lime"] = new(0, 255, 0),
-            ["limegreen"] = new(50, 205, 50),
-            ["linen"] = new(250, 240, 230),
-            ["magenta"] = new(255, 0, 255),
-            ["maroon"] = new(128, 0, 0),
-            ["mediumaquamarine"] = new(102, 205, 170),
-            ["mediumblue"] = new(0, 0, 205),
-            ["mediumorchid"] = new(186, 85, 211),
-            ["mediumpurple"] = new(147, 112, 219),
-            ["mediumseagreen"] = new(60, 179, 113),
-            ["mediumslateblue"] = new(123, 104, 238),
-            ["mediumspringgreen"] = new(0, 250, 154),
-            ["mediumturquoise"] = new(72, 209, 204),
-            ["mediumvioletred"] = new(199, 21, 133),
-            ["midnightblue"] = new(25, 25, 112),
-            ["mintcream"] = new(245, 255, 250),
-            ["mistyrose"] = new(255, 228, 225),
-            ["moccasin"] = new(255, 228, 181),
-            ["navajowhite"] = new(255, 222, 173),
-            ["navy"] = new(0, 0, 128),
-            ["oldlace"] = new(253, 245, 230),
-            ["olive"] = new(128, 128, 0),
-            ["olivedrab"] = new(107, 142, 35),
-            ["orange"] = new(255, 165, 0),
-            ["orangered"] = new(255, 69, 0),
-            ["orchid"] = new(218, 112, 214),
-            ["palegoldenrod"] = new(238, 232, 170),
-            ["palegreen"] = new(152, 251, 152),
-            ["paleturquoise"] = new(175, 238, 238),
-            ["palevioletred"] = new(219, 112, 147),
-            ["papayawhip"] = new(255, 239, 213),
-            ["peachpuff"] = new(255, 218, 185),
-            ["peru"] = new(205, 133, 63),
-            ["pink"] = new(255, 192, 203),
-            ["plum"] = new(221, 160, 221),
-            ["powderblue"] = new(176, 224, 230),
-            ["purple"] = new(128, 0, 128),
-            ["rebeccapurple"] = new(102, 51, 153),
-            ["red"] = new(255, 0, 0),
-            ["rosybrown"] = new(188, 143, 143),
-            ["royalblue"] = new(65, 105, 225),
-            ["saddlebrown"] = new(139, 69, 19),
-            ["salmon"] = new(250, 128, 114),
-            ["sandybrown"] = new(244, 164, 96),
-            ["seagreen"] = new(46, 139, 87),
-            ["seashell"] = new(255, 245, 238),
-            ["sienna"] = new(160, 82, 45),
-            ["silver"] = new(192, 192, 192),
-            ["skyblue"] = new(135, 206, 235),
-            ["slateblue"] = new(106, 90, 205),
-            ["slategray"] = new(112, 128, 144),
-            ["slategrey"] = new(112, 128, 144),
-            ["snow"] = new(255, 250, 250),
-            ["springgreen"] = new(0, 255, 127),
-            ["steelblue"] = new(70, 130, 180),
-            ["tan"] = new(210, 180, 140),
-            ["teal"] = new(0, 128, 128),
-            ["thistle"] = new(216, 191, 216),
-            ["tomato"] = new(255, 99, 71),
-            ["turquoise"] = new(64, 224, 208),
-            ["violet"] = new(238, 130, 238),
-            ["wheat"] = new(245, 222, 179),
-            ["white"] = new(255, 255, 255),
-            ["whitesmoke"] = new(245, 245, 245),
-            ["yellow"] = new(255, 255, 0),
-            ["yellowgreen"] = new(154, 205, 50)
+            ["aliceblue"] = new Color(240, 248, 255),
+            ["antiquewhite"] = new Color(250, 235, 215),
+            ["aqua"] = new Color(0, 255, 255),
+            ["aquamarine"] = new Color(127, 255, 212),
+            ["azure"] = new Color(240, 255, 255),
+            ["beige"] = new Color(245, 245, 220),
+            ["bisque"] = new Color(255, 228, 196),
+            ["black"] = new Color(0, 0, 0),
+            ["blanchedalmond"] = new Color(255, 235, 205),
+            ["blue"] = new Color(0, 0, 255),
+            ["blueviolet"] = new Color(138, 43, 226),
+            ["brown"] = new Color(165, 42, 42),
+            ["burlywood"] = new Color(222, 184, 135),
+            ["cadetblue"] = new Color(95, 158, 160),
+            ["chartreuse"] = new Color(127, 255, 0),
+            ["chocolate"] = new Color(210, 105, 30),
+            ["coral"] = new Color(255, 127, 80),
+            ["cornflowerblue"] = new Color(100, 149, 237),
+            ["cornsilk"] = new Color(255, 248, 220),
+            ["crimson"] = new Color(220, 20, 60),
+            ["cyan"] = new Color(0, 255, 255),
+            ["darkblue"] = new Color(0, 0, 139),
+            ["darkcyan"] = new Color(0, 139, 139),
+            ["darkgoldenrod"] = new Color(184, 134, 11),
+            ["darkgray"] = new Color(169, 169, 169),
+            ["darkgreen"] = new Color(0, 100, 0),
+            ["darkgrey"] = new Color(169, 169, 169),
+            ["darkkhaki"] = new Color(189, 183, 107),
+            ["darkmagenta"] = new Color(139, 0, 139),
+            ["darkolivegreen"] = new Color(85, 107, 47),
+            ["darkorange"] = new Color(255, 140, 0),
+            ["darkorchid"] = new Color(153, 50, 204),
+            ["darkred"] = new Color(139, 0, 0),
+            ["darksalmon"] = new Color(233, 150, 122),
+            ["darkseagreen"] = new Color(143, 188, 143),
+            ["darkslateblue"] = new Color(72, 61, 139),
+            ["darkslategray"] = new Color(47, 79, 79),
+            ["darkslategrey"] = new Color(47, 79, 79),
+            ["darkturquoise"] = new Color(0, 206, 209),
+            ["darkviolet"] = new Color(148, 0, 211),
+            ["deeppink"] = new Color(255, 20, 147),
+            ["deepskyblue"] = new Color(0, 191, 255),
+            ["dimgray"] = new Color(105, 105, 105),
+            ["dimgrey"] = new Color(105, 105, 105),
+            ["dodgerblue"] = new Color(30, 144, 255),
+            ["firebrick"] = new Color(178, 34, 34),
+            ["floralwhite"] = new Color(255, 250, 240),
+            ["forestgreen"] = new Color(34, 139, 34),
+            ["fuchsia"] = new Color(255, 0, 255),
+            ["gainsboro"] = new Color(220, 220, 220),
+            ["ghostwhite"] = new Color(248, 248, 255),
+            ["gold"] = new Color(255, 215, 0),
+            ["goldenrod"] = new Color(218, 165, 32),
+            ["gray"] = new Color(128, 128, 128),
+            ["green"] = new Color(0, 128, 0),
+            ["greenyellow"] = new Color(173, 255, 47),
+            ["grey"] = new Color(128, 128, 128),
+            ["honeydew"] = new Color(240, 255, 240),
+            ["hotpink"] = new Color(255, 105, 180),
+            ["indianred"] = new Color(205, 92, 92),
+            ["indigo"] = new Color(75, 0, 130),
+            ["ivory"] = new Color(255, 255, 240),
+            ["khaki"] = new Color(240, 230, 140),
+            ["lavender"] = new Color(230, 230, 250),
+            ["lavenderblush"] = new Color(255, 240, 245),
+            ["lawngreen"] = new Color(124, 252, 0),
+            ["lemonchiffon"] = new Color(255, 250, 205),
+            ["lightblue"] = new Color(173, 216, 230),
+            ["lightcoral"] = new Color(240, 128, 128),
+            ["lightcyan"] = new Color(224, 255, 255),
+            ["lightgoldenrodyellow"] = new Color(250, 250, 210),
+            ["lightgray"] = new Color(211, 211, 211),
+            ["lightgreen"] = new Color(144, 238, 144),
+            ["lightgrey"] = new Color(211, 211, 211),
+            ["lightpink"] = new Color(255, 182, 193),
+            ["lightsalmon"] = new Color(255, 160, 122),
+            ["lightseagreen"] = new Color(32, 178, 170),
+            ["lightskyblue"] = new Color(135, 206, 250),
+            ["lightslategray"] = new Color(119, 136, 153),
+            ["lightslategrey"] = new Color(119, 136, 153),
+            ["lightsteelblue"] = new Color(176, 196, 222),
+            ["lightyellow"] = new Color(255, 255, 224),
+            ["lime"] = new Color(0, 255, 0),
+            ["limegreen"] = new Color(50, 205, 50),
+            ["linen"] = new Color(250, 240, 230),
+            ["magenta"] = new Color(255, 0, 255),
+            ["maroon"] = new Color(128, 0, 0),
+            ["mediumaquamarine"] = new Color(102, 205, 170),
+            ["mediumblue"] = new Color(0, 0, 205),
+            ["mediumorchid"] = new Color(186, 85, 211),
+            ["mediumpurple"] = new Color(147, 112, 219),
+            ["mediumseagreen"] = new Color(60, 179, 113),
+            ["mediumslateblue"] = new Color(123, 104, 238),
+            ["mediumspringgreen"] = new Color(0, 250, 154),
+            ["mediumturquoise"] = new Color(72, 209, 204),
+            ["mediumvioletred"] = new Color(199, 21, 133),
+            ["midnightblue"] = new Color(25, 25, 112),
+            ["mintcream"] = new Color(245, 255, 250),
+            ["mistyrose"] = new Color(255, 228, 225),
+            ["moccasin"] = new Color(255, 228, 181),
+            ["navajowhite"] = new Color(255, 222, 173),
+            ["navy"] = new Color(0, 0, 128),
+            ["oldlace"] = new Color(253, 245, 230),
+            ["olive"] = new Color(128, 128, 0),
+            ["olivedrab"] = new Color(107, 142, 35),
+            ["orange"] = new Color(255, 165, 0),
+            ["orangered"] = new Color(255, 69, 0),
+            ["orchid"] = new Color(218, 112, 214),
+            ["palegoldenrod"] = new Color(238, 232, 170),
+            ["palegreen"] = new Color(152, 251, 152),
+            ["paleturquoise"] = new Color(175, 238, 238),
+            ["palevioletred"] = new Color(219, 112, 147),
+            ["papayawhip"] = new Color(255, 239, 213),
+            ["peachpuff"] = new Color(255, 218, 185),
+            ["peru"] = new Color(205, 133, 63),
+            ["pink"] = new Color(255, 192, 203),
+            ["plum"] = new Color(221, 160, 221),
+            ["powderblue"] = new Color(176, 224, 230),
+            ["purple"] = new Color(128, 0, 128),
+            ["rebeccapurple"] = new Color(102, 51, 153),
+            ["red"] = new Color(255, 0, 0),
+            ["rosybrown"] = new Color(188, 143, 143),
+            ["royalblue"] = new Color(65, 105, 225),
+            ["saddlebrown"] = new Color(139, 69, 19),
+            ["salmon"] = new Color(250, 128, 114),
+            ["sandybrown"] = new Color(244, 164, 96),
+            ["seagreen"] = new Color(46, 139, 87),
+            ["seashell"] = new Color(255, 245, 238),
+            ["sienna"] = new Color(160, 82, 45),
+            ["silver"] = new Color(192, 192, 192),
+            ["skyblue"] = new Color(135, 206, 235),
+            ["slateblue"] = new Color(106, 90, 205),
+            ["slategray"] = new Color(112, 128, 144),
+            ["slategrey"] = new Color(112, 128, 144),
+            ["snow"] = new Color(255, 250, 250),
+            ["springgreen"] = new Color(0, 255, 127),
+            ["steelblue"] = new Color(70, 130, 180),
+            ["tan"] = new Color(210, 180, 140),
+            ["teal"] = new Color(0, 128, 128),
+            ["thistle"] = new Color(216, 191, 216),
+            ["tomato"] = new Color(255, 99, 71),
+            ["turquoise"] = new Color(64, 224, 208),
+            ["violet"] = new Color(238, 130, 238),
+            ["wheat"] = new Color(245, 222, 179),
+            ["white"] = new Color(255, 255, 255),
+            ["whitesmoke"] = new Color(245, 245, 245),
+            ["yellow"] = new Color(255, 255, 0),
+            ["yellowgreen"] = new Color(154, 205, 50)
         };
 
         // 入口：解析失败返回 false（调用方不染色，照旧默认）
@@ -181,7 +181,8 @@ namespace Game {
             }
             // currentColor（随级联上下文变）/system 色族无对应语义，不解析
             int open = lower.IndexOf('(');
-            if (open < 0 || !lower.EndsWith(")")) {
+            if (open < 0
+                || !lower.EndsWith(")")) {
                 return s_namedColors.TryGetValue(lower, out color);
             }
             string function = lower[..open].Trim();
@@ -190,10 +191,10 @@ namespace Game {
                 "rgb" or "rgba" => TryParseRgb(argumentList, out color),
                 "hsl" or "hsla" => TryParseHsl(argumentList, out color),
                 "hwb" => TryParseHwb(argumentList, out color),
-                "lab" => TryParseLab(argumentList, out color, oklab: false),
-                "lch" => TryParseLch(argumentList, out color, oklab: false),
-                "oklab" => TryParseLab(argumentList, out color, oklab: true),
-                "oklch" => TryParseLch(argumentList, out color, oklab: true),
+                "lab" => TryParseLab(argumentList, out color, false),
+                "lch" => TryParseLch(argumentList, out color, false),
+                "oklab" => TryParseLab(argumentList, out color, true),
+                "oklch" => TryParseLch(argumentList, out color, true),
                 _ => false
             };
         }
@@ -222,9 +223,8 @@ namespace Game {
             return true;
         }
 
-        static bool TryParseHexByte(string text, out int value) {
-            return int.TryParse(text, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value);
-        }
+        static bool TryParseHexByte(string text, out int value) =>
+            int.TryParse(text, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out value);
 
         // 组件词法：数值 / 百分号 / 角度单位三态。百分号与单位互斥；Unit 空串=无单位
         readonly record struct Component(float Value, bool IsPercent, string Unit);
@@ -258,9 +258,7 @@ namespace Game {
             return false;
         }
 
-        static bool TryParseFloat(string text, out float value) {
-            return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
-        }
+        static bool TryParseFloat(string text, out float value) => float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
 
         // 实参序列化一：逗号 legacy（rgb(255,0,0,0.5)）与新式空格（rgb(255 0 0 / 50%)）归一为
         // Component 列表 + 可选 alpha。解析失败返回 false
@@ -316,7 +314,12 @@ namespace Game {
                 channels[i] = MathUtils.Clamp(components[i].Value * (components[i].IsPercent ? 2.55f : 1f), 0f, 255f);
             }
             TryParseAlphaValue(alpha, out float a);
-            color = new Color((int)MathF.Round(channels[0]), (int)MathF.Round(channels[1]), (int)MathF.Round(channels[2]), (int)MathF.Round(a * 255f));
+            color = new Color(
+                (int)MathF.Round(channels[0]),
+                (int)MathF.Round(channels[1]),
+                (int)MathF.Round(channels[2]),
+                (int)MathF.Round(a * 255f)
+            );
             return true;
         }
 
@@ -396,7 +399,7 @@ namespace Game {
             if (!TryParseArguments(argumentList, out Component[] components, out Component? alpha)) {
                 return false;
             }
-            float l = components[0].Value * (components[0].IsPercent ? (oklab ? 0.01f : 1f) : 1f);
+            float l = components[0].Value * (components[0].IsPercent ? oklab ? 0.01f : 1f : 1f);
             float aAxis = components[1].Value;
             float bAxis = components[2].Value;
             TryParseAlphaValue(alpha, out float alphaValue);
@@ -411,7 +414,7 @@ namespace Game {
             if (!TryParseArguments(argumentList, out Component[] components, out Component? alpha)) {
                 return false;
             }
-            float l = components[0].Value * (components[0].IsPercent ? (oklab ? 0.01f : 1f) : 1f);
+            float l = components[0].Value * (components[0].IsPercent ? oklab ? 0.01f : 1f : 1f);
             float chroma = components[1].Value;
             float hueDegrees = AngleToDegrees(components[2]);
             float hueRadians = hueDegrees * MathF.PI / 180f;
@@ -458,22 +461,18 @@ namespace Game {
         }
 
         // 线性 sRGB → gamma sRGB（sRGB 传递函数）；广色域超界逐通道钳制
-        static Vector3 LinearRgbToGamma(Vector3 linear) {
-            return new Vector3(GammaEncode(linear.X), GammaEncode(linear.Y), GammaEncode(linear.Z));
-        }
+        static Vector3 LinearRgbToGamma(Vector3 linear) => new(GammaEncode(linear.X), GammaEncode(linear.Y), GammaEncode(linear.Z));
 
         static float GammaEncode(float channel) {
             channel = MathUtils.Clamp(channel, 0f, 1f);
             return channel <= 0.0031308f ? 12.92f * channel : 1.055f * MathF.Pow(channel, 1f / 2.4f) - 0.055f;
         }
 
-        static Color ToByteColor(Vector3 gammaRgb, float alpha) {
-            return new Color(
-                (int)MathF.Round(MathUtils.Clamp(gammaRgb.X, 0f, 1f) * 255f),
-                (int)MathF.Round(MathUtils.Clamp(gammaRgb.Y, 0f, 1f) * 255f),
-                (int)MathF.Round(MathUtils.Clamp(gammaRgb.Z, 0f, 1f) * 255f),
-                (int)MathF.Round(MathUtils.Clamp(alpha, 0f, 1f) * 255f)
-            );
-        }
+        static Color ToByteColor(Vector3 gammaRgb, float alpha) => new(
+            (int)MathF.Round(MathUtils.Clamp(gammaRgb.X, 0f, 1f) * 255f),
+            (int)MathF.Round(MathUtils.Clamp(gammaRgb.Y, 0f, 1f) * 255f),
+            (int)MathF.Round(MathUtils.Clamp(gammaRgb.Z, 0f, 1f) * 255f),
+            (int)MathF.Round(MathUtils.Clamp(alpha, 0f, 1f) * 255f)
+        );
     }
 }

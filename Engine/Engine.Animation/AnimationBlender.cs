@@ -60,10 +60,7 @@ namespace Engine.Animation {
                             outputTransforms[i] = m_layerTransformsBuffer[i].Value;
                         }
                         else {
-                            outputTransforms[i] = BlendMatrix(
-                                model.Bones[i].Transform,
-                                m_layerTransformsBuffer[i].Value,
-                                layer.Weight);
+                            outputTransforms[i] = BlendMatrix(model.Bones[i].Transform, m_layerTransformsBuffer[i].Value, layer.Weight);
                         }
                     }
                 }

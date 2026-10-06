@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 using Engine;
 
@@ -13,7 +10,7 @@ namespace Game {
     // border-width 仍仅 px/无单位（em/% 不识别）；rem/pt 等其余单位盒属性不支持、含无效值的
     // 声明整条丢弃；缺属性=引擎默认（不造浏览器 UA 默认值表——computed-style 口径留给将来
     // 基类 Padding 版本，本类只报"作者写了什么"）
-    internal static class CssStyleParser {
+    static class CssStyleParser {
         // 解析 style 串为声明序列（保序，级联=后声明覆盖前声明）：单遍 O(n) 扫描，';' 切声明、
         // 首个 ':' 切属性值，属性名小写、两侧 trim；扫描时同步剥离 /*…*/ 注释（注释可出现在
         // 任意位置、可含分号，未闭合注释按吃到串尾处理——CSS 规范同款）。空段/无冒号/空名空值
@@ -26,7 +23,9 @@ namespace Game {
             StringBuilder declaration = new();
             for (int i = 0; i < style.Length; i++) {
                 char c = style[i];
-                if (c == '/' && i + 1 < style.Length && style[i + 1] == '*') {
+                if (c == '/'
+                    && i + 1 < style.Length
+                    && style[i + 1] == '*') {
                     int end = style.IndexOf("*/", i + 2, StringComparison.Ordinal);
                     if (end < 0) {
                         break;
@@ -45,7 +44,7 @@ namespace Game {
             return declarations;
         }
 
-        private static void EmitDeclaration(StringBuilder text, List<KeyValuePair<string, string>> declarations) {
+        static void EmitDeclaration(StringBuilder text, List<KeyValuePair<string, string>> declarations) {
             string part = text.ToString();
             text.Clear();
             int colon = part.IndexOf(':');
@@ -54,7 +53,8 @@ namespace Game {
             }
             string name = part[..colon].Trim().ToLowerInvariant();
             string value = part[(colon + 1)..].Trim();
-            if (name.Length == 0 || value.Length == 0) {
+            if (name.Length == 0
+                || value.Length == 0) {
                 return;
             }
             declarations.Add(new KeyValuePair<string, string>(name, value));
@@ -232,7 +232,8 @@ namespace Game {
         //（TryGetBox 盒属性 em/% 收口用）；border-width 族仍走本入口（px-only 口径不变）
         public static bool TryParseLength(string value, out float px) {
             if (TryParseLengthUnit(value, out float number, out bool isPercent, out bool isEm)
-                && !isPercent && !isEm) {
+                && !isPercent
+                && !isEm) {
                 px = number;
                 return true;
             }
@@ -292,7 +293,16 @@ namespace Game {
         const float BorderMediumWidth = 3f;
 
         // style 关键字：本波搁置 -style 不识别线型，只吞掉并按"启用"计；none/hidden=禁用
-        static readonly string[] BorderStyleKeywords = ["solid", "dotted", "dashed", "double", "groove", "ridge", "inset", "outset"];
+        static readonly string[] BorderStyleKeywords = [
+            "solid",
+            "dotted",
+            "dashed",
+            "double",
+            "groove",
+            "ridge",
+            "inset",
+            "outset"
+        ];
 
         // border 组解析：border / border-{side} 简写（width/color/style 任意序混排）+
         // border-width / border-color（TRBL）+ border-{side}-width / -color 单边单分量 +
@@ -301,7 +311,7 @@ namespace Game {
         // 从宽）：该边出现任一有效组件（width/color/非 none 的 style 关键字）即启用，缺 width
         // 取 medium=3px；仅 none/hidden（简写或 border-style）禁用该边。非法 width（负值/em/%）
         // 或未知 token 丢弃所在声明（不污染其他边）
-        public static bool TryGetBorder(string style, out CssStyleParser.CssBorderSpec spec) {
+        public static bool TryGetBorder(string style, out CssBorderSpec spec) {
             spec = new CssBorderSpec();
             bool hasDeclarations = false;
             if (string.IsNullOrEmpty(style)) {
@@ -315,10 +325,10 @@ namespace Game {
                 string key = declaration.Key;
                 string value = declaration.Value;
                 if (key == "border") {
-                    hasDeclarations |= ApplyBorderShorthand(value, widths, colors, enabled, allSides: true, side: -1);
+                    hasDeclarations |= ApplyBorderShorthand(value, widths, colors, enabled, true, -1);
                 }
                 else if (key is "border-top" or "border-right" or "border-bottom" or "border-left") {
-                    hasDeclarations |= ApplyBorderShorthand(value, widths, colors, enabled, allSides: false, side: SideIndex(key["border-".Length..]));
+                    hasDeclarations |= ApplyBorderShorthand(value, widths, colors, enabled, false, SideIndex(key["border-".Length..]));
                 }
                 else if (key == "border-width") {
                     hasDeclarations |= ApplyBorderWidths(value, widths, enabled);
@@ -327,7 +337,8 @@ namespace Game {
                     hasDeclarations |= ApplyBorderColors(value, colors, enabled);
                 }
                 else if (key is "border-top-width" or "border-right-width" or "border-bottom-width" or "border-left-width") {
-                    if (TryParseLength(value, out float w) && w >= 0f) {
+                    if (TryParseLength(value, out float w)
+                        && w >= 0f) {
                         int side = SideIndex(key["border-".Length..^"-width".Length]);
                         widths[side] = w;
                         enabled[side] = true;
@@ -342,7 +353,8 @@ namespace Game {
                         hasDeclarations = true;
                     }
                 }
-                else if (key == "border-style" || key is "border-top-style" or "border-right-style" or "border-bottom-style" or "border-left-style") {
+                else if (key == "border-style"
+                    || key is "border-top-style" or "border-right-style" or "border-bottom-style" or "border-left-style") {
                     // border-style 支持 1~4 值 TRBL；单边形式值域退化为单值。none/hidden 禁用，
                     // 其余合法线型关键字启用该边（线型本身搁置不识别，裁定 A）
                     string[] tokens = SplitTopLevelTokens(value);
@@ -353,7 +365,8 @@ namespace Game {
                     int side = key == "border-style" ? -1 : SideIndex(key["border-".Length..^"-style".Length]);
                     bool anyEdge = false;
                     for (int i = 0; i < 4; i++) {
-                        if (side >= 0 && side != i) {
+                        if (side >= 0
+                            && side != i) {
                             continue;
                         }
                         string token = expanded[i].ToLowerInvariant();
@@ -375,10 +388,22 @@ namespace Game {
                 float w = widths[i] ?? (enabled[i] ? BorderMediumWidth : 0f);
                 // Margin4 轴序输出：X=左(3) Y=上(0) Z=右(1) W=下(2)
                 switch (i) {
-                    case 0: spec.Widths.Y = w; spec.Top = colors[i]; break;
-                    case 1: spec.Widths.Z = w; spec.Right = colors[i]; break;
-                    case 2: spec.Widths.W = w; spec.Bottom = colors[i]; break;
-                    case 3: spec.Widths.X = w; spec.Left = colors[i]; break;
+                    case 0:
+                        spec.Widths.Y = w;
+                        spec.Top = colors[i];
+                        break;
+                    case 1:
+                        spec.Widths.Z = w;
+                        spec.Right = colors[i];
+                        break;
+                    case 2:
+                        spec.Widths.W = w;
+                        spec.Bottom = colors[i];
+                        break;
+                    case 3:
+                        spec.Widths.X = w;
+                        spec.Left = colors[i];
+                        break;
                 }
             }
             return hasDeclarations;
@@ -450,7 +475,8 @@ namespace Game {
             bool styleOn = false;
             bool styleOff = false;
             foreach (string token in SplitTopLevelTokens(value)) {
-                if (TryParseLength(token, out float w) && w >= 0f) {
+                if (TryParseLength(token, out float w)
+                    && w >= 0f) {
                     width = w;
                 }
                 else if (CssColorParser.TryParse(token, out Color c)) {
@@ -469,7 +495,8 @@ namespace Game {
             }
             bool any = false;
             for (int i = 0; i < 4; i++) {
-                if (!allSides && side != i) {
+                if (!allSides
+                    && side != i) {
                     continue;
                 }
                 if (styleOff) {
@@ -486,7 +513,9 @@ namespace Game {
                     if (color.HasValue) {
                         colors[i] = color.Value;
                     }
-                    if (width.HasValue || color.HasValue || styleOn) {
+                    if (width.HasValue
+                        || color.HasValue
+                        || styleOn) {
                         enabled[i] = true;
                     }
                     any |= width.HasValue || color.HasValue || styleOn;
@@ -504,7 +533,8 @@ namespace Game {
             }
             string[] expanded = ExpandTrbl(tokens);
             for (int i = 0; i < 4; i++) {
-                if (TryParseLength(expanded[i], out float w) && w >= 0f) {
+                if (TryParseLength(expanded[i], out float w)
+                    && w >= 0f) {
                     widths[i] = w;
                     enabled[i] = true;
                 }
@@ -543,7 +573,8 @@ namespace Game {
                 else if (c == ')') {
                     depth = MathUtils.Max(depth - 1, 0);
                 }
-                if (depth == 0 && char.IsWhiteSpace(c)) {
+                if (depth == 0
+                    && char.IsWhiteSpace(c)) {
                     if (start >= 0) {
                         tokens.Add(value[start..i]);
                         start = -1;

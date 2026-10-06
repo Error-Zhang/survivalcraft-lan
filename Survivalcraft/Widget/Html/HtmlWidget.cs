@@ -73,7 +73,10 @@ namespace Game {
                 if (FlexPanelWidget.IsInsideFlex(codeBlock, this)) {
                     continue;
                 }
-                codeBlock.Size = new Vector2(MathUtils.Max(MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(codeBlock, this, contentWidth)), 50f), codeBlock.Size.Y);
+                codeBlock.Size = new Vector2(
+                    MathUtils.Max(MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(codeBlock, this, contentWidth)), 50f),
+                    codeBlock.Size.Y
+                );
             }
             // 图片块同机制；已加载完成的 frame 宽=图宽、width/height 属性帧宽=属性值，均不覆盖
             //（HorizontalAlignment=Center 居中）；pending 帧回填保留（含 flex 内——frame.Size.X>0
@@ -81,7 +84,13 @@ namespace Game {
             foreach ((CanvasWidget imageBlock, float indentX) in m_builder.ImageBlocks) {
                 if (!m_imageLoader.IsFrameApplied(imageBlock)
                     && !m_imageLoader.IsFrameExplicit(imageBlock)) {
-                    imageBlock.Size = new Vector2(MathUtils.Max(MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(imageBlock, this, contentWidth)), 50f), imageBlock.Size.Y);
+                    imageBlock.Size = new Vector2(
+                        MathUtils.Max(
+                            MathUtils.Min(contentWidth - indentX, HtmlBlockSizerWidget.ResolveAncestorCap(imageBlock, this, contentWidth)),
+                            50f
+                        ),
+                        imageBlock.Size.Y
+                    );
                 }
             }
             // 宽已解析的挂起 frame（纹理先于测量就绪：缓存命中/秒图）此刻补适配上屏
@@ -158,12 +167,9 @@ namespace Game {
                 m_builder.CodeBlocks.Clear();
                 m_builder.ImageBlocks.Clear();
                 m_builder.Anchors.Clear();
-                Children.Add(new FontTextWidget {
-                    Text = "(HTML 渲染失败：" + e.Message + ")",
-                    Font = m_builder.Font,
-                    Color = DefaultColor,
-                    WordWrap = true
-                });
+                Children.Add(
+                    new FontTextWidget { Text = "(HTML 渲染失败：" + e.Message + ")", Font = m_builder.Font, Color = DefaultColor, WordWrap = true }
+                );
             }
             m_needsBuild = false;
         }
