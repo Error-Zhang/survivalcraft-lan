@@ -3,6 +3,18 @@ using Engine.Graphics;
 using Engine.Media;
 
 namespace Game {
+    /// <summary>文本断行模式（CSS word-break 子集），默认 BreakWord。</summary>
+    public enum TextWordBreak {
+        /// <summary>词边界回退（拉丁回退空白/标点、CJK 字间可断+禁则），无断点时紧急强拆 fitCount-1——CSS word-break:break-word（deprecated）别名，默认历史行为。</summary>
+        BreakWord,
+        /// <summary>词边界回退同 BreakWord，无断点时纯溢出（整段保持单行，不强拆）——CSS normal 字面。</summary>
+        Normal,
+        /// <summary>行尾即拆（不回退断点，拉丁词在行尾处直接截断）——CSS word-break:break-all。</summary>
+        BreakAll,
+        /// <summary>词边界回退但禁用 CJK 字间断点（仅空白/标点可退），无断点时纯溢出——CSS word-break:keep-all 字面。</summary>
+        KeepAll
+    }
+
     public class FontTextWidget : Widget {
         public string m_text = string.Empty;
 
@@ -17,6 +29,8 @@ namespace Game {
         public int m_maxLines = int.MaxValue;
 
         public bool m_wordWrap;
+
+        public TextWordBreak m_wordBreak = TextWordBreak.BreakWord;
 
         public bool m_ellipsis;
 
@@ -88,6 +102,17 @@ namespace Game {
             set {
                 if (value != m_wordWrap) {
                     m_wordWrap = value;
+                    m_linesSize = null;
+                }
+            }
+        }
+
+        /// <summary>断行模式：默认 BreakWord=词边界回退+无断点强拆（引擎历史行为）；Normal/KeepAll 无断点纯溢出；BreakAll=行尾即拆。</summary>
+        public TextWordBreak WordBreak {
+            get => m_wordBreak;
+            set {
+                if (value != m_wordBreak) {
+                    m_wordBreak = value;
                     m_linesSize = null;
                 }
             }
@@ -222,19 +247,41 @@ namespace Game {
         public float CalculateLineHeight() => (Font.GlyphHeight + Font.Spacing.Y + FontSpacing.Y) * FontScale * Font.Scale;
 
         // 在 text 的前 fitCount 个字符超出可用宽度时，寻找合适的换行位置（返回值为换行点，即下一行首字符下标）。
-        // 拉丁文本按原有规则回退到最近的空白或标点处；CJK 文本字间即可断行，并遵守行首/行尾禁则
-        public static int FindLineBreakPosition(string text, int fitCount) {
-            if (CanBreakBeforeCjk(text, fitCount)) {
+        // 词边界模式（BreakWord/Normal/KeepAll）回退到最近的空白或标点处，CJK 字间断点按模式启用/禁用并守行首/行尾禁则；
+        // 无断点时 BreakWord 紧急强拆 fitCount-1（引擎历史行为），Normal/KeepAll 纯溢出（返回 text.Length，整段保持单行）
+        public static int FindLineBreakPosition(string text, int fitCount, TextWordBreak wordBreak = TextWordBreak.BreakWord) {
+            switch (wordBreak) {
+                case TextWordBreak.BreakAll:
+                    // BreakAll 豁免禁则与词边界回退，行尾即拆；fitCount 由调用侧钳正
+                    return MathUtils.Max(fitCount, 1);
+                case TextWordBreak.Normal:
+                    // Normal 纯 CSS 字面：词边界回退同 BreakWord，无断点不强拆
+                    return RetreatToBreakPosition(text, fitCount, true) ?? text.Length;
+                case TextWordBreak.KeepAll:
+                    // KeepAll 纯 CSS 字面：禁用 CJK 字间断点（仅空白/标点可退），无断点纯溢出
+                    return RetreatToBreakPosition(text, fitCount, false) ?? text.Length;
+                default:
+                    // BreakWord（引擎历史行为，未知值兜底同此）：词边界回退，无断点紧急强拆 fitCount-1
+                    return RetreatToBreakPosition(text, fitCount, true) ?? fitCount - 1;
+            }
+        }
+
+        // 词边界回退：自 fitCount-2 向左扫到最近的空白/标点处（allowCjkBreak 时还认 CJK 字间断点，且守行首/行尾禁则），
+        // 返回换行点（下一行首字符下标）；无断点返回 null（由调用方决定纯溢出或紧急强拆）
+        static int? RetreatToBreakPosition(string text, int fitCount, bool allowCjkBreak) {
+            if (allowCjkBreak
+                && CanBreakBeforeCjk(text, fitCount)) {
                 return fitCount;
             }
             int index = fitCount - 2;
             while (index >= 0
                 && !char.IsWhiteSpace(text[index])
                 && !char.IsPunctuation(text[index])
-                && !CanBreakBeforeCjk(text, index + 1)) {
+                && !(allowCjkBreak
+                    && CanBreakBeforeCjk(text, index + 1))) {
                 index--;
             }
-            return index < 0 ? fitCount - 1 : index + 1;
+            return index < 0 ? null : index + 1;
         }
 
         // 判断是否可以在 text 的 position 处（下一行首字符下标）断行：下一行首字符须为 CJK 字符，
@@ -295,7 +342,9 @@ namespace Game {
                             num4 = MathUtils.Max(num4, 1);
                             flag = false;
                             if (num4 < text2.Length) {
-                                num4 = FindLineBreakPosition(text2, num4);
+                                num4 = FindLineBreakPosition(text2, num4, WordBreak);
+                                // 可用宽≈0 时断点可为 0（拉丁串回退 fitCount-1），钳 1 防零推进死循环——实证 label OOM 根因（与 RichTextLayout breakPosition<=0 防护对齐）
+                                num4 = MathUtils.Max(num4, 1);
                             }
                         }
                         string text3;

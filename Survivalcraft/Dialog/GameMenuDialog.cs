@@ -59,7 +59,7 @@ namespace Game {
             StackPanelWidget stackPanelWidget = new() { Direction = LayoutDirection.Vertical, HorizontalAlignment = WidgetAlignment.Center };
             m_statsPanel.Children.Add(stackPanelWidget);
             stackPanelWidget.Children.Add(
-                new LabelWidget {
+                new FontTextWidget {
                     Text = LanguageControl.Get(fName, 5),
                     Font = font,
                     HorizontalAlignment = WidgetAlignment.Center,
@@ -125,7 +125,7 @@ namespace Game {
                     : subsystemGameInfo.WorldSettings.OriginalSerializationVersion
             );
             stackPanelWidget.Children.Add(
-                new LabelWidget {
+                new FontTextWidget {
                     Text = LanguageControl.Get(fName, 17),
                     Font = font,
                     HorizontalAlignment = WidgetAlignment.Center,
@@ -226,7 +226,7 @@ namespace Game {
             }
             if (string.CompareOrdinal(subsystemGameInfo.WorldSettings.OriginalSerializationVersion, "1.29") > 0) {
                 stackPanelWidget.Children.Add(
-                    new LabelWidget {
+                    new FontTextWidget {
                         Text = LanguageControl.Get(fName, 33),
                         Font = font,
                         HorizontalAlignment = WidgetAlignment.Center,
@@ -254,7 +254,7 @@ namespace Game {
                 );
                 AddStat(stackPanelWidget, LanguageControl.Get(fName, 42), playerStats.HitsReceived.ToString("N0"));
                 stackPanelWidget.Children.Add(
-                    new LabelWidget {
+                    new FontTextWidget {
                         Text = LanguageControl.Get(fName, 43),
                         Font = font,
                         HorizontalAlignment = WidgetAlignment.Center,
@@ -268,7 +268,7 @@ namespace Game {
                 AddStat(stackPanelWidget, LanguageControl.Get(fName, 47), playerStats.ItemsCrafted.ToString("N0"));
                 AddStat(stackPanelWidget, LanguageControl.Get(fName, 48), playerStats.FurnitureItemsMade.ToString("N0"));
                 stackPanelWidget.Children.Add(
-                    new LabelWidget {
+                    new FontTextWidget {
                         Text = LanguageControl.Get(fName, 49),
                         Font = font,
                         HorizontalAlignment = WidgetAlignment.Center,
@@ -318,7 +318,7 @@ namespace Game {
                 AddStat(stackPanelWidget, LanguageControl.Get(fName, 59), $"{playerStats.DeepestDive:N1}m");
                 AddStat(stackPanelWidget, LanguageControl.Get(fName, 60), playerStats.Jumps.ToString("N0"));
                 stackPanelWidget.Children.Add(
-                    new LabelWidget {
+                    new FontTextWidget {
                         Text = LanguageControl.Get(fName, 61),
                         Font = font,
                         HorizontalAlignment = WidgetAlignment.Center,
@@ -342,7 +342,7 @@ namespace Game {
                 AddStat(stackPanelWidget, LanguageControl.Get(fName, 70), playerStats.TimesPuked.ToString("N0") + LanguageControl.Get(fName, 66));
                 AddStat(stackPanelWidget, LanguageControl.Get(fName, 71), playerStats.TimesHadFlu.ToString("N0") + LanguageControl.Get(fName, 66));
                 stackPanelWidget.Children.Add(
-                    new LabelWidget {
+                    new FontTextWidget {
                         Text = LanguageControl.Get(fName, 72),
                         Font = font,
                         HorizontalAlignment = WidgetAlignment.Center,
@@ -360,7 +360,7 @@ namespace Game {
                 AddStat(stackPanelWidget, LanguageControl.Get(fName, "105"), LanguageControl.Get("GameplayImpactLevel", playerStats.HighestGameplayImpactLevel));
                 if (playerStats.DeathRecords.Count > 0) {
                     stackPanelWidget.Children.Add(
-                        new LabelWidget {
+                        new FontTextWidget {
                             Text = LanguageControl.Get(fName, 75),
                             Font = font,
                             HorizontalAlignment = WidgetAlignment.Center,
@@ -375,7 +375,7 @@ namespace Game {
             }
             else {
                 stackPanelWidget.Children.Add(
-                    new LabelWidget {
+                    new FontTextWidget {
                         Text = LanguageControl.Get(fName, 81),
                         WordWrap = true,
                         Font = font2,
@@ -537,15 +537,15 @@ namespace Game {
                     Direction = LayoutDirection.Horizontal,
                     HorizontalAlignment = WidgetAlignment.Center,
                     Children = {
-                        new LabelWidget {
+                        new FontTextWidget {
                             Text = $"{title}:", HorizontalAlignment = WidgetAlignment.Far, Font = font, Color = gray, Margin = new Vector2(5f, 1f)
                         },
                         new StackPanelWidget {
                             Direction = LayoutDirection.Horizontal,
                             HorizontalAlignment = WidgetAlignment.Near,
                             Children = {
-                                new LabelWidget { Text = value1, Font = font, Color = color, Margin = new Vector2(5f, 1f) },
-                                new LabelWidget { Text = value2, Font = font, Color = gray, Margin = new Vector2(5f, 1f) }
+                                new FontTextWidget { Text = value1, Font = font, Color = color, Margin = new Vector2(5f, 1f) },
+                                new FontTextWidget { Text = value2, Font = font, Color = gray, Margin = new Vector2(5f, 1f) }
                             }
                         }
                     }

@@ -6,7 +6,7 @@ using Engine.Media;
 namespace Game {
     public class MessageWidget : StackPanelWidget {
         public class Message {
-            public LabelWidget LabelWidget;
+            public FontTextWidget LabelWidget;
 
             public double StartTime;
 
@@ -17,7 +17,7 @@ namespace Game {
             public bool Blinking;
 
             public Message(string text, Color color, bool blinking, float fontScale = 1f) {
-                LabelWidget = new LabelWidget {
+                LabelWidget = new FontTextWidget {
                     Text = text,
                     Font = ContentManager.Get<BitmapFont>("Fonts/Pericles"),
                     FontScale = fontScale,

@@ -1,5 +1,5 @@
 using System.Globalization;
-using static Game.PostDetailsContentBuilder;
+using Engine;
 
 namespace Game {
     /// <summary>
@@ -7,6 +7,17 @@ namespace Game {
     /// 不进入自动翻译载荷。content 区（服务端 HTML / 纯文本）由对话框负责。
     /// </summary>
     static class PostDetailsHeaderBuilder {
+        // 标题/正文/列表项的 label 样式（原 PostDetailsContentBuilder 同源视觉，勿私自调整）
+        static readonly Color HeadingColor = new(255, 230, 140);
+
+        static readonly Color TextColor = new(225, 225, 225);
+
+        const float HeadingFontScale = 0.98f;
+
+        const float TextFontScale = 0.86f;
+
+        const float ListIndentPerDepth = 22f;
+
         // 更新弹窗通用元信息：可选标题行 + 当前版本 / 最新版本 / 下载文件名。
         public static void AppendUpdateInfo(StackPanelWidget panel,
             string title,
@@ -120,6 +131,35 @@ namespace Game {
                     )
                 );
             }
+        }
+
+        // —— header 区便捷 widget 产出（原 PostDetailsContentBuilder 静态方法本地化，样式同源）——
+
+        static void AppendHeading(StackPanelWidget panel, string text) {
+            if (!string.IsNullOrWhiteSpace(text)) {
+                AppendStyledLabel(panel, HeadingColor, HeadingFontScale, text, 12f, 0f);
+            }
+        }
+
+        static void AppendParagraph(StackPanelWidget panel, string text) {
+            if (!string.IsNullOrWhiteSpace(text)) {
+                AppendStyledLabel(panel, TextColor, TextFontScale, text, 6f, 0f);
+            }
+        }
+
+        static void AppendListItem(StackPanelWidget panel, string text) {
+            if (!string.IsNullOrWhiteSpace(text)) {
+                AppendStyledLabel(panel, TextColor, TextFontScale, text, 3f, ListIndentPerDepth);
+            }
+        }
+
+        static void AppendStyledLabel(StackPanelWidget panel, Color color, float fontScale, string text, float topSpacing, float indent) {
+            if (topSpacing > 0f) {
+                panel.Children.Add(new CanvasWidget { Size = new Vector2(0f, topSpacing) });
+            }
+            panel.Children.Add(
+                new LabelWidget { Text = text, Color = color, FontScale = fontScale, WordWrap = true, MarginLeft = indent }
+            );
         }
     }
 }
