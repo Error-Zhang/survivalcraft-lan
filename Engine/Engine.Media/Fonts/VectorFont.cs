@@ -23,9 +23,13 @@ namespace Engine.Media {
         public const float DefaultSizeValue = 21f;   // ≈CJK 视觉 19px（rem 锚）
         public const float LineHeightValue = 26f;    // 现位图行距等效
 
+        // 斜体切变常数：15°（PericlesPro Italic 制作角），tan(15°)≈0.2679
+        internal const float ItalicShear = 0.2679f;
+
         readonly FontSystem[] _systems = new FontSystem[4];
         readonly EngineSharpAstroLoader[] _loaders = new EngineSharpAstroLoader[4];
         readonly List<IFontSource> _regularSources = new List<IFontSource>();
+        readonly VectorFontRenderer _renderer = new();
         BitmapFont _fallbackBitmapFont;
 
         public bool IsBoldAvailable => _systems[(int)VectorFontStyle.Bold] != null;
@@ -104,6 +108,118 @@ namespace Engine.Media {
 
         internal SpriteFontBase GetStyleFont(VectorFontStyle style, float size)
             => _systems[(int)style]?.GetFont(size);
+
+        /// <summary>
+        /// run 切分绘制：矢量有字段走 FSS，缺字段走 FallbackBitmapFont 纹理。
+        /// 行为锚：text 单行（换行由调用方处理），pos=行左上，字形按 baseline 对齐。
+        /// 样式降级（spec §2）：bold 缺真 Bold 面→Stroked1 描边消歧；italic 缺真 Italic/BoldItalic 面→15° 切变；
+        /// 位图回退段恒正排 Regular（无描边/切变）。返回绘制高度（各段行高最大值）。
+        /// </summary>
+        public float DrawText(IFontBatchSink sink, string text, Vector2 pos, Color color, float size, bool bold = false, bool italic = false) {
+            ArgumentNullException.ThrowIfNull(sink);
+            ArgumentNullException.ThrowIfNull(text);
+            if (text.Length == 0) {
+                return 0f;
+            }
+            // 样式降级解析：ResolveStyle 只返回实际存在的系统（Regular 链缺失时解析出的 Regular 为 null）
+            var style = ResolveStyle(bold, italic, degrade: true);
+            var system = _systems[(int)style] ?? _systems[(int)VectorFontStyle.Regular];
+            if (system == null) {
+                // 矢量链整链缺失：整行走位图回退
+                return DrawBitmapFallback(sink, text, pos, color, size, 0f);
+            }
+            // bold 请求落到 Regular 源（链内无真 Bold 面）→Stroked1；italic 请求落到非 Italic/BoldItalic 源→切变。
+            // bold+italic 仅 Regular 可用时两者叠加（spec 裁定 combined）
+            bool fakeBold = bold && ReferenceEquals(system, _systems[(int)VectorFontStyle.Regular]);
+            bool fakeItalic = italic && style != VectorFontStyle.Italic && style != VectorFontStyle.BoldItalic;
+            var spriteFont = system.GetFont(size);
+            // 切变只作用于矢量段（经 _renderer 的 quad），位图段直连原始 sink 正排
+            IFontBatchSink vectorSink = fakeItalic
+                ? new ShearedFontBatchSink(sink, pos.Y + spriteFont.LineHeight) // baselineY≈行底沿，切变不动轴
+                : sink;
+            var effect = fakeBold ? FontSystemEffect.Stroked : FontSystemEffect.None;
+            int effectAmount = fakeBold ? 1 : 0;
+            var fsColor = new FSColor(color.R, color.G, color.B, color.A);
+            _renderer.Begin(vectorSink, 0f, color);
+            // 简单状态机：连续同态（矢量/位图）字符合成一段，遇态变或串尾 flush
+            float drawHeight = 0f;
+            float xAdvance = 0f; // 已渲段累计占宽，后段左移进
+            int runStart = 0;
+            bool runIsBitmap = !HasGlyph(text[0]);
+            for (int i = 1; i <= text.Length; i++) {
+                bool isBitmap = i < text.Length && !HasGlyph(text[i]);
+                if (i < text.Length && isBitmap == runIsBitmap) {
+                    continue; // 同态延续，段继续累积
+                }
+                // flush [runStart, i)
+                string run = text[runStart..i];
+                float runHeight;
+                if (runIsBitmap) {
+                    runHeight = DrawBitmapFallback(sink, run, new Vector2(pos.X + xAdvance, pos.Y), color, size, 0f);
+                    xAdvance += MeasureBitmapRun(run, size);
+                }
+                else {
+                    spriteFont.DrawText(_renderer, run,
+                        new System.Numerics.Vector2(pos.X + xAdvance, pos.Y), fsColor,
+                        effect: effect, effectAmount: effectAmount);
+                    runHeight = spriteFont.LineHeight;
+                    xAdvance += spriteFont.MeasureString(run, effect: effect, effectAmount: effectAmount).X;
+                }
+                if (runHeight > drawHeight) {
+                    drawHeight = runHeight;
+                }
+                runStart = i;
+                runIsBitmap = isBitmap;
+            }
+            return drawHeight;
+        }
+
+        // 位图回退段绘制：FallbackBitmapFont 字形 quad 经 sink（几何镜像 FontBatch2D.QueueLine：
+        // 跳过 \r、\u200b，\u00a0→空格，推进含 kerning，字形尺寸/偏移按 size 比例缩放）。
+        // 恒正排 Regular：无 Stroked 消歧、无斜体切变（spec 裁定 (a)；视觉底沿对齐锚
+        // BitmapBaselineAnchor 由 Task 10 探针断言校准，初值 0 即此实现）
+        float DrawBitmapFallback(IFontBatchSink sink, string text, Vector2 pos, Color color, float size, float depth) {
+            var font = _fallbackBitmapFont;
+            if (font == null || font.Texture == null) {
+                return 0f;
+            }
+            float scale = size / DefaultSizeValue * font.Scale; // 位图按矢量 size 比例缩放（19px 视觉锚在 size=21 对齐）
+            Vector2 drawPos = pos;
+            for (int i = 0; i < text.Length; i++) {
+                char c = text[i];
+                if (c == '\r'
+                    || c == '\u200b') {
+                    continue;
+                }
+                if (c == '\u00a0') {
+                    c = ' ';
+                }
+                var glyph = font.GetGlyph(c);
+                if (!glyph.IsBlank) {
+                    Vector2 glyphSize = new(
+                        (glyph.TexCoord2.X - glyph.TexCoord1.X) * font.Texture.Width * scale,
+                        (glyph.TexCoord2.Y - glyph.TexCoord1.Y) * font.Texture.Height * scale);
+                    sink.QueueGlyphQuad(font.Texture,
+                        drawPos + glyph.Offset * scale,
+                        glyphSize,
+                        glyph.TexCoord1, glyph.TexCoord2,
+                        depth, color);
+                }
+                float kerning = i < text.Length - 1 ? font.GetKerning(c, text[i + 1]) : 0f;
+                drawPos.X += (glyph.Width - kerning + font.Spacing.X) * scale;
+            }
+            return font.LineHeight * scale;
+        }
+
+        // 位图回退段度量：与 DrawBitmapFallback 同一几何（BitmapFont.MeasureText 内部乘 font.Scale，
+        // 且同样跳过 \r/\u200b、\u00a0→空格、按 kerning 扣减，推进公式一致）
+        float MeasureBitmapRun(string text, float size) {
+            var font = _fallbackBitmapFont;
+            if (font == null) {
+                return 0f;
+            }
+            return font.MeasureText(text, new Vector2(size / DefaultSizeValue), Vector2.Zero).X;
+        }
 
         /// <summary>
         /// 样式解析：degrade=false 取精确样式；degrade=true 按可用性沿链回退

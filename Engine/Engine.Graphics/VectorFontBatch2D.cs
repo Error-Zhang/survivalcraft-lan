@@ -3,8 +3,8 @@ namespace Engine.Graphics {
     /// 矢量字体批：BaseFontBatch 的 Flush 硬绑 Font.Texture（BitmapFont 位图路径），
     /// 这里显式携带 FSS 动态图集纹理（BatchTexture），不经过 BitmapFont
     /// </summary>
-    public class VectorFontBatch2D : BaseFontBatch {
-        /// <summary>FSS 动态图集（RGBA8888 引擎纹理），由工厂或 QueueGlyph 显式指定</summary>
+    public class VectorFontBatch2D : BaseFontBatch, Engine.Media.IFontBatchSink {
+        /// <summary>FSS 动态图集（RGBA8888 引擎纹理），由工厂或 QueueGlyphQuad 显式指定</summary>
         public Texture2D BatchTexture { get; set; }
 
         public VectorFontBatch2D() {
@@ -18,7 +18,7 @@ namespace Engine.Graphics {
         /// 排入一个 glyph 四边形：uv1 左上、uv2 右下（与图集上传坐标一致），
         /// 顶点/索引布局与 FontBatch2D 的 glyph 路径同构
         /// </summary>
-        public void QueueGlyph(Texture2D texture, Vector2 destination, Vector2 size, Vector2 uv1, Vector2 uv2, float depth, Color color) {
+        public void QueueGlyphQuad(Texture2D texture, Vector2 destination, Vector2 size, Vector2 uv1, Vector2 uv2, float depth, Color color) {
             BatchTexture = texture;
             int count = TriangleVertices.Count;
             TriangleVertices.Count += 4;
