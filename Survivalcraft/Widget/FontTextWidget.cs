@@ -28,8 +28,6 @@ namespace Game {
 
         public VectorFont m_vectorFont;
 
-        public float m_vectorFontScale = 1f;
-
         public int m_maxLines = int.MaxValue;
 
         public bool m_wordWrap;
@@ -81,7 +79,21 @@ namespace Game {
             }
         }
 
+        // 缩放单一存储（P4 I1 修复）：位图 FontScale 与矢量 VectorFontScale 同读写字段 m_fontScale，
+        // 历史位图调用点（LoadingScreen 0.6、对话框 0.7-0.9 等）在矢量路径取得同尺字号，
+        // 消除两属性各自存储导致的矢量路径忽视 FontScale 的尺寸回归
         public float FontScale {
+            get => m_fontScale;
+            set {
+                if (value != m_fontScale) {
+                    m_fontScale = value;
+                    m_linesSize = null;
+                }
+            }
+        }
+
+        /// <summary>矢量字号缩放：位图 FontScale 的矢量侧别名（同一 backing field，见上）</summary>
+        public float VectorFontScale {
             get => m_fontScale;
             set {
                 if (value != m_fontScale) {
@@ -97,17 +109,6 @@ namespace Game {
             set {
                 if (value != m_vectorFont) {
                     m_vectorFont = value;
-                    m_linesSize = null;
-                }
-            }
-        }
-
-        /// <summary>矢量字号缩放（对应位图 FontScale），仅 VectorFont!=null 时生效</summary>
-        public float VectorFontScale {
-            get => m_vectorFontScale;
-            set {
-                if (value != m_vectorFontScale) {
-                    m_vectorFontScale = value;
                     m_linesSize = null;
                 }
             }
