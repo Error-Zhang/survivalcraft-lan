@@ -313,7 +313,8 @@ namespace Game {
         // widget 级字形 quad 接收口：按纹理路由/缓存 VectorFontBatch2D（layer/渲染状态与位图路径 FontBatch 同粒度），
         // 记录各批本 widget 入队前顶点数，供 Draw 收尾统一施加 GlobalTransform（镜像位图路径 TransformTriangles(GlobalTransform, count)）；
         // Rotated 时对 quad 做 -90° 刚体变换（dest'=(Pivot.X+dest.Y, Pivot.Y-dest.X)，size 翻转），水平时仅 Pivot 平移
-        sealed class VectorGlyphSink : IFontBatchSink {
+        // internal 共享（P4 Task 7）：RichTextWidget 矢量 run 分流复用同一 sink（Pivot/Rotated 为可选能力，不用即零开销）
+        internal sealed class VectorGlyphSink : IFontBatchSink {
             readonly PrimitivesRenderer2D _renderer;
             readonly SamplerState _samplerState;
             readonly Dictionary<Texture2D, VectorFontBatch2D> _batches = [];

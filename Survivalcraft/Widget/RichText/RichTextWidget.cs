@@ -10,6 +10,8 @@ namespace Game {
 
         public BitmapFont m_font;
 
+        public VectorFont m_vectorFont;
+
         public Vector2 m_fontSpacing;
 
         public float m_fontScale;
@@ -60,6 +62,20 @@ namespace Game {
             set {
                 if (value != m_font) {
                     m_font = value;
+                    MarkLayoutDirty();
+                }
+            }
+        }
+
+        // 矢量字体链（P4）：null=位图路径（零改动）；非 null 时首字符在其覆盖内的 run 真字重/真斜体
+        // 直出（样式降级 Stroked1/切变在 VectorFont.DrawText 内解析），其余 run 回退位图伪粗/切变路径。
+        // 排版仍走位图度量（RichTextLayout 字符推进无粗斜宽度差，无需矢量量测分流），矢量 run 画进
+        // 位图排版算出的 run 盒，宽度差为 v1 接受的近似
+        public VectorFont VectorFont {
+            get => m_vectorFont;
+            set {
+                if (value != m_vectorFont) {
+                    m_vectorFont = value;
                     MarkLayoutDirty();
                 }
             }
@@ -256,6 +272,10 @@ namespace Game {
             FlatBatch2D overlayBatch2D = HasStrikethrough ? dc.PrimitivesRenderer2D.FlatBatch(2, DepthStencilState.None) : null;
             SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
             FontBatch2D fontBatch2D = dc.PrimitivesRenderer2D.FontBatch(Font, 1, DepthStencilState.None, null, null, samplerState);
+            // 矢量批接收口（P4，复用 FontTextWidget.VectorGlyphSink）：按图集纹理分批缓存并记录本件
+            // 入队前顶点数，Draw 收尾统一 TransformTriangles(GlobalTransform)——与 fontBatch2D 同粒度；
+            // 位图路径（VectorFont=null）不建，零开销
+            FontTextWidget.VectorGlyphSink vectorGlyphSink = VectorFont != null ? new FontTextWidget.VectorGlyphSink(dc.PrimitivesRenderer2D, samplerState) : null;
             int batchStart = fontBatch2D.TriangleVertices.Count;
             float blockY = CalculateBlockY();
             TextLine firstLine = m_layout.Lines[0];
@@ -378,29 +398,66 @@ namespace Game {
                             }
                         }
                     }
-                    // 斜体＝run 顶点本地切变（伪斜体），末尾 GlobalTransform 整批变换后套，测量/命中不受影响
-                    bool italic = run.Span.IsItalic;
-                    if (DropShadow) {
-                        int shadowStart = fontBatch2D.TriangleVertices.Count;
-                        fontBatch2D.QueueText(
-                            run.Text,
-                            draw + 1f * new Vector2(FontScale),
-                            0f,
-                            new Color((byte)0, (byte)0, (byte)0, color.A),
-                            anchor,
-                            scale,
-                            drawSpacing
-                        );
-                        if (italic) {
-                            fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), shadowStart);
+                    // 矢量 run 分流（P4）：挂链且 run 首字符在矢量链覆盖内→真字重/真斜体直出（降级在
+                    // VectorFont.DrawText 内），画位与位图路径同用 draw（含屏幕整栅对齐），跳过伪粗双绘
+                    // 与 ItalicShearMatrix；位图 run（未挂链或首字符缺字整 run 回退）走原路径不变。
+                    // 首字符定态为 v1 简化，run 内混排缺字段由 DrawText 的位图回退段兜底。
+                    // 删除线/下划线装饰不分流，两态都照画
+                    if (VectorFont != null
+                        && run.Text.Length > 0
+                        && VectorFont.HasGlyph(run.Text[0])) {
+                        float vectorSize = VectorFont.DefaultSize * SpanScale(run.Span);
+                        if (DropShadow) {
+                            VectorFont.DrawText(
+                                vectorGlyphSink,
+                                run.Text,
+                                draw + 1f * new Vector2(FontScale),
+                                new Color((byte)0, (byte)0, (byte)0, color.A),
+                                vectorSize,
+                                run.Span.IsBold,
+                                run.Span.IsItalic
+                            );
                         }
+                        VectorFont.DrawText(vectorGlyphSink, run.Text, draw, color, vectorSize, run.Span.IsBold, run.Span.IsItalic);
                     }
-                    if (run.Span.IsBold) {
-                        // 伪粗体：同串横偏 1×FontScale 双绘
-                        int boldStart = fontBatch2D.TriangleVertices.Count;
+                    else {
+                        // 斜体＝run 顶点本地切变（伪斜体），末尾 GlobalTransform 整批变换后套，测量/命中不受影响
+                        bool italic = run.Span.IsItalic;
+                        if (DropShadow) {
+                            int shadowStart = fontBatch2D.TriangleVertices.Count;
+                            fontBatch2D.QueueText(
+                                run.Text,
+                                draw + 1f * new Vector2(FontScale),
+                                0f,
+                                new Color((byte)0, (byte)0, (byte)0, color.A),
+                                anchor,
+                                scale,
+                                drawSpacing
+                            );
+                            if (italic) {
+                                fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), shadowStart);
+                            }
+                        }
+                        if (run.Span.IsBold) {
+                            // 伪粗体：同串横偏 1×FontScale 双绘
+                            int boldStart = fontBatch2D.TriangleVertices.Count;
+                            fontBatch2D.QueueText(
+                                run.Text,
+                                draw + new Vector2(FontScale, 0f),
+                                0f,
+                                color,
+                                anchor,
+                                scale,
+                                drawSpacing
+                            );
+                            if (italic) {
+                                fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), boldStart);
+                            }
+                        }
+                        int runStart = fontBatch2D.TriangleVertices.Count;
                         fontBatch2D.QueueText(
                             run.Text,
-                            draw + new Vector2(FontScale, 0f),
+                            draw,
                             0f,
                             color,
                             anchor,
@@ -408,21 +465,8 @@ namespace Game {
                             drawSpacing
                         );
                         if (italic) {
-                            fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), boldStart);
+                            fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), runStart);
                         }
-                    }
-                    int runStart = fontBatch2D.TriangleVertices.Count;
-                    fontBatch2D.QueueText(
-                        run.Text,
-                        draw,
-                        0f,
-                        color,
-                        anchor,
-                        scale,
-                        drawSpacing
-                    );
-                    if (italic) {
-                        fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), runStart);
                     }
                     if (run.Span.Strikethrough) {
                         // 删除线＝em 中线（基准同下划线：GlyphHeight×span 字号×Font.Scale），厚度同下划线；
@@ -444,6 +488,7 @@ namespace Game {
                 }
             }
             fontBatch2D.TransformTriangles(GlobalTransform, batchStart);
+            vectorGlyphSink?.TransformTriangles(GlobalTransform);
         }
 
         // 局部坐标 quad（x,y 为左上，w/h 尺寸）四角各自经 GlobalTransform 变换后入 FlatBatch（同 RectangleWidget 做法，
