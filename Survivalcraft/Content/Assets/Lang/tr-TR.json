@@ -3388,6 +3388,24 @@
       "17": "Mod Uyumluluğu:",
       "18": "Sınıf Değişimini Yönet"
     },
+    "SettingsFontScreen": {
+      "1": "Yazı Tipi Ayarlarını Düzenle",
+      "2": "Gövde Yazı Tipi:",
+      "3": "Gövde Yazı Tipi Kalın:",
+      "4": "Gövde Yazı Tipi Eğik:",
+      "5": "Gövde Yazı Tipi Kalın Eğik:",
+      "6": "Eş Aralıklı Yazı Tipi:",
+      "7": "Eş Aralıklı Yazı Tipi Kalın:",
+      "8": "Eş Aralıklı Yazı Tipi Eğik:",
+      "9": "Eş Aralıklı Yazı Tipi Kalın Eğik:",
+      "10": "Orijinal İngilizce Karakterler:",
+      "11": "Sistem Varsayılanı",
+      "12": "Gövde Yazı Tipi",
+      "13": "Eş Aralıklı Yazı Tipi",
+      "14": "Dosya Seç...",
+      "15": "Dosya Listesi...",
+      "16": "Henüz hiçbir yazı tipi içe aktarılmadı."
+    },
     "SettingsControlsScreen": [
       "Kontrol Ayarlarını Düzenle",
       "Dokunmatik Ekran Hareket Kontrolü:",
@@ -3470,7 +3488,8 @@
       "5": "Ses",
       "6": "Kontroller",
       "7": "Uyumluluk",
-      "8": "Mod Ayarları"
+      "8": "Mod Ayarları",
+      "9": "Yazı Tipleri"
     },
     "SettingsUiScreen": [
       "Kullanıcı Arayüzü Ayarlarını Düzenle",

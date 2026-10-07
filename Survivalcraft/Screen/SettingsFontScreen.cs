@@ -1,0 +1,374 @@
+using System.Xml.Linq;
+using Engine;
+using Engine.Media;
+
+namespace Game {
+    /// <summary>字体设置屏槽位标识（8 槽位，与 SettingsManager.Font* 设置一一对应）。</summary>
+    internal enum FontSlot {
+        Body,
+
+        BodyBold,
+
+        BodyItalic,
+
+        BodyBoldItalic,
+
+        Mono,
+
+        MonoBold,
+
+        MonoItalic,
+
+        MonoBoldItalic
+    }
+
+    /// <summary>
+    /// 字体设置屏（8 槽位 + 原版风格英文开关）。<br/>
+    /// 线程设计（控制器裁定 2026-10-07）：字体导入校验（SharpAstro 试解析，文件可能数十 MB）
+    /// 整体在 Task.Run 线程池执行，结果经 <see cref="Dispatcher.Dispatch"/> 编组回主线程；
+    /// 槽位应用后的链重建由 FontManager.RebuildChains 内建线程池执行，onCompleted 编组回
+    /// 主线程后做全屏重建热切换——一次 apply 恰触发一次 RebuildChains。
+    /// </summary>
+    public class SettingsFontScreen : Screen {
+        public static string fName = "SettingsFontScreen";
+
+        public ButtonWidget m_bodyButton;
+
+        public ButtonWidget m_bodyBoldButton;
+
+        public ButtonWidget m_bodyItalicButton;
+
+        public ButtonWidget m_bodyBoldItalicButton;
+
+        public ButtonWidget m_monoButton;
+
+        public ButtonWidget m_monoBoldButton;
+
+        public ButtonWidget m_monoItalicButton;
+
+        public ButtonWidget m_monoBoldItalicButton;
+
+        public ButtonWidget m_vanilaEnglishButton;
+
+        public SettingsFontScreen() {
+            XElement node = ContentManager.Get<XElement>("Screens/SettingsFontScreen");
+            LoadContents(this, node);
+            m_bodyButton = Children.Find<ButtonWidget>("BodyButton");
+            m_bodyBoldButton = Children.Find<ButtonWidget>("BodyBoldButton");
+            m_bodyItalicButton = Children.Find<ButtonWidget>("BodyItalicButton");
+            m_bodyBoldItalicButton = Children.Find<ButtonWidget>("BodyBoldItalicButton");
+            m_monoButton = Children.Find<ButtonWidget>("MonoButton");
+            m_monoBoldButton = Children.Find<ButtonWidget>("MonoBoldButton");
+            m_monoItalicButton = Children.Find<ButtonWidget>("MonoItalicButton");
+            m_monoBoldItalicButton = Children.Find<ButtonWidget>("MonoBoldItalicButton");
+            m_vanilaEnglishButton = Children.Find<ButtonWidget>("VanilaEnglishButton");
+        }
+
+        public override void Enter(object[] parameters) {
+            // 联动禁用态预热：缓存未命中时后台探测（多 MB ttc 读盘/解析离 UI 线程），
+            // 回调落缓存后由 Update 的 TryGetSourceStyles 命中刷新；命中时同步返回不闪帧
+            FontManager.ProbeSourceStyles(mono: false, SettingsManager.FontBody, null);
+            FontManager.ProbeSourceStyles(mono: true, SettingsManager.FontMono, null);
+        }
+
+        public override void Update() {
+            m_bodyButton.Text = DescribeSlotValue(FontSlot.Body);
+            m_bodyBoldButton.Text = DescribeSlotValue(FontSlot.BodyBold);
+            m_bodyItalicButton.Text = DescribeSlotValue(FontSlot.BodyItalic);
+            m_bodyBoldItalicButton.Text = DescribeSlotValue(FontSlot.BodyBoldItalic);
+            m_monoButton.Text = DescribeSlotValue(FontSlot.Mono);
+            m_monoBoldButton.Text = DescribeSlotValue(FontSlot.MonoBold);
+            m_monoItalicButton.Text = DescribeSlotValue(FontSlot.MonoItalic);
+            m_monoBoldItalicButton.Text = DescribeSlotValue(FontSlot.MonoBoldItalic);
+            m_vanilaEnglishButton.Text = SettingsManager.FontVanilaEnglish ? LanguageControl.Yes : LanguageControl.No;
+            UpdateLinkedDisableStates();
+            if (m_bodyButton.IsClicked) {
+                ShowSlotDialog(FontSlot.Body);
+            }
+            if (m_bodyBoldButton.IsClicked) {
+                ShowSlotDialog(FontSlot.BodyBold);
+            }
+            if (m_bodyItalicButton.IsClicked) {
+                ShowSlotDialog(FontSlot.BodyItalic);
+            }
+            if (m_bodyBoldItalicButton.IsClicked) {
+                ShowSlotDialog(FontSlot.BodyBoldItalic);
+            }
+            if (m_monoButton.IsClicked) {
+                ShowSlotDialog(FontSlot.Mono);
+            }
+            if (m_monoBoldButton.IsClicked) {
+                ShowSlotDialog(FontSlot.MonoBold);
+            }
+            if (m_monoItalicButton.IsClicked) {
+                ShowSlotDialog(FontSlot.MonoItalic);
+            }
+            if (m_monoBoldItalicButton.IsClicked) {
+                ShowSlotDialog(FontSlot.MonoBoldItalic);
+            }
+            if (m_vanilaEnglishButton.IsClicked) {
+                SettingsManager.FontVanilaEnglish = !SettingsManager.FontVanilaEnglish;
+                SettingsManager.SaveSettings();
+                RebuildChainsAndScreens();
+            }
+            if (Input.Back
+                || Input.Cancel
+                || Children.Find<ButtonWidget>("TopBar.Back").IsClicked) {
+                ScreensManager.SwitchScreen(ScreensManager.PreviousScreen);
+            }
+        }
+
+        static string GetSetting(FontSlot slot) => slot switch {
+            FontSlot.Body => SettingsManager.FontBody,
+            FontSlot.BodyBold => SettingsManager.FontBodyBold,
+            FontSlot.BodyItalic => SettingsManager.FontBodyItalic,
+            FontSlot.BodyBoldItalic => SettingsManager.FontBodyBoldItalic,
+            FontSlot.Mono => SettingsManager.FontMono,
+            FontSlot.MonoBold => SettingsManager.FontMonoBold,
+            FontSlot.MonoItalic => SettingsManager.FontMonoItalic,
+            _ => SettingsManager.FontMonoBoldItalic
+        };
+
+        static void SetSetting(FontSlot slot, string value) {
+            switch (slot) {
+                case FontSlot.Body: SettingsManager.FontBody = value; break;
+                case FontSlot.BodyBold: SettingsManager.FontBodyBold = value; break;
+                case FontSlot.BodyItalic: SettingsManager.FontBodyItalic = value; break;
+                case FontSlot.BodyBoldItalic: SettingsManager.FontBodyBoldItalic = value; break;
+                case FontSlot.Mono: SettingsManager.FontMono = value; break;
+                case FontSlot.MonoBold: SettingsManager.FontMonoBold = value; break;
+                case FontSlot.MonoItalic: SettingsManager.FontMonoItalic = value; break;
+                case FontSlot.MonoBoldItalic: SettingsManager.FontMonoBoldItalic = value; break;
+            }
+        }
+
+        static bool IsMonoSlot(FontSlot slot) => slot >= FontSlot.Mono;
+
+        static bool IsBaseSlot(FontSlot slot) => slot is FontSlot.Body or FontSlot.Mono;
+
+        /// <summary>槽位按钮显示当前取值（系统默认/默认字体/等宽字体/文件名），从对话框返回即随设置刷新。</summary>
+        string DescribeSlotValue(FontSlot slot) {
+            FontSlotSetting setting = FontSlotSetting.Parse(GetSetting(slot));
+            return setting.Kind switch {
+                FontSlotKind.ReferenceBody => LanguageControl.GetContentWidgets(fName, "12"),
+                FontSlotKind.ReferenceMono => LanguageControl.GetContentWidgets(fName, "13"),
+                FontSlotKind.UserFile => setting.FileName,
+                _ => LanguageControl.GetContentWidgets(fName, "11")
+            };
+        }
+
+        /// <summary>
+        /// 联动禁用态（spec §4）：基础槽所选源含对应样式面（探测缓存命中时）→ 下游样式槽禁用。
+        /// 未命中（探测进行中）保持现状，回调落缓存后由下一帧刷新。
+        /// </summary>
+        void UpdateLinkedDisableStates() {
+            if (FontManager.TryGetSourceStyles(mono: false, SettingsManager.FontBody, out HashSet<VectorFontStyle> bodyStyles)) {
+                m_bodyBoldButton.IsEnabled = !bodyStyles.Contains(VectorFontStyle.Bold);
+                m_bodyItalicButton.IsEnabled = !bodyStyles.Contains(VectorFontStyle.Italic);
+                m_bodyBoldItalicButton.IsEnabled = !bodyStyles.Contains(VectorFontStyle.BoldItalic);
+            }
+            if (FontManager.TryGetSourceStyles(mono: true, SettingsManager.FontMono, out HashSet<VectorFontStyle> monoStyles)) {
+                m_monoBoldButton.IsEnabled = !monoStyles.Contains(VectorFontStyle.Bold);
+                m_monoItalicButton.IsEnabled = !monoStyles.Contains(VectorFontStyle.Italic);
+                m_monoBoldItalicButton.IsEnabled = !monoStyles.Contains(VectorFontStyle.BoldItalic);
+            }
+        }
+
+        /// <summary>槽位选项清单（spec §4）：body 基础槽无引用项；mono 基础槽引用正文；mono 样式槽引用正文+等宽。</summary>
+        void ShowSlotDialog(FontSlot slot) {
+            List<KeyValuePair<string, string>> options = [new(LanguageControl.GetContentWidgets(fName, "11"), "system")];
+            if (slot != FontSlot.Body) {
+                options.Add(new(LanguageControl.GetContentWidgets(fName, "12"), "ref:body"));
+            }
+            if (IsMonoSlot(slot)
+                && slot != FontSlot.Mono) {
+                options.Add(new(LanguageControl.GetContentWidgets(fName, "13"), "ref:mono"));
+            }
+            options.Add(new(LanguageControl.Get(fName, "14"), "import"));
+            options.Add(new(LanguageControl.Get(fName, "15"), "list"));
+            DialogsManager.ShowDialog(
+                null,
+                new ListSelectionDialog(
+                    null,
+                    options,
+                    60f,
+                    item => ((KeyValuePair<string, string>)item).Key,
+                    item => {
+                        string value = ((KeyValuePair<string, string>)item).Value;
+                        if (value == "import") {
+                            ImportFontFlow(slot);
+                        }
+                        else if (value == "list") {
+                            ShowImportedListDialog(slot);
+                        }
+                        else {
+                            ApplySlot(slot, value);
+                        }
+                    }
+                )
+            );
+        }
+
+        /// <summary>
+        /// 应用槽位取值并热切换：存档 → 一次 RebuildChains → 全屏重建。<br/>
+        /// 基础槽先探测新源样式面（后台）做联动锁定，再重建——锁定与重建仍同一次 apply。
+        /// </summary>
+        void ApplySlot(FontSlot slot, string value) {
+            SetSetting(slot, value);
+            SettingsManager.SaveSettings();
+            if (IsBaseSlot(slot)) {
+                bool mono = IsMonoSlot(slot);
+                FontManager.ProbeSourceStyles(
+                    mono,
+                    value,
+                    delegate (HashSet<VectorFontStyle> styles) {
+                        ApplyLinkedLocks(mono, styles);
+                        SettingsManager.SaveSettings();
+                        RebuildChainsAndScreens();
+                    }
+                );
+            }
+            else {
+                RebuildChainsAndScreens();
+            }
+        }
+
+        /// <summary>联动锁定（spec §4）：基础槽源含样式面 → 对应样式槽锁定为引用值；源改回不含该样式时恢复可用并保持引用值。</summary>
+        void ApplyLinkedLocks(bool mono, HashSet<VectorFontStyle> styles) {
+            string lockValue = mono ? "ref:mono" : "ref:body";
+            if (styles.Contains(VectorFontStyle.Bold)) {
+                SetSetting(mono ? FontSlot.MonoBold : FontSlot.BodyBold, lockValue);
+            }
+            if (styles.Contains(VectorFontStyle.Italic)) {
+                SetSetting(mono ? FontSlot.MonoItalic : FontSlot.BodyItalic, lockValue);
+            }
+            if (styles.Contains(VectorFontStyle.BoldItalic)) {
+                SetSetting(mono ? FontSlot.MonoBoldItalic : FontSlot.BodyBoldItalic, lockValue);
+            }
+        }
+
+        void RebuildChainsAndScreens() {
+            FontManager.RebuildChains(RebuildScreens);
+        }
+
+        /// <summary>
+        /// 导入字体流（控制器裁定：校验含 SharpAstro 试解析，可能数十 MB，整体离 UI 线程执行）。
+        /// ChooseFile 的 await 与校验都在线程池，结果经 Dispatcher 编组回主线程后弹消息或应用。
+        /// </summary>
+        void ImportFontFlow(FontSlot slot) {
+            Task.Run(async () => {
+                try {
+#if WINDOWS
+                    KeyValuePair<string, string[]>[] filters = [new("Font", ["*.ttf", "*.otf", "*.ttc"])];
+#else
+                    KeyValuePair<string, string[]>[] filters = [new("Font", [".ttf", ".otf", ".ttc"])];
+#endif
+                    (Stream stream, string fileName) = await Storage.ChooseFile(null, filters);
+                    if (stream == null) {
+                        return; // 用户取消（或选择器不可用且无文件名）
+                    }
+                    bool imported = false;
+                    string error = null;
+                    try {
+                        imported = FontManager.ValidateAndImportFont(stream, fileName, out error);
+                    }
+                    finally {
+                        await using (stream) { }
+                    }
+                    string safeName = imported
+                        ? Storage.SanitizeFileNameSegment(Storage.GetFileName(fileName))
+                        : null;
+                    Dispatcher.Dispatch(
+                        delegate {
+                            if (!imported) {
+                                DialogsManager.ShowDialog(
+                                    null,
+                                    new MessageDialog(LanguageControl.Error, error, LanguageControl.Ok, null, null)
+                                );
+                                return;
+                            }
+                            ApplySlot(slot, $"user:{safeName}");
+                        }
+                    );
+                }
+                catch (Exception ex) {
+                    Dispatcher.Dispatch(
+                        delegate {
+                            DialogsManager.ShowDialog(
+                                null,
+                                new MessageDialog(LanguageControl.Error, ex.Message, LanguageControl.Ok, null, null)
+                            );
+                        }
+                    );
+                }
+            });
+        }
+
+        /// <summary>已导入字体列表对话框（doc:Fonts，目录枚举轻量 IO，与语言选择对话框同类用法）。</summary>
+        void ShowImportedListDialog(FontSlot slot) {
+            List<string> fonts = FontManager.ListUserFonts();
+            if (fonts.Count == 0) {
+                DialogsManager.ShowDialog(
+                    null,
+                    new MessageDialog(LanguageControl.GetContentWidgets(fName, "16"), null, LanguageControl.Ok, null, null)
+                );
+                return;
+            }
+            fonts.Sort(StringComparer.OrdinalIgnoreCase);
+            DialogsManager.ShowDialog(
+                null,
+                new ListSelectionDialog(
+                    null,
+                    fonts,
+                    60f,
+                    item => (string)item,
+                    item => ApplySlot(slot, $"user:{item}")
+                )
+            );
+        }
+
+        /// <summary>
+        /// 热切换的全屏重建：照 LanguageControl.ChangeLanguage 重建块（全表 Activator 重建 →
+        /// 切入字体屏 → 旧屏 Dispose）。不抽公共方法改写 ChangeLanguage：其块内含语言专属数据
+        /// 重初始化（CraftingRecipes/Blocks/ClothingSlot/SubsystemPalette），字体热切换不需要，
+        /// 参数化抽取反而增加耦合（控制器裁定允许两处各自保留）。<br/>
+        /// 返回引用修复：PreviousScreen/历史栈中指向旧实例的条目映射到新实例（返回键不得回到
+        /// 已 Dispose 旧屏；重建由字体屏触发，PreviousScreen 即设置主屏新实例）。
+        /// </summary>
+        static void RebuildScreens() {
+            List<KeyValuePair<string, Screen>> oldScreens = [.. ScreensManager.m_screens];
+            Dictionary<string, Screen> newScreens = [];
+            foreach (KeyValuePair<string, Screen> c in oldScreens) {
+                Type type = c.Value.GetType();
+#pragma warning disable IL2072
+                object obj = Activator.CreateInstance(type);
+#pragma warning restore IL2072
+                newScreens.Add(c.Key, (Screen)obj);
+            }
+            Dictionary<Screen, Screen> oldToNew = [];
+            foreach (KeyValuePair<string, Screen> c in oldScreens) {
+                ScreensManager.m_screens[c.Key] = newScreens[c.Key];
+                oldToNew[c.Value] = newScreens[c.Key];
+            }
+            ScreensManager.SwitchScreen("SettingsFont");
+            if (ScreensManager.PreviousScreen != null
+                && oldToNew.TryGetValue(ScreensManager.PreviousScreen, out Screen newPrevious)) {
+                ScreensManager.PreviousScreen = newPrevious;
+            }
+            List<Screen> history = [.. ScreensManager.HistoryStack];
+            ScreensManager.HistoryStack.Clear();
+            foreach (Screen screen in history) {
+                ScreensManager.HistoryStack.Push(oldToNew.TryGetValue(screen, out Screen replaced) ? replaced : screen);
+            }
+            // 旧屏实例的生命周期终点：整表重建不调 Leave，终局清理统一走 Dispose（同 ChangeLanguage 口径）
+            foreach (KeyValuePair<string, Screen> c in oldScreens) {
+                try {
+                    c.Value.Dispose();
+                }
+                catch (Exception ex) {
+                    Log.Warning($"Disposing replaced screen \"{c.Key}\" failed: {ex.Message}");
+                }
+            }
+        }
+    }
+}

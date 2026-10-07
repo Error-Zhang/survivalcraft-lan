@@ -3044,6 +3044,24 @@
       "9": "Resetați",
       "10": "Reportează problemă API"
     },
+    "SettingsFontScreen": {
+      "1": "Ajustează Setări Font",
+      "2": "Font Text:",
+      "3": "Font Text Îngroșat:",
+      "4": "Font Text Înclinat:",
+      "5": "Font Text Îngroșat Înclinat:",
+      "6": "Font Monospațiat:",
+      "7": "Font Monospațiat Îngroșat:",
+      "8": "Font Monospațiat Înclinat:",
+      "9": "Font Monospațiat Îngroșat Înclinat:",
+      "10": "Caractere Englezești Original:",
+      "11": "Implicit Sistem",
+      "12": "Font Text",
+      "13": "Font Monospațiat",
+      "14": "Alege Fișier...",
+      "15": "Fișiere Importate...",
+      "16": "Nu a fost importat niciun font."
+    },
     "SettingsControlsScreen": [
       "Ajustați setările comenzilor",
       "Controlul deplasării ecranului tactil:",
@@ -3116,7 +3134,8 @@
       "4": "Interfață",
       "5": "Audio",
       "6": "Controale",
-      "7": "Compatibilitate"
+      "7": "Compatibilitate",
+      "9": "Fonturi"
     },
     "SettingsUiScreen": [
       "Ajustează Setările Interfeței Utilizator",

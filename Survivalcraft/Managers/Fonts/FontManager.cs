@@ -140,6 +140,14 @@ namespace Game {
 
         static readonly object m_rebuildLock = new();
 
+        /// <summary>样式面探测结果缓存：探测键（"system:body"|"system:mono"|"user:&lt;文件名&gt;"|"none"）→ 源包含的样式面集合。</summary>
+        static readonly Dictionary<string, HashSet<VectorFontStyle>> m_sourceStylesCache = new(StringComparer.Ordinal);
+
+        static readonly object m_probeLock = new();
+
+        /// <summary>最近一次链构建的系统发现结果（"system:*" 探测键定位首个系统源文件用；构建前为 null）。</summary>
+        static List<SystemFontFace> m_lastSystemFaces;
+
         /// <summary>正文链（Pericles 头 → body 槽位 → 系统正文字体）。null=构建失败/无可用字体，widget 走位图路径。</summary>
         public static VectorFont DefaultChain { get; private set; }
 
@@ -175,7 +183,7 @@ namespace Game {
         /// <summary>
         /// 后台重建双链（发现+解析在线程池，不阻塞 UI）；完成后引用原子换入
         /// （引用赋值原子，绘制中的 widget 要么用旧链要么用新链），随后
-        /// onCompleted 经 Dispatcher 编组在主线程执行（供 T10 设置屏热切换刷新）。
+        /// onCompleted 经 <see cref="Dispatcher.Dispatch"/> 编组在主线程执行（供 T10 设置屏热切换刷新）。
         /// </summary>
         public static void RebuildChains(Action onCompleted = null) {
             Task.Run(() => {
@@ -198,9 +206,104 @@ namespace Game {
             });
         }
 
+        /// <summary>
+        /// 探测槽位源包含的样式面集合（T10 设置屏基础槽联动禁用的依据）。<br/>
+        /// 源文件可能达数十 MB（系统 ttc），读盘/解析在线程池执行，结果写入缓存后经
+        /// <see cref="Dispatcher.Dispatch"/> 编组回调主线程；缓存命中时在调用线程同步回调
+        /// （屏 Enter 恢复禁用态不闪帧）。onProbed 为 null 时仅预热缓存不回调。
+        /// 失败/空源返回空集合（不锁定任何样式槽）。
+        /// </summary>
+        public static void ProbeSourceStyles(bool mono, string slotValue, Action<HashSet<VectorFontStyle>> onProbed) {
+            if (TryGetSourceStyles(mono, slotValue, out HashSet<VectorFontStyle> cached)) {
+                onProbed?.Invoke(cached);
+                return;
+            }
+            string probeKey = ResolveProbeKey(mono, slotValue, depth: 0);
+            Task.Run(() => {
+                HashSet<VectorFontStyle> styles = ProbeSourceStylesCore(probeKey);
+                if (onProbed != null) {
+                    try {
+                        Dispatcher.Dispatch(() => onProbed(styles));
+                    }
+                    catch (Exception ex) {
+                        Log.Error($"[FontManager] style probe callback dispatch failed: {ex}");
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// 同步取槽位源样式集（仅缓存命中，屏 Update 恢复联动禁用态用，不触发读盘/解析）；未命中返回 false。
+        /// </summary>
+        public static bool TryGetSourceStyles(bool mono, string slotValue, out HashSet<VectorFontStyle> styles) {
+            string probeKey = ResolveProbeKey(mono, slotValue, depth: 0);
+            lock (m_probeLock) {
+                return m_sourceStylesCache.TryGetValue(probeKey, out styles);
+            }
+        }
+
+        /// <summary>槽位值 → 探测键：user 文件直接成键；引用槽递归到目标基础槽取值；system 按槽位族成键。</summary>
+        static string ResolveProbeKey(bool mono, string slotValue, int depth) {
+            if (depth > 4) {
+                return "none";
+            }
+            FontSlotSetting setting = FontSlotSetting.Parse(slotValue);
+            return setting.Kind switch {
+                FontSlotKind.UserFile => $"user:{setting.FileName}",
+                FontSlotKind.ReferenceBody => ResolveProbeKey(mono: false, SettingsManager.FontBody, depth + 1),
+                FontSlotKind.ReferenceMono => ResolveProbeKey(mono: true, SettingsManager.FontMono, depth + 1),
+                _ => mono ? "system:mono" : "system:body"
+            };
+        }
+
+        /// <summary>探测键 → 样式面集合（双重检查缓存；结果恒非 null）。仅在线程池调用。</summary>
+        static HashSet<VectorFontStyle> ProbeSourceStylesCore(string probeKey) {
+            lock (m_probeLock) {
+                if (m_sourceStylesCache.TryGetValue(probeKey, out HashSet<VectorFontStyle> cached)) {
+                    return cached;
+                }
+            }
+            HashSet<VectorFontStyle> styles = [];
+            try {
+                string filePath = probeKey.StartsWith("user:", StringComparison.Ordinal)
+                    ? Storage.CombinePaths(UserFontDir, probeKey.Substring(5))
+                    : probeKey.StartsWith("system:", StringComparison.Ordinal)
+                        ? FirstSystemFilePath(mono: probeKey.EndsWith("mono", StringComparison.Ordinal))
+                        : null;
+                if (filePath != null) {
+                    byte[] data = File.ReadAllBytes(filePath);
+                    foreach (OpenTypeFont face in OpenTypeFont.LoadAll(data)) {
+                        styles.Add(FontLocator.MapFaceStyle(face));
+                    }
+                }
+            }
+            catch (Exception ex) {
+                Log.Warning($"[FontManager] style probe \"{probeKey}\" failed: {ex.Message}");
+            }
+            lock (m_probeLock) {
+                m_sourceStylesCache[probeKey] = styles;
+            }
+            return styles;
+        }
+
+        /// <summary>系统发现结果中某族的第一个源文件路径（无系统字体返回 null）。</summary>
+        static string FirstSystemFilePath(bool mono) {
+            List<SystemFontFace> faces = m_lastSystemFaces;
+            if (faces == null) {
+                return null;
+            }
+            foreach (SystemFontFace face in faces) {
+                if (face.IsMono == mono) {
+                    return face.FilePath;
+                }
+            }
+            return null;
+        }
+
         /// <summary>双链构建本体（Discover/读盘/解析）。失败项逐级降级并记日志，正常不抛出。</summary>
         static void RebuildChainsCore() {
             List<SystemFontFace> systemFaces = FontLocator.Discover() ?? [];
+            m_lastSystemFaces = systemFaces;
             // 文件级条目缓存（一次重建内同一文件只读盘/解析一次；槽位引用与系统发现可能重复命中）
             Dictionary<string, ChainEntry> fileEntries = new(StringComparer.OrdinalIgnoreCase);
             List<ChainEntry> bodyEntries = BuildBodyEntries(systemFaces, fileEntries);
@@ -215,10 +318,10 @@ namespace Game {
         static List<ChainEntry> BuildBodyEntries(List<SystemFontFace> systemFaces, Dictionary<string, ChainEntry> fileEntries) {
             List<ChainEntry> entries = [];
             AddPericlesHead(entries);
-            TryAddEntry(entries, ResolveSlot(SettingsManager.FontBody, systemFaces, forBody: true, depth: 0, fileEntries));
-            TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyBold, systemFaces, forBody: true, depth: 0, fileEntries));
-            TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyItalic, systemFaces, forBody: true, depth: 0, fileEntries));
-            TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyBoldItalic, systemFaces, forBody: true, depth: 0, fileEntries));
+            TryAddEntry(entries, ResolveSlot(SettingsManager.FontBody, systemFaces, depth: 0, fileEntries));
+            TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyBold, systemFaces, depth: 0, fileEntries));
+            TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyItalic, systemFaces, depth: 0, fileEntries));
+            TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyBoldItalic, systemFaces, depth: 0, fileEntries));
             AddSystemEntries(entries, systemFaces, mono: false, fileEntries);
             return entries;
         }
@@ -227,10 +330,10 @@ namespace Game {
         // （等宽字体普遍缺 CJK，尾部复用使 mono 段 CJK 沿链回落到正文字体渲染）
         static List<ChainEntry> BuildMonoEntries(List<ChainEntry> bodyEntries, List<SystemFontFace> systemFaces, Dictionary<string, ChainEntry> fileEntries) {
             List<ChainEntry> entries = [];
-            TryAddEntry(entries, ResolveSlot(SettingsManager.FontMono, systemFaces, forBody: false, depth: 0, fileEntries));
-            TryAddEntry(entries, ResolveSlot(SettingsManager.FontMonoBold, systemFaces, forBody: false, depth: 0, fileEntries));
-            TryAddEntry(entries, ResolveSlot(SettingsManager.FontMonoItalic, systemFaces, forBody: false, depth: 0, fileEntries));
-            TryAddEntry(entries, ResolveSlot(SettingsManager.FontMonoBoldItalic, systemFaces, forBody: false, depth: 0, fileEntries));
+            TryAddEntry(entries, ResolveSlot(SettingsManager.FontMono, systemFaces, depth: 0, fileEntries));
+            TryAddEntry(entries, ResolveSlot(SettingsManager.FontMonoBold, systemFaces, depth: 0, fileEntries));
+            TryAddEntry(entries, ResolveSlot(SettingsManager.FontMonoItalic, systemFaces, depth: 0, fileEntries));
+            TryAddEntry(entries, ResolveSlot(SettingsManager.FontMonoBoldItalic, systemFaces, depth: 0, fileEntries));
             AddSystemEntries(entries, systemFaces, mono: true, fileEntries);
             foreach (ChainEntry entry in bodyEntries) {
                 TryAddEntry(entries, entry);
@@ -242,7 +345,7 @@ namespace Game {
         /// 槽位值 → 链条目。SystemDefault 返回 null（系统发现在条目列表尾部统一处理）；<br/>
         /// 引用槽（ref:body/ref:mono）解析到目标槽自身的取值，目标槽再引用（A→B→A 环）或无系统字体时按 null 截断。
         /// </summary>
-        static ChainEntry ResolveSlot(string slotValue, List<SystemFontFace> systemFaces, bool forBody, int depth, Dictionary<string, ChainEntry> fileEntries) {
+        static ChainEntry ResolveSlot(string slotValue, List<SystemFontFace> systemFaces, int depth, Dictionary<string, ChainEntry> fileEntries) {
             FontSlotSetting setting = FontSlotSetting.Parse(slotValue);
             switch (setting.Kind) {
                 case FontSlotKind.UserFile:
@@ -250,12 +353,12 @@ namespace Game {
                 case FontSlotKind.ReferenceBody:
                     return depth > 0
                         ? null
-                        : ResolveSlot(SettingsManager.FontBody, systemFaces, forBody: true, depth + 1, fileEntries)
+                        : ResolveSlot(SettingsManager.FontBody, systemFaces, depth + 1, fileEntries)
                             ?? FirstSystemEntry(systemFaces, mono: false, fileEntries);
                 case FontSlotKind.ReferenceMono:
                     return depth > 0
                         ? null
-                        : ResolveSlot(SettingsManager.FontMono, systemFaces, forBody: false, depth + 1, fileEntries)
+                        : ResolveSlot(SettingsManager.FontMono, systemFaces, depth + 1, fileEntries)
                             ?? FirstSystemEntry(systemFaces, mono: true, fileEntries);
                 default:
                     return null;
@@ -428,6 +531,10 @@ namespace Game {
                     Storage.CreateDirectory(UserFontDir);
                 }
                 Storage.WriteAllBytes(Storage.CombinePaths(UserFontDir, safeName), data);
+                // 同名覆盖导入使旧探测缓存失效（源内容已变，缓存键仍为 "user:<文件名>"）
+                lock (m_probeLock) {
+                    _ = m_sourceStylesCache.Remove($"user:{safeName}");
+                }
                 Log.Information($"[FontManager] user font imported: {safeName}");
                 return true;
             }

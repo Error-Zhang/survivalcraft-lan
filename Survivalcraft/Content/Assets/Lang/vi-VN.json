@@ -3347,6 +3347,24 @@
       "17": "Tương Thích Mod:",
       "18": "Quản lý lớp thay thế"
     },
+    "SettingsFontScreen": {
+      "1": "Điều chỉnh Cài đặt Phông chữ",
+      "2": "Phông chữ Thân bài:",
+      "3": "Phông chữ Thân bài Đậm:",
+      "4": "Phông chữ Thân bài Nghiêng:",
+      "5": "Phông chữ Thân bài Đậm Nghiêng:",
+      "6": "Phông chữ Đơn cách:",
+      "7": "Phông chữ Đơn cách Đậm:",
+      "8": "Phông chữ Đơn cách Nghiêng:",
+      "9": "Phông chữ Đơn cách Đậm Nghiêng:",
+      "10": "Chữ cái tiếng Anh gốc:",
+      "11": "Mặc định hệ thống",
+      "12": "Phông chữ Thân bài",
+      "13": "Phông chữ Đơn cách",
+      "14": "Chọn Tệp...",
+      "15": "Danh sách Tệp...",
+      "16": "Chưa nhập phông chữ nào."
+    },
     "SettingsControlsScreen": [
       "Điều chỉnh Cài đặt Điều khiển",
       "Điều khiển Di chuyển Màn hình Cảm ứng:",
@@ -3428,7 +3446,8 @@
       "4": "Giao diện Người dùng",
       "5": "Âm thanh",
       "6": "Điều khiển",
-      "7": "Tương thích"
+      "7": "Tương thích",
+      "9": "Phông chữ"
     },
     "SettingsUiScreen": [
       "Điều chỉnh Cài đặt Giao diện Người dùng",

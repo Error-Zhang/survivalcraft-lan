@@ -3316,6 +3316,24 @@
       "17": "Compatibilidad de Mods:",
       "18": "Reemplazo de Clases"
     },
+    "SettingsFontScreen": {
+      "1": "Ajustar Configuración de Fuentes",
+      "2": "Fuente de Texto:",
+      "3": "Fuente de Texto Negrita:",
+      "4": "Fuente de Texto Cursiva:",
+      "5": "Fuente de Texto Negrita Cursiva:",
+      "6": "Fuente Monoespaciada:",
+      "7": "Fuente Monoespaciada Negrita:",
+      "8": "Fuente Monoespaciada Cursiva:",
+      "9": "Fuente Monoespaciada Negrita Cursiva:",
+      "10": "Caracteres Ingleses Originales:",
+      "11": "Predeterminado del Sistema",
+      "12": "Fuente de Texto",
+      "13": "Fuente Monoespaciada",
+      "14": "Elegir Archivo...",
+      "15": "Lista de Archivos...",
+      "16": "Aún no se ha importado ninguna fuente."
+    },
     "SettingsControlsScreen": [
       "Ajustar Configuración de Controles",
       "Control de Movimiento Táctil:",
@@ -3393,7 +3411,8 @@
       "4": "Interfaz de Usuario",
       "5": "Audio",
       "6": "Controles",
-      "7": "Compatibilidad"
+      "7": "Compatibilidad",
+      "9": "Fuentes"
     },
     "SettingsUiScreen": [
       "Ajustar Configuración de la Interfaz",

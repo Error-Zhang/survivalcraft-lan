@@ -622,6 +622,7 @@ namespace Game {
             AddLoadAction(delegate { AddScreen("SettingsUi", new SettingsUiScreen()); });
             AddLoadAction(delegate { AddScreen("SettingsCompatibility", new SettingsCompatibilityScreen()); });
             AddLoadAction(delegate { AddScreen("SettingsAudio", new SettingsAudioScreen()); });
+            AddLoadAction(delegate { AddScreen("SettingsFont", new SettingsFontScreen()); });
             AddLoadAction(delegate { AddScreen("SettingsControls", new SettingsControlsScreen()); });
             AddLoadAction(delegate { AddScreen("Play", new PlayScreen()); });
             AddLoadAction(delegate { AddScreen("NewWorld", new NewWorldScreen()); });

@@ -3516,6 +3516,24 @@
       "18": "Manage Class Replacement",
       "19": "Force 32-bit indices:"
     },
+    "SettingsFontScreen": {
+      "1": "Adjust Font Settings",
+      "2": "Body Font:",
+      "3": "Body Font Bold:",
+      "4": "Body Font Italic:",
+      "5": "Body Font Bold Italic:",
+      "6": "Monospace Font:",
+      "7": "Monospace Font Bold:",
+      "8": "Monospace Font Italic:",
+      "9": "Monospace Font Bold Italic:",
+      "10": "Vanilla-style English:",
+      "11": "System Default",
+      "12": "Body Font",
+      "13": "Monospace Font",
+      "14": "Choose File...",
+      "15": "Imported Files...",
+      "16": "No fonts have been imported yet."
+    },
     "SettingsControlsScreen": [
       "Adjust Controls Settings",
       "Touchscreen Move Control:",
@@ -3598,7 +3616,8 @@
       "5": "Audio",
       "6": "Controls",
       "7": "Compatibility",
-      "8": "Mod Settings"
+      "8": "Mod Settings",
+      "9": "Fonts"
     },
     "SettingsUiScreen": [
       "Adjust User Interface Settings",
