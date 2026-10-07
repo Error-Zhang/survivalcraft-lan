@@ -177,7 +177,8 @@ namespace Game {
             Color = Color.White;
             TextureLinearFilter = true;
             Size = new Vector2(-1f);
-            // P4: Task 9 后启用矢量链——VectorFont = FontManager.DefaultChain;
+            // P4：默认启用矢量链（回滚点=本行）；链未构建/构建失败时为 null → 位图路径零改动
+            VectorFont = FontManager.DefaultChain;
         }
 
         public override void Draw(DrawContext dc) {

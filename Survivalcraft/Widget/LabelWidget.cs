@@ -5,7 +5,9 @@ namespace Game {
         public static BitmapFont m_bitmapFont;
 
         public static BitmapFont BitmapFont {
-            get => m_bitmapFont ??= ContentManager.Get<BitmapFont>("Fonts/Pericles");
+            // Pericles 位图字体的 ContentManager.Get 移入 FontManager.Initialize 统一持有；
+            // 链未初始化（启动极早期）时保持 null，下次访问自动重试
+            get => m_bitmapFont ??= FontManager.FallbackBitmapFont;
             set => m_bitmapFont = value;
         }
 

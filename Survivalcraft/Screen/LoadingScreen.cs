@@ -117,8 +117,8 @@ namespace Game {
             m_isContentLoaded = true;
             Task.Run(() => {
                 _ = ContentManager.Get<Image>("Fonts/Pericles", ".webp");
-                // P4 全局 TTF 矢量字体预载：ttc 未随包就绪时不抛异常，FontManager(Task 9) 接管链管理
-                _ = ContentManager.Get<VectorFont>("Fonts/PericlesPro", throwOnNotFound: false);
+                // P4：矢量链改由 FontManager.Initialize 统一构建（下方 InitActions 中 ContentLoaded 之后，
+                // 加载线程同步执行），此处不再预载 VectorFont 内容缓存，避免 ttc 双重解析
             });
         }
 
@@ -248,6 +248,7 @@ namespace Game {
                 ModsManager.DisposeNotEnabledModsResources();
             });
             AddLoadAction(ContentLoaded);
+            AddLoadAction(FontManager.Initialize); //P4：默认矢量链同步构建（加载线程，阻塞加载进度可接受），必须先于 InitScreens 的全部屏构建
             AddLoadAction(() => {
                     Dictionary<string, Assembly[]> assemblies = [];
                     ModsManager.ModListAllDo(modEntity => {

@@ -370,6 +370,31 @@ namespace Game {
 
         #endregion
 
+        #region 字体设置（P4 全局 TTF 矢量字体，解析/消费见 FontManager）
+
+        // 原版英文字形开关：true=链条头部保留 PericlesPro（拉丁用原版字形），false=拉丁也走后续槽位/系统字体
+        public static bool FontVanilaEnglish { get; set; }
+
+        // 字体槽位值格式 "system"|"ref:body"|"ref:mono"|"user:<file>"，与 FontManager.FontSlotSetting 互转。
+        // Body 四槽分别作正文链 Regular/Bold/Italic/BoldItalic 的首选条目，Mono 四槽同构作用于等宽链
+        public static string FontBody { get; set; }
+
+        public static string FontBodyBold { get; set; }
+
+        public static string FontBodyItalic { get; set; }
+
+        public static string FontBodyBoldItalic { get; set; }
+
+        public static string FontMono { get; set; }
+
+        public static string FontMonoBold { get; set; }
+
+        public static string FontMonoItalic { get; set; }
+
+        public static string FontMonoBoldItalic { get; set; }
+
+        #endregion
+
         public static bool FullScreenMode {
             get => Window.WindowMode == WindowMode.Fullscreen;
             set {
@@ -690,6 +715,15 @@ namespace Game {
                 SafeMode = false;
                 ForceThirtyTwoBitsIndexFormat = false;
                 AdaptEdgeToEdgeDisplay = Window.HasWideNotch;
+                FontVanilaEnglish = true;
+                FontBody = "system";
+                FontBodyBold = "system";
+                FontBodyItalic = "system";
+                FontBodyBoldItalic = "system";
+                FontMono = "system";
+                FontMonoBold = "system";
+                FontMonoItalic = "system";
+                FontMonoBoldItalic = "system";
                 InitializeKeyboardMappingSettings();
                 InitializeGamepadMappingSettings();
                 InitializeVrMappingSettings();
