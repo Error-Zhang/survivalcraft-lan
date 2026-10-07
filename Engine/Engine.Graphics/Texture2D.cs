@@ -160,20 +160,13 @@ namespace Engine.Graphics {
         }
 
         public virtual void SetDataInternal(int mipLevel, nint source) {
-            int width = MathUtils.Max(Width >> mipLevel, 1);
-            int height = MathUtils.Max(Height >> mipLevel, 1);
-            GLWrapper.BindTexture(TextureTarget.Texture2D, m_texture, false);
-            GLWrapper.GL.TexImage2D(
-                TextureTarget.Texture2D,
-                mipLevel,
-                m_internalFormat,
-                (uint)width,
-                (uint)height,
-                0,
-                m_pixelFormat,
-                m_pixelType,
-                in source
-            );
+            // Silk.NET 泛型 TexImage2D(in T pixels) 将「变量地址」而非「指针值」传给 GL：
+            // T=nint 时传入的是保存指针的栈变量地址，GL 从栈上读 width*height*4 字节
+            // → 小尺寸上传垃圾像素、大尺寸（如 4MB 字体图集）越界读直接 AV 段错误。
+            // 经 void* 重载取指针值直传（与 Image<Rgba32> 路径同机制，探针实证 4MB 稳定）。
+            unsafe {
+                SetDataInternal(mipLevel, (void*)source);
+            }
         }
 
         public virtual unsafe void SetDataInternal(int mipLevel, void* source) {
