@@ -40,6 +40,34 @@ namespace Engine.Graphics {
             TriangleIndices.Array[count2 + 5] = count;
         }
 
+        /// <summary>
+        /// 排入一个任意四角 glyph 四边形：p0-p3 = 字形左上/右上/右下/左下角位的屏上落点（已含旋转），
+        /// uv 角随位形对应（p0↔uv1、p1↔右上、p2↔uv2、p3↔左下）。
+        /// QueueGlyphQuad(dest,size,uv1,uv2) 的 uv 角可分离（u 只随屏 X、v 只随屏 Y），
+        /// 表达不了 90° 旋转（竖排 Rotated）——旋转须由调用方转好角位经此口排入
+        /// </summary>
+        public void QueueGlyphQuadCorners(Texture2D texture, Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, Vector2 uv1, Vector2 uv2, float depth, Color color) {
+            BatchTexture = texture;
+            int count = TriangleVertices.Count;
+            TriangleVertices.Count += 4;
+            TriangleVertices.Array[count] = new VertexPositionColorTexture(
+                new Vector3(p0.X, p0.Y, depth), color, uv1);
+            TriangleVertices.Array[count + 1] = new VertexPositionColorTexture(
+                new Vector3(p1.X, p1.Y, depth), color, new Vector2(uv2.X, uv1.Y));
+            TriangleVertices.Array[count + 2] = new VertexPositionColorTexture(
+                new Vector3(p2.X, p2.Y, depth), color, uv2);
+            TriangleVertices.Array[count + 3] = new VertexPositionColorTexture(
+                new Vector3(p3.X, p3.Y, depth), color, new Vector2(uv1.X, uv2.Y));
+            int count2 = TriangleIndices.Count;
+            TriangleIndices.Count += 6;
+            TriangleIndices.Array[count2] = count;
+            TriangleIndices.Array[count2 + 1] = count + 1;
+            TriangleIndices.Array[count2 + 2] = count + 2;
+            TriangleIndices.Array[count2 + 3] = count + 2;
+            TriangleIndices.Array[count2 + 4] = count + 3;
+            TriangleIndices.Array[count2 + 5] = count;
+        }
+
         public override void Flush(Matrix matrix, Vector4 color, bool clearAfterFlush = true) {
             Display.DepthStencilState = DepthStencilState;
             Display.RasterizerState = RasterizerState;

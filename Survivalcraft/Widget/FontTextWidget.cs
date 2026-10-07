@@ -309,7 +309,7 @@ namespace Game {
                 }
                 else {
                     pivot = new Vector2(x + runOffset, num); // 水平：锚点偏移沿行进轴（widget X）
-                    num += lineHeight;
+                    num += lineHeight; // 行距只在水平分支累加（竖排走 lineIndex，num 恒=锚点基值）——切勿再留 foreach 尾部累加，否则水平双倍行距
                 }
                 sink.Rotated = vertical;
                 if (DropShadow) {
@@ -319,16 +319,13 @@ namespace Game {
                 }
                 sink.Pivot = pivot;
                 VectorFont.DrawText(sink, line, Vector2.Zero, color, size);
-                if (!vertical) {
-                    num += lineHeight; // 水平行距（竖排已在分支内走 lineIndex 沿 +X 堆叠，num 恒=锚点基值）
-                }
             }
             sink.TransformTriangles(GlobalTransform);
         }
 
         // widget 级字形 quad 接收口：按纹理路由/缓存 VectorFontBatch2D（layer/渲染状态与位图路径 FontBatch 同粒度），
         // 记录各批本 widget 入队前顶点数，供 Draw 收尾统一施加 GlobalTransform（镜像位图路径 TransformTriangles(GlobalTransform, count)）；
-        // Rotated 时对 quad 做 -90° 刚体变换（dest'=(Pivot.X+dest.Y, Pivot.Y-dest.X)，size 翻转），水平时仅 Pivot 平移
+        // Rotated 时对 quad 做 -90° 刚体变换（位置转置 + UV 角点随转，见 QueueGlyphQuad 注），水平时仅 Pivot 平移
         // internal 共享（P4 Task 7）：RichTextWidget 矢量 run 分流复用同一 sink（Pivot/Rotated 为可选能力，不用即零开销）
         internal sealed class VectorGlyphSink : IFontBatchSink {
             readonly PrimitivesRenderer2D _renderer;
@@ -359,10 +356,17 @@ namespace Game {
                     size *= Scale;
                 }
                 if (Rotated) {
-                    batch.QueueGlyphQuad(
+                    // 真旋转=-90°（与位图 angle 路径同向）：字形角位随转、uv 原样。QueueGlyphQuad(dest,size,uv)
+                    // 的 uv 角可分离（u 只随屏 X），表达不了 90° 旋转——只转位形会把字形图正排进竖列格
+                    //（=顶朝上 bug），必须走四角位口。90°CCW：字形 TL→格左下、TR→格左上、BR→格右上、BL→格右下
+                    float x0 = Pivot.X + destination.Y;
+                    float y0 = Pivot.Y - destination.X;
+                    batch.QueueGlyphQuadCorners(
                         texture,
-                        new Vector2(Pivot.X + destination.Y, Pivot.Y - destination.X),
-                        new Vector2(size.Y, size.X),
+                        new Vector2(x0, y0),
+                        new Vector2(x0, y0 - size.X),
+                        new Vector2(x0 + size.Y, y0 - size.X),
+                        new Vector2(x0 + size.Y, y0),
                         uv1, uv2, depth, color);
                 }
                 else {
