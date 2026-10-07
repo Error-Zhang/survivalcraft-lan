@@ -93,18 +93,12 @@ namespace Engine.Graphics {
         }
 
         public void SetDataInternal(int mipLevel, int imageSize, nint source) {
-            int width = MathUtils.Max(Width >> mipLevel, 1);
-            int height = MathUtils.Max(Height >> mipLevel, 1);
-            GLWrapper.GL.CompressedTexImage2D(
-                TextureTarget.Texture2D,
-                mipLevel,
-                m_internalFormat,
-                (uint)width,
-                (uint)height,
-                0,
-                (uint)imageSize,
-                in source
-            );
+            // Silk.NET 泛型 CompressedTexImage2D(in T pixels) 将「变量地址」而非「指针值」传给 GL
+            //（同 Texture2D.SetDataInternal(nint) 已修缺陷）：T=nint 时传入的是保存指针的栈变量
+            // 地址，GL 从栈上读 imageSize 字节 → 压缩数据上传垃圾像素。经 void* 重载取指针值直传
+            unsafe {
+                SetDataInternal(mipLevel, imageSize, (void*)source);
+            }
         }
 
         public unsafe void SetDataInternal(int mipLevel, int imageSize, void* source) {
