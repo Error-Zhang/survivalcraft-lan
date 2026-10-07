@@ -115,7 +115,11 @@ namespace Game {
             Canvas.AddChildren(busyBar);
             AddChildren(Canvas);
             m_isContentLoaded = true;
-            Task.Run(() => { _ = ContentManager.Get<Image>("Fonts/Pericles", ".webp"); });
+            Task.Run(() => {
+                _ = ContentManager.Get<Image>("Fonts/Pericles", ".webp");
+                // P4 全局 TTF 矢量字体预载：ttc 未随包就绪时不抛异常，FontManager(Task 9) 接管链管理
+                _ = ContentManager.Get<VectorFont>("Fonts/PericlesPro", throwOnNotFound: false);
+            });
         }
 
         //日志已经附带状态，不需要添加状态字符串
