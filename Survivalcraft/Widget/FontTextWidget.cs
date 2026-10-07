@@ -79,21 +79,10 @@ namespace Game {
             }
         }
 
-        // 缩放单一存储（P4 I1 修复）：位图 FontScale 与矢量 VectorFontScale 同读写字段 m_fontScale，
-        // 历史位图调用点（LoadingScreen 0.6、对话框 0.7-0.9 等）在矢量路径取得同尺字号，
+        // 缩放单一存储（P4 I1 修复）：位图/矢量路径共用同读写字段 m_fontScale，历史位图调用点
+        //（LoadingScreen 0.6、对话框 0.7-0.9 等）在矢量路径取得同尺字号，
         // 消除两属性各自存储导致的矢量路径忽视 FontScale 的尺寸回归
         public float FontScale {
-            get => m_fontScale;
-            set {
-                if (value != m_fontScale) {
-                    m_fontScale = value;
-                    m_linesSize = null;
-                }
-            }
-        }
-
-        /// <summary>矢量字号缩放：位图 FontScale 的矢量侧别名（同一 backing field，见上）</summary>
-        public float VectorFontScale {
             get => m_fontScale;
             set {
                 if (value != m_fontScale) {
@@ -270,7 +259,7 @@ namespace Game {
         void DrawVectorText(DrawContext dc) {
             SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
             VectorGlyphSink sink = new(dc.PrimitivesRenderer2D, samplerState);
-            float lineHeight = VectorFont.LineHeight * VectorFontScale;
+            float lineHeight = VectorFont.LineHeight * FontScale;
             float num = 0f;
             if ((TextAnchor & TextAnchor.VerticalCenter) != 0) {
                 num = (ActualSize.Y - m_lines.Count * lineHeight) / 2f;
@@ -283,7 +272,7 @@ namespace Game {
             // UI 全局缩放（ScreensManager FinalUiScale 等经 GlobalTransform 施加）：字形按屏上实际
             // 像素尺寸栅格化（清晰），sink 把 FSS quad 除回 widget 空间——布局与度量仍按 widget 口径
             float gtScale = MathF.Abs(GlobalTransform.M11) is float s11 and > 0.0001f ? s11 : 1f;
-            float size = VectorFont.DefaultSize * VectorFontScale * gtScale;
+            float size = VectorFont.DefaultSize * FontScale * gtScale;
             sink.Scale = 1f / gtScale;
             bool vertical = TextOrientation == TextOrientation.VerticalLeft;
             int lineIndex = 0;
@@ -291,7 +280,7 @@ namespace Game {
                 // 行宽必须按 widget 空间字号量（不含 gtScale）：锚点 runOffset 作用在 widget 空间 pivot 上，
                 // 若混入栅格空间行宽（×gtScale），UI 全局缩放≠1 时 Center/Right 锚点偏移被放大 gtScale 倍
                 //（ModSettingsScreen Description 不居中根因）；探针 gt=1 测不到，F9 矩阵以 RenderTransform ×1.6 复现
-                float lineWidth = VectorFont.MeasureString(line, VectorFont.DefaultSize * VectorFontScale).X;
+                float lineWidth = VectorFont.MeasureString(line, VectorFont.DefaultSize * FontScale).X;
                 float x = 0f;
                 float runOffset = 0f; // CalculateTextOffset.X 口径：Center −w/2、Right −w（沿行进轴的行宽偏移）
                 if ((anchor & TextAnchor.HorizontalCenter) != 0) {
@@ -317,7 +306,7 @@ namespace Game {
                 sink.Rotated = vertical;
                 if (DropShadow) {
                     // 阴影位移在 widget 空间恒 (+1,+1)*缩放：两种朝向下都等价于 pivot 平移（旋转分支输出两分量同加）
-                    sink.Pivot = pivot + new Vector2(VectorFontScale);
+                    sink.Pivot = pivot + new Vector2(FontScale);
                     VectorFont.DrawText(sink, line, Vector2.Zero, new Color((byte)0, (byte)0, (byte)0, color.A), size);
                 }
                 sink.Pivot = pivot;
@@ -403,14 +392,14 @@ namespace Game {
         }
 
         public float CalculateLineHeight() => VectorFont != null
-            ? VectorFont.LineHeight * VectorFontScale
+            ? VectorFont.LineHeight * FontScale
             : (Font.GlyphHeight + Font.Spacing.Y + FontSpacing.Y) * FontScale * Font.Scale;
 
         // 矢量版 FitText（VectorFont!=null 时替代 Font.FitText 的宽度查询）：逐字符 MeasureString 累计宽度，
         // 累计超 width 时返回已容字符数（位图 FitText 同语义；FSS 无 kerning 表，逐字符度量之和≈整串度量）；
         // \r/\u200b 零宽跳过与位图一致。首版 O(n) 每行（FSS 内部缓存 glyph 度量），优化后置
         int FitVectorText(float width, string text, int start, int length) {
-            float size = VectorFont.DefaultSize * VectorFontScale;
+            float size = VectorFont.DefaultSize * FontScale;
             float num = 0f;
             for (int i = start; i < start + length; i++) {
                 char c = text[i];
@@ -502,7 +491,7 @@ namespace Game {
             string[] array = (Text ?? string.Empty).Split(["\n"], StringSplitOptions.None);
             string text = "...";
             float x = VectorFont != null
-                ? VectorFont.MeasureString(text, VectorFont.DefaultSize * VectorFontScale).X
+                ? VectorFont.MeasureString(text, VectorFont.DefaultSize * FontScale).X
                 : Font.MeasureText(text, new Vector2(FontScale), FontSpacing).X;
             if (WordWrap) {
                 int num3 = (int)MathUtils.Min(MathF.Floor(availableHeight / CalculateLineHeight()), MaxLines);
@@ -575,7 +564,7 @@ namespace Game {
             Vector2 zero = Vector2.Zero;
             for (int k = 0; k < m_lines.Count; k++) {
                 Vector2 vector = VectorFont != null
-                    ? new Vector2(VectorFont.MeasureString(m_lines[k], VectorFont.DefaultSize * VectorFontScale).X, 0f)
+                    ? new Vector2(VectorFont.MeasureString(m_lines[k], VectorFont.DefaultSize * FontScale).X, 0f)
                     : Font.MeasureText(m_lines[k], new Vector2(FontScale), FontSpacing);
                 zero.X = MathUtils.Max(zero.X, vector.X);
                 if (k < m_lines.Count - 1) {
@@ -583,7 +572,7 @@ namespace Game {
                 }
                 else {
                     zero.Y += VectorFont != null
-                        ? VectorFont.LineHeight * VectorFontScale
+                        ? VectorFont.LineHeight * FontScale
                         : Font.GlyphHeight * FontScale * Font.Scale;
                 }
             }
