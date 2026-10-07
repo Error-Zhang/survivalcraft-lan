@@ -2784,8 +2784,9 @@ namespace Game {
             }
         }
 
-        // valign 属性 → 垂直锚点位：top/middle/bottom/baseline（baseline 近似 top，基线感知排版
-        // 未建模同 sub/sup 留档 P4 TTF）。TextAnchor.Top==0==Default，故返回 nullable——null=无
+        // valign 属性 → 垂直锚点位：top/middle/bottom/baseline（baseline 近似 top——等字号行基线天然对齐，
+        // 矢量字统一纵向度量后跨字体源亦成立，破绽仅在同行首行字号混排；真基线对齐需格内首行基线行走
+        // + 行基线 max 平移，用户裁定不做留档）。TextAnchor.Top==0==Default，故返回 nullable——null=无
         // 属性（不写），Top=显式置顶（OR 0 无副作用但保 Stretch 赋值）。缺省查所在行（tr valign
         // 行级回退），皆无返回 null
         static TextAnchor? ParseVerticalAlignment(HtmlAgilityPack.HtmlNode cell, HtmlAgilityPack.HtmlNode row) {
