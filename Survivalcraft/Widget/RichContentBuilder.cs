@@ -246,7 +246,10 @@ namespace Game {
                     Font = Font,
                     Color = textColor ?? CodeTextColor,
                     FontScale = codeScale,
-                    WordWrap = false
+                    WordWrap = false,
+                    // P4：代码块文字走等宽链（mono 槽位→系统等宽，链尾复用 body 条目）；
+                    // 链构建失败时 FontManager.MonoChain 已回落 DefaultChain，全缺则为 null 退位图路径
+                    VectorFont = FontManager.MonoChain
                 });
             }
             scrollPanel.Children.Add(linesPanel);

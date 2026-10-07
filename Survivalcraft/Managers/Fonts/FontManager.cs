@@ -182,26 +182,49 @@ namespace Game {
 
         /// <summary>
         /// 后台重建双链（发现+解析在线程池，不阻塞 UI）；完成后引用原子换入
-        /// （引用赋值原子，绘制中的 widget 要么用旧链要么用新链），随后
-        /// onCompleted 经 <see cref="Dispatcher.Dispatch"/> 编组在主线程执行（供 T10 设置屏热切换刷新）。
+        /// （引用赋值原子，绘制中的 widget 要么用旧链要么用新链），随后 onCompleted 经
+        /// <see cref="Dispatcher.Dispatch"/> 编组在主线程执行（供 T10 设置屏热切换刷新），
+        /// 回调跑完后 Dispose 上一代链（I4 热切换 GPU 泄漏修复：旧图集纹理被
+        /// PrimitivesRenderer2D 批缓存强引用不会交 GC，须显式释放；陈旧批 IsEmpty 永不
+        /// flush，纹理在其下释放安全）。
         /// </summary>
         public static void RebuildChains(Action onCompleted = null) {
             Task.Run(() => {
+                List<VectorFont> retired = null;
                 try {
                     lock (m_rebuildLock) {
-                        RebuildChainsCore();
+                        retired = RebuildChainsCore();
                     }
                 }
                 catch (Exception ex) {
                     Log.Error($"[FontManager] chain rebuild failed: {ex}");
                 }
-                if (onCompleted != null) {
-                    try {
-                        Dispatcher.Dispatch(onCompleted);
-                    }
-                    catch (Exception ex) {
-                        Log.Error($"[FontManager] onCompleted dispatch failed: {ex}");
-                    }
+                try {
+                    Dispatcher.Dispatch(() => {
+                        if (onCompleted != null) {
+                            try {
+                                onCompleted();
+                            }
+                            catch (Exception ex) {
+                                Log.Error($"[FontManager] onCompleted failed: {ex}");
+                                // 屏重建失败：旧链可能仍被屏持有，跳过释放（宁泄漏不崩溃）
+                                return;
+                            }
+                        }
+                        if (retired != null) {
+                            foreach (VectorFont chain in retired) {
+                                try {
+                                    chain.Dispose();
+                                }
+                                catch (Exception ex) {
+                                    Log.Warning($"[FontManager] previous chain dispose failed: {ex.Message}");
+                                }
+                            }
+                        }
+                    });
+                }
+                catch (Exception ex) {
+                    Log.Error($"[FontManager] onCompleted dispatch failed: {ex}");
                 }
             });
         }
@@ -312,18 +335,42 @@ namespace Game {
             }
         }
 
-        /// <summary>双链构建本体（Discover/读盘/解析）。失败项逐级降级并记日志，正常不抛出。</summary>
-        static void RebuildChainsCore() {
+        /// <summary>双链构建本体（Discover/读盘/解析）。失败项逐级降级并记日志，正常不抛出。<br/>
+        /// 返回值=被换下的上一代链（暂存，不经此 Dispose）：RebuildChains 在 onCompleted
+        /// （宿主屏重建回调）跑完后统一释放，修复热切换旧图集纹理泄漏。<br/>
+        /// 平台门（owner 裁定）：仅 WINDOWS/ANDROID 启用矢量链 sourcing；其余平台（IOS/BROWSER/
+        /// LINUX/裸 API 构建，同 FontLocator.None.cs 反集口径）链恒 null → widget 走位图路径
+        /// （实测回滚形态）。槽位解析/用户字体读取在此平台不执行——即便目录存在也无 sourcing，天然无害。</summary>
+        static List<VectorFont> RebuildChainsCore() {
+#if WINDOWS || ANDROID
             List<SystemFontFace> systemFaces = FontLocator.Discover() ?? [];
             m_lastSystemFaces = systemFaces;
             // 文件级条目缓存（一次重建内同一文件只读盘/解析一次；槽位引用与系统发现可能重复命中）
             Dictionary<string, ChainEntry> fileEntries = new(StringComparer.OrdinalIgnoreCase);
             List<ChainEntry> bodyEntries = BuildBodyEntries(systemFaces, fileEntries);
             List<ChainEntry> monoEntries = BuildMonoEntries(bodyEntries, systemFaces, fileEntries);
-            // 旧链不 Dispose：绘制中的 widget 可能仍持旧引用，丢弃交 GC 优于使用期失效；
-            // 跨线程重入由 m_rebuildLock 串行化
+            // 所有可抛点已过：先捕获旧链引用再原子换入新链（暂存链在 RebuildChains 主线程
+            // onCompleted 之后释放）。MonoChain 回落 DefaultChain 时两属性同引用，去重防双 Dispose
+            List<VectorFont> retired = [];
+            if (DefaultChain != null) {
+                retired.Add(DefaultChain);
+            }
+            if (MonoChain != null
+                && MonoChain != DefaultChain) {
+                retired.Add(MonoChain);
+            }
+            // mono 链构建失败/无 Regular 面时回落默认链（引用复用，非独立构建）——
+            // 代码块等宽排版无专用等宽源时仍可用正文链渲染，不退位图路径
             DefaultChain = BuildChain(bodyEntries, "body");
-            MonoChain = BuildChain(monoEntries, "mono");
+            MonoChain = BuildChain(monoEntries, "mono") ?? DefaultChain;
+            return retired;
+#else
+            // 平台门外平台：无系统发现结果（样式探测取空集=确定态），链恒 null 走位图路径
+            m_lastSystemFaces = null;
+            DefaultChain = null;
+            MonoChain = null;
+            return null;
+#endif
         }
 
         // 条目序即链序：Pericles 头（原版拉丁开关）→ FontBody/FontBodyBold/FontBodyItalic/FontBodyBoldItalic 槽位 → 系统正文字体
