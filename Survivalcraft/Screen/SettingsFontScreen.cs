@@ -352,13 +352,15 @@ namespace Game {
 #pragma warning restore IL2072
                 newScreens.Add(c.Key, (Screen)obj);
             }
+            // 落点名须在表替换前按旧实例捕获（审查修复 M2）：GetScreenName 按 m_screens 值引用
+            // 反查，替换后旧 CurrentScreen 已不在表中恒得空串，守卫退化为恒落 SettingsFont
+            string currentScreenName = ScreensManager.GetScreenName(ScreensManager.CurrentScreen);
             Dictionary<Screen, Screen> oldToNew = [];
             foreach (KeyValuePair<string, Screen> c in oldScreens) {
                 ScreensManager.m_screens[c.Key] = newScreens[c.Key];
                 oldToNew[c.Value] = newScreens[c.Key];
             }
             Screen previousBeforeSwitch = ScreensManager.PreviousScreen;
-            string currentScreenName = ScreensManager.GetScreenName(ScreensManager.CurrentScreen);
             ScreensManager.SwitchScreen(string.IsNullOrEmpty(currentScreenName) ? "SettingsFont" : currentScreenName);
             Screen newPrevious = previousBeforeSwitch != null
                 && oldToNew.TryGetValue(previousBeforeSwitch, out Screen mappedPrevious)
