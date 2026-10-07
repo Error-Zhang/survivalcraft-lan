@@ -63,7 +63,9 @@ namespace Engine.Media {
                 var settings = new FontSystemSettings {
                     TextureWidth = 1024,
                     TextureHeight = 1024,
-                    GlyphRenderResult = GlyphRenderResult.NonPremultiplied,
+                    // 引擎 BlendState.AlphaBlend = (One, InverseSourceAlpha) 预乘混合，
+                    // 图集必须预乘（背景 RGB=0 才不会整块叠加顶点色）；NonPremultiplied 是 straight 语义
+                    GlyphRenderResult = GlyphRenderResult.Premultiplied,
                     FontLoader = loader
                 };
                 var system = new FontSystem(settings);
