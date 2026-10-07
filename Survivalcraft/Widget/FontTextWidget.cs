@@ -307,12 +307,33 @@ namespace Game {
                 if (DropShadow) {
                     // 阴影位移在 widget 空间恒 (+1,+1)*缩放：两种朝向下都等价于 pivot 平移（旋转分支输出两分量同加）
                     sink.Pivot = pivot + new Vector2(FontScale);
-                    VectorFont.DrawText(sink, line, Vector2.Zero, new Color((byte)0, (byte)0, (byte)0, color.A), size);
+                    DrawVectorLine(sink, line, new Color((byte)0, (byte)0, (byte)0, color.A), size, gtScale);
                 }
                 sink.Pivot = pivot;
-                VectorFont.DrawText(sink, line, Vector2.Zero, color, size);
+                DrawVectorLine(sink, line, color, size, gtScale);
             }
             sink.TransformTriangles(GlobalTransform);
+        }
+
+        // 单行矢量绘制：FontSpacing.X=0 走整串快路；≠0 逐字 DrawText 推进（FSS 无字距参数，历史矢量路径
+        // 曾整体忽略 FontSpacing——XML FontSpacing="2,0" 字距静默丢失）。字距乘 gtScale 进栅格空间：
+        // sink 出 quad 时除回 widget 空间，屏上落点字距=FontSpacing.X（与位图 spacing 含尾字符记账一致）
+        void DrawVectorLine(VectorGlyphSink sink, string line, Color color, float size, float gtScale) {
+            if (FontSpacing.X == 0f) {
+                VectorFont.DrawText(sink, line, Vector2.Zero, color, size);
+                return;
+            }
+            float x = 0f;
+            float spacingFss = FontSpacing.X * gtScale;
+            foreach (char c in line) {
+                if (c == '\r'
+                    || c == '\u200b') {
+                    continue;
+                }
+                string s = c.ToString();
+                VectorFont.DrawText(sink, s, new Vector2(x, 0f), color, size);
+                x += VectorFont.MeasureString(s, size).X + spacingFss;
+            }
         }
 
         // widget 级字形 quad 接收口：按纹理路由/缓存 VectorFontBatch2D（layer/渲染状态与位图路径 FontBatch 同粒度），
@@ -392,12 +413,12 @@ namespace Game {
         }
 
         public float CalculateLineHeight() => VectorFont != null
-            ? VectorFont.LineHeight * FontScale
+            ? VectorFont.LineHeight * FontScale + FontSpacing.Y
             : (Font.GlyphHeight + Font.Spacing.Y + FontSpacing.Y) * FontScale * Font.Scale;
 
         // 矢量版 FitText（VectorFont!=null 时替代 Font.FitText 的宽度查询）：逐字符 MeasureString 累计宽度，
-        // 累计超 width 时返回已容字符数（位图 FitText 同语义；FSS 无 kerning 表，逐字符度量之和≈整串度量）；
-        // \r/\u200b 零宽跳过与位图一致。首版 O(n) 每行（FSS 内部缓存 glyph 度量），优化后置
+        // 累计超 width 时返回已容字符数（位图 FitText 同语义——spacing 记账含尾字符，每 glyph 后都加；
+        // FSS 无 kerning 表，逐字符度量之和≈整串度量）；\r/\u200b 零宽跳过与位图一致。首版 O(n) 每行（FSS 内部缓存 glyph 度量），优化后置
         int FitVectorText(float width, string text, int start, int length) {
             float size = VectorFont.DefaultSize * FontScale;
             float num = 0f;
@@ -407,7 +428,7 @@ namespace Game {
                     || c == '\u200b') {
                     continue;
                 }
-                num += VectorFont.MeasureString(c.ToString(), size).X;
+                num += VectorFont.MeasureString(c.ToString(), size).X + FontSpacing.X;
                 if (num > width) {
                     return i - start;
                 }
@@ -491,7 +512,7 @@ namespace Game {
             string[] array = (Text ?? string.Empty).Split(["\n"], StringSplitOptions.None);
             string text = "...";
             float x = VectorFont != null
-                ? VectorFont.MeasureString(text, VectorFont.DefaultSize * FontScale).X
+                ? VectorFont.MeasureString(text, VectorFont.DefaultSize * FontScale).X + text.Length * FontSpacing.X
                 : Font.MeasureText(text, new Vector2(FontScale), FontSpacing).X;
             if (WordWrap) {
                 int num3 = (int)MathUtils.Min(MathF.Floor(availableHeight / CalculateLineHeight()), MaxLines);
@@ -564,7 +585,7 @@ namespace Game {
             Vector2 zero = Vector2.Zero;
             for (int k = 0; k < m_lines.Count; k++) {
                 Vector2 vector = VectorFont != null
-                    ? new Vector2(VectorFont.MeasureString(m_lines[k], VectorFont.DefaultSize * FontScale).X, 0f)
+                    ? new Vector2(VectorFont.MeasureString(m_lines[k], VectorFont.DefaultSize * FontScale).X + m_lines[k].Length * FontSpacing.X, 0f)
                     : Font.MeasureText(m_lines[k], new Vector2(FontScale), FontSpacing);
                 zero.X = MathUtils.Max(zero.X, vector.X);
                 if (k < m_lines.Count - 1) {
