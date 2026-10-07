@@ -135,8 +135,8 @@ namespace Game {
         /// <summary>用户导入字体目录（Storage 抽象路径）。</summary>
         public const string UserFontDir = "data:/Fonts";
 
-        /// <summary>接受的字体文件后缀（导入过滤 + 用户字体列表过滤）。</summary>
-        static readonly string[] FontFileSuffixes = [".ttf", ".otf", ".ttc"];
+        /// <summary>接受的字体文件后缀（导入过滤 + 用户字体列表过滤）。SharpAstro 亦支持 WOFF/WOFF2。</summary>
+        static readonly string[] FontFileSuffixes = [".ttf", ".otf", ".ttc", ".woff", ".woff2"];
 
         static readonly object m_rebuildLock = new();
 
@@ -145,7 +145,7 @@ namespace Game {
 
         static readonly object m_probeLock = new();
 
-        /// <summary>最近一次链构建的系统发现结果（"system:*" 探测键定位首个系统源文件用；构建前为 null）。</summary>
+        /// <summary>最近一次链构建的系统发现结果（"system:*" 探测键取同族发现样式并集用；构建前为 null）。</summary>
         static List<SystemFontFace> m_lastSystemFaces;
 
         /// <summary>正文链（Pericles 头 → body 槽位 → 系统正文字体）。null=构建失败/无可用字体，widget 走位图路径。</summary>
@@ -208,10 +208,10 @@ namespace Game {
 
         /// <summary>
         /// 探测槽位源包含的样式面集合（T10 设置屏基础槽联动禁用的依据）。<br/>
-        /// 源文件可能达数十 MB（系统 ttc），读盘/解析在线程池执行，结果写入缓存后经
-        /// <see cref="Dispatcher.Dispatch"/> 编组回调主线程；缓存命中时在调用线程同步回调
-        /// （屏 Enter 恢复禁用态不闪帧）。onProbed 为 null 时仅预热缓存不回调。
-        /// 失败/空源返回空集合（不锁定任何样式槽）。
+        /// user 源读盘/解析（可能数十 MB）在线程池执行，system 源零 IO（取链构建捕获的发现
+        /// 样式并集，Windows 逐样式分文件）；结果写入缓存后经 <see cref="Dispatcher.Dispatch"/>
+        /// 编组回调主线程；缓存命中时在调用线程同步回调（屏 Enter 恢复禁用态不闪帧）。
+        /// onProbed 为 null 时仅预热缓存不回调。失败/空源返回空集合（不锁定任何样式槽）。
         /// </summary>
         public static void ProbeSourceStyles(bool mono, string slotValue, Action<HashSet<VectorFontStyle>> onProbed) {
             if (TryGetSourceStyles(mono, slotValue, out HashSet<VectorFontStyle> cached)) {
@@ -256,7 +256,13 @@ namespace Game {
             };
         }
 
-        /// <summary>探测键 → 样式面集合（双重检查缓存；结果恒非 null）。仅在线程池调用。</summary>
+        /// <summary>
+        /// 探测键 → 样式面集合（双重检查缓存；结果恒非 null）。仅在线程池调用。<br/>
+        /// user 源须经 Storage 读取（"data:/" 虚拟路径 File API 不解析，同 LoadUserFontEntry 口径）；
+        /// system 源零 IO——取链构建捕获的系统发现样式并集（Windows 逐样式分文件，
+        /// 探单文件会漏样式位）。读盘/解析异常不落缓存（下次探测重试，不产生永久空集）；
+        /// 确定性空源（用户文件缺失/无系统字体/引用环截断）正常缓存。
+        /// </summary>
         static HashSet<VectorFontStyle> ProbeSourceStylesCore(string probeKey) {
             lock (m_probeLock) {
                 if (m_sourceStylesCache.TryGetValue(probeKey, out HashSet<VectorFontStyle> cached)) {
@@ -264,40 +270,46 @@ namespace Game {
                 }
             }
             HashSet<VectorFontStyle> styles = [];
+            bool cacheable = false;
             try {
-                string filePath = probeKey.StartsWith("user:", StringComparison.Ordinal)
-                    ? Storage.CombinePaths(UserFontDir, probeKey.Substring(5))
-                    : probeKey.StartsWith("system:", StringComparison.Ordinal)
-                        ? FirstSystemFilePath(mono: probeKey.EndsWith("mono", StringComparison.Ordinal))
-                        : null;
-                if (filePath != null) {
-                    byte[] data = File.ReadAllBytes(filePath);
-                    foreach (OpenTypeFont face in OpenTypeFont.LoadAll(data)) {
-                        styles.Add(FontLocator.MapFaceStyle(face));
+                if (probeKey.StartsWith("user:", StringComparison.Ordinal)) {
+                    string path = Storage.CombinePaths(UserFontDir, probeKey.Substring(5));
+                    if (Storage.FileExists(path)) {
+                        CollectFaceStyles(Storage.ReadAllBytes(path), styles);
                     }
+                    cacheable = true; // 文件缺失=确定态（同名覆盖导入会显式失效本缓存）
+                }
+                else if (probeKey.StartsWith("system:", StringComparison.Ordinal)) {
+                    bool mono = probeKey.EndsWith("mono", StringComparison.Ordinal);
+                    List<SystemFontFace> faces = m_lastSystemFaces;
+                    if (faces != null) {
+                        foreach (SystemFontFace face in faces) {
+                            if (face.IsMono == mono) {
+                                styles.Add(face.Style);
+                            }
+                        }
+                    }
+                    cacheable = true; // 无系统字体=确定态
+                }
+                else {
+                    cacheable = true; // "none"（引用环/超深截断）
                 }
             }
             catch (Exception ex) {
                 Log.Warning($"[FontManager] style probe \"{probeKey}\" failed: {ex.Message}");
             }
-            lock (m_probeLock) {
-                m_sourceStylesCache[probeKey] = styles;
+            if (cacheable) {
+                lock (m_probeLock) {
+                    m_sourceStylesCache[probeKey] = styles;
+                }
             }
             return styles;
         }
 
-        /// <summary>系统发现结果中某族的第一个源文件路径（无系统字体返回 null）。</summary>
-        static string FirstSystemFilePath(bool mono) {
-            List<SystemFontFace> faces = m_lastSystemFaces;
-            if (faces == null) {
-                return null;
+        static void CollectFaceStyles(byte[] data, HashSet<VectorFontStyle> styles) {
+            foreach (OpenTypeFont face in OpenTypeFont.LoadAll(data)) {
+                styles.Add(FontLocator.MapFaceStyle(face));
             }
-            foreach (SystemFontFace face in faces) {
-                if (face.IsMono == mono) {
-                    return face.FilePath;
-                }
-            }
-            return null;
         }
 
         /// <summary>双链构建本体（Discover/读盘/解析）。失败项逐级降级并记日志，正常不抛出。</summary>
@@ -494,7 +506,7 @@ namespace Game {
                 }
                 string suffix = Storage.GetExtensionBCL(fileName ?? string.Empty).ToLowerInvariant();
                 if (!FontFileSuffixes.Contains(suffix)) {
-                    error = $"Unsupported font type \"{suffix}\" (expect ttf/otf/ttc).";
+                    error = $"Unsupported font type \"{suffix}\" (expect ttf/otf/ttc/woff/woff2).";
                     return false;
                 }
                 byte[] data = CopyToBytes(stream);

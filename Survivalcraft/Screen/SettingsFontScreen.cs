@@ -184,8 +184,8 @@ namespace Game {
                 && slot != FontSlot.Mono) {
                 options.Add(new(LanguageControl.GetContentWidgets(fName, "13"), "ref:mono"));
             }
-            options.Add(new(LanguageControl.Get(fName, "14"), "import"));
-            options.Add(new(LanguageControl.Get(fName, "15"), "list"));
+            options.Add(new(LanguageControl.GetContentWidgets(fName, "14"), "import"));
+            options.Add(new(LanguageControl.GetContentWidgets(fName, "15"), "list"));
             DialogsManager.ShowDialog(
                 null,
                 new ListSelectionDialog(
@@ -254,14 +254,18 @@ namespace Game {
         /// <summary>
         /// 导入字体流（控制器裁定：校验含 SharpAstro 试解析，可能数十 MB，整体离 UI 线程执行）。
         /// ChooseFile 的 await 与校验都在线程池，结果经 Dispatcher 编组回主线程后弹消息或应用。
+        /// 过滤器格式按 Storage.ChooseFile 契约：WINDOWS/LINUX 走通配符（共享 Dialog.FileOpenEx 分支），
+        /// BROWSER 走点前缀扩展名，安卓系统选择器忽略过滤器。
         /// </summary>
         void ImportFontFlow(FontSlot slot) {
             Task.Run(async () => {
                 try {
-#if WINDOWS
-                    KeyValuePair<string, string[]>[] filters = [new("Font", ["*.ttf", "*.otf", "*.ttc"])];
+#if WINDOWS || LINUX
+                    KeyValuePair<string, string[]>[] filters = [new("Font", ["*.ttf", "*.otf", "*.ttc", "*.woff", "*.woff2"])];
+#elif BROWSER
+                    KeyValuePair<string, string[]>[] filters = [new("Font", [".ttf", ".otf", ".ttc", ".woff", ".woff2"])];
 #else
-                    KeyValuePair<string, string[]>[] filters = [new("Font", [".ttf", ".otf", ".ttc"])];
+                    KeyValuePair<string, string[]>[] filters = null; // 安卓：系统选择器忽略过滤器
 #endif
                     (Stream stream, string fileName) = await Storage.ChooseFile(null, filters);
                     if (stream == null) {
@@ -329,11 +333,14 @@ namespace Game {
 
         /// <summary>
         /// 热切换的全屏重建：照 LanguageControl.ChangeLanguage 重建块（全表 Activator 重建 →
-        /// 切入字体屏 → 旧屏 Dispose）。不抽公共方法改写 ChangeLanguage：其块内含语言专属数据
+        /// 切屏 → 旧屏 Dispose）。不抽公共方法改写 ChangeLanguage：其块内含语言专属数据
         /// 重初始化（CraftingRecipes/Blocks/ClothingSlot/SubsystemPalette），字体热切换不需要，
         /// 参数化抽取反而增加耦合（控制器裁定允许两处各自保留）。<br/>
-        /// 返回引用修复：PreviousScreen/历史栈中指向旧实例的条目映射到新实例（返回键不得回到
-        /// 已 Dispose 旧屏；重建由字体屏触发，PreviousScreen 即设置主屏新实例）。
+        /// 落点=用户当前屏（审查修复：探测是多 MB 后台任务，期间用户可能已按返回离开字体屏，
+        /// 不得强行拉回）。返回引用修复（审查修复）：SwitchScreen 会把 PreviousScreen 覆写为旧
+        /// 当前屏，故切换前先快照、切换后经旧→新映射恢复（不得等于 CurrentScreen，否则返回键
+        /// 命中同屏早退把用户困死；快照缺失时退回设置主屏），历史栈同口径映射，均不指向已
+        /// Dispose 旧屏。
         /// </summary>
         static void RebuildScreens() {
             List<KeyValuePair<string, Screen>> oldScreens = [.. ScreensManager.m_screens];
@@ -350,9 +357,14 @@ namespace Game {
                 ScreensManager.m_screens[c.Key] = newScreens[c.Key];
                 oldToNew[c.Value] = newScreens[c.Key];
             }
-            ScreensManager.SwitchScreen("SettingsFont");
-            if (ScreensManager.PreviousScreen != null
-                && oldToNew.TryGetValue(ScreensManager.PreviousScreen, out Screen newPrevious)) {
+            Screen previousBeforeSwitch = ScreensManager.PreviousScreen;
+            string currentScreenName = ScreensManager.GetScreenName(ScreensManager.CurrentScreen);
+            ScreensManager.SwitchScreen(string.IsNullOrEmpty(currentScreenName) ? "SettingsFont" : currentScreenName);
+            Screen newPrevious = previousBeforeSwitch != null
+                && oldToNew.TryGetValue(previousBeforeSwitch, out Screen mappedPrevious)
+                    ? mappedPrevious
+                    : ScreensManager.FindScreen<Screen>("Settings");
+            if (newPrevious != ScreensManager.CurrentScreen) {
                 ScreensManager.PreviousScreen = newPrevious;
             }
             List<Screen> history = [.. ScreensManager.HistoryStack];
