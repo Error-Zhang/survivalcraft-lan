@@ -26,6 +26,10 @@ namespace Game {
 
         public float m_fontScale;
 
+        public VectorFont m_vectorFont;
+
+        public float m_vectorFontScale = 1f;
+
         public int m_maxLines = int.MaxValue;
 
         public bool m_wordWrap;
@@ -82,6 +86,28 @@ namespace Game {
             set {
                 if (value != m_fontScale) {
                     m_fontScale = value;
+                    m_linesSize = null;
+                }
+            }
+        }
+
+        /// <summary>矢量字体链（P4）：null=位图路径（零改动）；非 null 时 Draw/Measure 全部走 VectorFont</summary>
+        public VectorFont VectorFont {
+            get => m_vectorFont;
+            set {
+                if (value != m_vectorFont) {
+                    m_vectorFont = value;
+                    m_linesSize = null;
+                }
+            }
+        }
+
+        /// <summary>矢量字号缩放（对应位图 FontScale），仅 VectorFont!=null 时生效</summary>
+        public float VectorFontScale {
+            get => m_vectorFontScale;
+            set {
+                if (value != m_vectorFontScale) {
+                    m_vectorFontScale = value;
                     m_linesSize = null;
                 }
             }
@@ -151,11 +177,16 @@ namespace Game {
             Color = Color.White;
             TextureLinearFilter = true;
             Size = new Vector2(-1f);
+            // P4: Task 9 后启用矢量链——VectorFont = FontManager.DefaultChain;
         }
 
         public override void Draw(DrawContext dc) {
             if (!string.IsNullOrEmpty(Text)
                 && Color.A != 0) {
+                if (VectorFont != null) {
+                    DrawVectorText(dc);
+                    return;
+                }
                 SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
                 FontBatch2D fontBatch2D = dc.PrimitivesRenderer2D.FontBatch(Font, 1, DepthStencilState.None, null, null, samplerState);
                 int count = fontBatch2D.TriangleVertices.Count;
@@ -226,6 +257,93 @@ namespace Game {
             }
         }
 
+        // 矢量绘制路径（P4）：m_lines 行列表与位图路径同源（UpdateLines 已在 Measure 时填充）。
+        // 颜色（Color*GlobalColorTransform、阴影黑底取主色 A）、垂直锚点（num 行高累计）、
+        // 水平锚点（位图经 QueueText→CalculateTextOffset 按行宽偏移，此处按行宽直接算起点）、
+        // GlobalTransform（每批记录本 widget 入队前顶点数，收尾 TransformTriangles 同 :225）语义逐一镜像位图路径；
+        // VerticalLeft 以 sink 内 -90° 刚体变换实现（QueueGlyphQuad 后 quad 仍轴对齐，与位图 QueueText 的 angle 路径同布局；
+        // 差异：字形不逐点吸附像素，矢量图集 LinearClamp 采样按亚像素定位，v1 接受）
+        void DrawVectorText(DrawContext dc) {
+            SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
+            VectorGlyphSink sink = new(dc.PrimitivesRenderer2D, samplerState);
+            float lineHeight = VectorFont.LineHeight * VectorFontScale;
+            float num = 0f;
+            if ((TextAnchor & TextAnchor.VerticalCenter) != 0) {
+                num = (ActualSize.Y - m_lines.Count * lineHeight) / 2f;
+            }
+            else if ((TextAnchor & TextAnchor.Bottom) != 0) {
+                num = ActualSize.Y - m_lines.Count * lineHeight;
+            }
+            TextAnchor anchor = TextAnchor & ~(TextAnchor.VerticalCenter | TextAnchor.Bottom);
+            Color color = Color * GlobalColorTransform;
+            float size = VectorFont.DefaultSize * VectorFontScale;
+            bool vertical = TextOrientation == TextOrientation.VerticalLeft;
+            foreach (string line in m_lines) {
+                float lineWidth = VectorFont.MeasureString(line, size).X;
+                float x = 0f;
+                if ((anchor & TextAnchor.HorizontalCenter) != 0) {
+                    x = ActualSize.X / 2f - lineWidth / 2f;
+                }
+                else if ((anchor & TextAnchor.Right) != 0) {
+                    x = ActualSize.X - lineWidth;
+                }
+                Vector2 pivot = vertical ? new Vector2(x, ActualSize.Y + num) : new Vector2(x, num);
+                sink.Rotated = vertical;
+                if (DropShadow) {
+                    // 阴影位移在 widget 空间恒 (+1,+1)*缩放：两种朝向下都等价于 pivot 平移（旋转分支输出两分量同加）
+                    sink.Pivot = pivot + new Vector2(VectorFontScale);
+                    VectorFont.DrawText(sink, line, Vector2.Zero, new Color((byte)0, (byte)0, (byte)0, color.A), size);
+                }
+                sink.Pivot = pivot;
+                VectorFont.DrawText(sink, line, Vector2.Zero, color, size);
+                num += lineHeight;
+            }
+            sink.TransformTriangles(GlobalTransform);
+        }
+
+        // widget 级字形 quad 接收口：按纹理路由/缓存 VectorFontBatch2D（layer/渲染状态与位图路径 FontBatch 同粒度），
+        // 记录各批本 widget 入队前顶点数，供 Draw 收尾统一施加 GlobalTransform（镜像位图路径 TransformTriangles(GlobalTransform, count)）；
+        // Rotated 时对 quad 做 -90° 刚体变换（dest'=(Pivot.X+dest.Y, Pivot.Y-dest.X)，size 翻转），水平时仅 Pivot 平移
+        sealed class VectorGlyphSink : IFontBatchSink {
+            readonly PrimitivesRenderer2D _renderer;
+            readonly SamplerState _samplerState;
+            readonly Dictionary<Texture2D, VectorFontBatch2D> _batches = [];
+            readonly Dictionary<Texture2D, int> _batchStarts = [];
+
+            internal bool Rotated;
+
+            internal Vector2 Pivot;
+
+            internal VectorGlyphSink(PrimitivesRenderer2D renderer, SamplerState samplerState) {
+                _renderer = renderer;
+                _samplerState = samplerState;
+            }
+
+            public void QueueGlyphQuad(Texture2D texture, Vector2 destination, Vector2 size, Vector2 uv1, Vector2 uv2, float depth, Color color) {
+                if (!_batches.TryGetValue(texture, out VectorFontBatch2D batch)) {
+                    batch = _renderer.VectorFontBatch(texture, 1, DepthStencilState.None, null, null, _samplerState);
+                    _batches.Add(texture, batch);
+                    _batchStarts.Add(texture, batch.TriangleVertices.Count);
+                }
+                if (Rotated) {
+                    batch.QueueGlyphQuad(
+                        texture,
+                        new Vector2(Pivot.X + destination.Y, Pivot.Y - destination.X),
+                        new Vector2(size.Y, size.X),
+                        uv1, uv2, depth, color);
+                }
+                else {
+                    batch.QueueGlyphQuad(texture, destination + Pivot, size, uv1, uv2, depth, color);
+                }
+            }
+
+            internal void TransformTriangles(Matrix matrix) {
+                foreach (KeyValuePair<Texture2D, VectorFontBatch2D> pair in _batches) {
+                    pair.Value.TransformTriangles(matrix, _batchStarts[pair.Key]);
+                }
+            }
+        }
+
         public override void MeasureOverride(Vector2 parentAvailableSize) {
             IsDrawRequired = !string.IsNullOrEmpty(Text) && Color.A != 0;
             if (TextOrientation == TextOrientation.Horizontal) {
@@ -244,7 +362,29 @@ namespace Game {
             }
         }
 
-        public float CalculateLineHeight() => (Font.GlyphHeight + Font.Spacing.Y + FontSpacing.Y) * FontScale * Font.Scale;
+        public float CalculateLineHeight() => VectorFont != null
+            ? VectorFont.LineHeight * VectorFontScale
+            : (Font.GlyphHeight + Font.Spacing.Y + FontSpacing.Y) * FontScale * Font.Scale;
+
+        // 矢量版 FitText（VectorFont!=null 时替代 Font.FitText 的宽度查询）：逐字符 MeasureString 累计宽度，
+        // 累计超 width 时返回已容字符数（位图 FitText 同语义；FSS 无 kerning 表，逐字符度量之和≈整串度量）；
+        // \r/\u200b 零宽跳过与位图一致。首版 O(n) 每行（FSS 内部缓存 glyph 度量），优化后置
+        int FitVectorText(float width, string text, int start, int length) {
+            float size = VectorFont.DefaultSize * VectorFontScale;
+            float num = 0f;
+            for (int i = start; i < start + length; i++) {
+                char c = text[i];
+                if (c == '\r'
+                    || c == '\u200b') {
+                    continue;
+                }
+                num += VectorFont.MeasureString(c.ToString(), size).X;
+                if (num > width) {
+                    return i - start;
+                }
+            }
+            return length;
+        }
 
         // 在 text 的前 fitCount 个字符超出可用宽度时，寻找合适的换行位置（返回值为换行点，即下一行首字符下标）。
         // 词边界模式（BreakWord/Normal/KeepAll）回退到最近的空白或标点处，CJK 字间断点按模式启用/禁用并守行首/行尾禁则；
@@ -321,7 +461,9 @@ namespace Game {
             m_lines.Clear();
             string[] array = (Text ?? string.Empty).Split(["\n"], StringSplitOptions.None);
             string text = "...";
-            float x = Font.MeasureText(text, new Vector2(FontScale), FontSpacing).X;
+            float x = VectorFont != null
+                ? VectorFont.MeasureString(text, VectorFont.DefaultSize * VectorFontScale).X
+                : Font.MeasureText(text, new Vector2(FontScale), FontSpacing).X;
             if (WordWrap) {
                 int num3 = (int)MathUtils.Min(MathF.Floor(availableHeight / CalculateLineHeight()), MaxLines);
                 for (int i = 0; i < array.Length; i++) {
@@ -334,11 +476,15 @@ namespace Game {
                         bool flag;
                         int num4;
                         if (Ellipsis && m_lines.Count + 1 >= num3) {
-                            num4 = Font.FitText(MathUtils.Max(availableWidth - x, 0f), text2, 0, text2.Length, FontScale, FontSpacing.X);
+                            num4 = VectorFont != null
+                                ? FitVectorText(MathUtils.Max(availableWidth - x, 0f), text2, 0, text2.Length)
+                                : Font.FitText(MathUtils.Max(availableWidth - x, 0f), text2, 0, text2.Length, FontScale, FontSpacing.X);
                             flag = true;
                         }
                         else {
-                            num4 = Font.FitText(availableWidth, text2, 0, text2.Length, FontScale, FontSpacing.X);
+                            num4 = VectorFont != null
+                                ? FitVectorText(availableWidth, text2, 0, text2.Length)
+                                : Font.FitText(availableWidth, text2, 0, text2.Length, FontScale, FontSpacing.X);
                             num4 = MathUtils.Max(num4, 1);
                             flag = false;
                             if (num4 < text2.Length) {
@@ -369,7 +515,9 @@ namespace Game {
             else if (Ellipsis) {
                 for (int j = 0; j < array.Length; j++) {
                     string text4 = array[j].TrimEnd();
-                    int num7 = Font.FitText(MathUtils.Max(availableWidth - x, 0f), text4, 0, text4.Length, FontScale, FontSpacing.X);
+                    int num7 = VectorFont != null
+                        ? FitVectorText(MathUtils.Max(availableWidth - x, 0f), text4, 0, text4.Length)
+                        : Font.FitText(MathUtils.Max(availableWidth - x, 0f), text4, 0, text4.Length, FontScale, FontSpacing.X);
                     if (num7 < text4.Length) {
                         m_lines.Add(text4.Substring(0, num7).TrimEnd() + text);
                     }
@@ -386,13 +534,17 @@ namespace Game {
             }
             Vector2 zero = Vector2.Zero;
             for (int k = 0; k < m_lines.Count; k++) {
-                Vector2 vector = Font.MeasureText(m_lines[k], new Vector2(FontScale), FontSpacing);
+                Vector2 vector = VectorFont != null
+                    ? new Vector2(VectorFont.MeasureString(m_lines[k], VectorFont.DefaultSize * VectorFontScale).X, 0f)
+                    : Font.MeasureText(m_lines[k], new Vector2(FontScale), FontSpacing);
                 zero.X = MathUtils.Max(zero.X, vector.X);
                 if (k < m_lines.Count - 1) {
-                    zero.Y += (Font.GlyphHeight + Font.Spacing.Y + FontSpacing.Y) * FontScale * Font.Scale;
+                    zero.Y += CalculateLineHeight();
                 }
                 else {
-                    zero.Y += Font.GlyphHeight * FontScale * Font.Scale;
+                    zero.Y += VectorFont != null
+                        ? VectorFont.LineHeight * VectorFontScale
+                        : Font.GlyphHeight * FontScale * Font.Scale;
                 }
             }
             m_linesSize = zero;
