@@ -114,7 +114,7 @@ namespace Game {
             if (Input.Back
                 || Input.Cancel
                 || Children.Find<ButtonWidget>("TopBar.Back").IsClicked) {
-                ScreensManager.SwitchScreen(ScreensManager.PreviousScreen);
+                ScreensManager.GoBack();
             }
         }
 
@@ -369,10 +369,21 @@ namespace Game {
             if (newPrevious != ScreensManager.CurrentScreen) {
                 ScreensManager.PreviousScreen = newPrevious;
             }
+            // [.. Stack] 展开是 LIFO（栈顶在前），按原序回推会把整栈上下颠倒：
+            // [Loading, MainMenu, Settings, Font(旧)] 重推后变 [Settings, MainMenu, Loading(顶)]——
+            // GoBack/TopOfHistoryScreen 摸到的是栈底 Loading（返回键直接退到加载屏，
+            // PreviousScreen 口径则设置/字体两屏打转）。倒序回推恢复 底→顶 原序
             List<Screen> history = [.. ScreensManager.HistoryStack];
             ScreensManager.HistoryStack.Clear();
-            foreach (Screen screen in history) {
-                ScreensManager.HistoryStack.Push(oldToNew.TryGetValue(screen, out Screen replaced) ? replaced : screen);
+            for (int i = history.Count - 1; i >= 0; i--) {
+                Screen mapped = oldToNew.TryGetValue(history[i], out Screen replaced) ? replaced : history[i];
+                // 重建的 SwitchScreen 恒把旧当前屏压入历史栈（切屏目标=新实例，永不命中
+                // screen==TopOfHistoryScreen 的 Pop 分支），映射后该项=新当前屏的重复——
+                // “当前屏不入历史栈”是 SwitchScreen 的不变量，命中即丢弃
+                if (mapped == ScreensManager.CurrentScreen) {
+                    continue;
+                }
+                ScreensManager.HistoryStack.Push(mapped);
             }
             // 旧屏实例的生命周期终点：整表重建不调 Leave，终局清理统一走 Dispose（同 ChangeLanguage 口径）
             foreach (KeyValuePair<string, Screen> c in oldScreens) {

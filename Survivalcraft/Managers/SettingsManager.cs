@@ -370,7 +370,7 @@ namespace Game {
 
         #endregion
 
-        #region 字体设置（P4 全局 TTF 矢量字体，解析/消费见 FontManager）
+        #region 字体设置（全局 TTF 矢量字体，解析/消费见 FontManager）
 
         // 原版英文字形开关：true=链条头部保留 PericlesPro（拉丁用原版字形），false=拉丁也走后续槽位/系统字体
         public static bool FontVanilaEnglish { get; set; }

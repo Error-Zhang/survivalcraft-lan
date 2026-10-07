@@ -79,9 +79,8 @@ namespace Game {
             }
         }
 
-        // 缩放单一存储（P4 I1 修复）：位图/矢量路径共用同读写字段 m_fontScale，历史位图调用点
-        //（LoadingScreen 0.6、对话框 0.7-0.9 等）在矢量路径取得同尺字号，
-        // 消除两属性各自存储导致的矢量路径忽视 FontScale 的尺寸回归
+        // 缩放单一存储：位图/矢量路径共用同读写字段 m_fontScale，历史位图调用点
+        //（LoadingScreen 0.6、对话框 0.7-0.9 等）在矢量路径取得同尺字号
         public float FontScale {
             get => m_fontScale;
             set {
@@ -339,7 +338,7 @@ namespace Game {
         // widget 级字形 quad 接收口：按纹理路由/缓存 VectorFontBatch2D（layer/渲染状态与位图路径 FontBatch 同粒度），
         // 记录各批本 widget 入队前顶点数，供 Draw 收尾统一施加 GlobalTransform（镜像位图路径 TransformTriangles(GlobalTransform, count)）；
         // Rotated 时对 quad 做 -90° 刚体变换（位置转置 + UV 角点随转，见 QueueGlyphQuad 注），水平时仅 Pivot 平移
-        // internal 共享（P4 Task 7）：RichTextWidget 矢量 run 分流复用同一 sink（Pivot/Rotated 为可选能力，不用即零开销）
+        // internal 共享：RichTextWidget 矢量 run 分流复用同一 sink（Pivot/Rotated 为可选能力，不用即零开销）
         internal sealed class VectorGlyphSink : IFontBatchSink {
             readonly PrimitivesRenderer2D _renderer;
             readonly SamplerState _samplerState;

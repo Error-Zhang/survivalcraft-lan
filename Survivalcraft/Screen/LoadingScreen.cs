@@ -117,8 +117,6 @@ namespace Game {
             m_isContentLoaded = true;
             Task.Run(() => {
                 _ = ContentManager.Get<Image>("Fonts/Pericles", ".webp");
-                // P4：矢量链改由 FontManager.Initialize 统一构建（下方 InitActions 中 ContentLoaded 之后，
-                // 加载线程同步执行），此处不再预载 VectorFont 内容缓存，避免 ttc 双重解析
             });
         }
 
