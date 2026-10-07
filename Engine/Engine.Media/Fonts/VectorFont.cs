@@ -254,9 +254,17 @@ namespace Engine.Media {
         }
 
         public void Dispose() {
-            foreach (var system in _systems) {
+            // 先断引用再释放：热切换 dispose 旧链时，切换动画未过半的旧屏/未关对话框仍持本链
+            // 在层次中绘制（约数帧），FontSystem.Dispose 清空 _fontSources 后任何迟到的 GetFont
+            // 都抛 "Could not create a font without a single font source"。置空走既有的缺链守卫
+            // （度量=Zero、DrawText/HasGlyph=位图回退、IsXxxAvailable=false），陈旧持有者静默
+            // 退位图，与链缺失降级同型
+            for (int i = 0; i < _systems.Length; i++) {
+                var system = _systems[i];
+                _systems[i] = null;
                 system?.Dispose();
             }
+            _regularSources.Clear();
         }
     }
 }
