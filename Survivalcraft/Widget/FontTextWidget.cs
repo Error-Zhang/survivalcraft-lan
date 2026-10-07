@@ -280,7 +280,11 @@ namespace Game {
             }
             TextAnchor anchor = TextAnchor & ~(TextAnchor.VerticalCenter | TextAnchor.Bottom);
             Color color = Color * GlobalColorTransform;
-            float size = VectorFont.DefaultSize * VectorFontScale;
+            // UI 全局缩放（ScreensManager FinalUiScale 等经 GlobalTransform 施加）：字形按屏上实际
+            // 像素尺寸栅格化（清晰），sink 把 FSS quad 除回 widget 空间——布局与度量仍按 widget 口径
+            float gtScale = MathF.Abs(GlobalTransform.M11) is float s11 and > 0.0001f ? s11 : 1f;
+            float size = VectorFont.DefaultSize * VectorFontScale * gtScale;
+            sink.Scale = 1f / gtScale;
             bool vertical = TextOrientation == TextOrientation.VerticalLeft;
             foreach (string line in m_lines) {
                 float lineWidth = VectorFont.MeasureString(line, size).X;
@@ -326,6 +330,9 @@ namespace Game {
 
             internal Vector2 Pivot;
 
+            // FSS quad → widget 空间的收缩系数（GT 全局缩放的栅格补偿，见 DrawVectorText）
+            internal float Scale = 1f;
+
             internal VectorGlyphSink(PrimitivesRenderer2D renderer, SamplerState samplerState) {
                 _renderer = renderer;
                 _samplerState = samplerState;
@@ -336,6 +343,10 @@ namespace Game {
                     batch = _renderer.VectorFontBatch(texture, 1, DepthStencilState.None, null, null, _samplerState);
                     _batches.Add(texture, batch);
                     _batchStarts.Add(texture, batch.TriangleVertices.Count);
+                }
+                if (Scale != 1f) {
+                    destination *= Scale;
+                    size *= Scale;
                 }
                 if (Rotated) {
                     batch.QueueGlyphQuad(

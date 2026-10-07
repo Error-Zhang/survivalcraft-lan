@@ -276,8 +276,16 @@ namespace Game {
             FontBatch2D fontBatch2D = dc.PrimitivesRenderer2D.FontBatch(Font, 1, DepthStencilState.None, null, null, samplerState);
             // 矢量批接收口（P4，复用 FontTextWidget.VectorGlyphSink）：按图集纹理分批缓存并记录本件
             // 入队前顶点数，Draw 收尾统一 TransformTriangles(GlobalTransform)——与 fontBatch2D 同粒度；
-            // 位图路径（VectorFont=null）不建，零开销
-            FontTextWidget.VectorGlyphSink vectorGlyphSink = VectorFont != null ? new FontTextWidget.VectorGlyphSink(dc.PrimitivesRenderer2D, samplerState) : null;
+            // 位图路径（VectorFont=null）不建，零开销。
+            // GT 全局缩放的栅格补偿与 FontTextWidget 同款：字形按屏上像素栅格化（vectorSize×gtScale），
+            // sink.Scale=1/gtScale 把 FSS quad 除回 widget 空间；本件走 pos 直传（非 Pivot），pos 同乘
+            // gtScale 进 FSS 空间，除回后落点不变
+            float vectorGtScale = VectorFont != null
+                ? (MathF.Abs(GlobalTransform.M11) is float vs and > 0.0001f ? vs : 1f)
+                : 1f;
+            FontTextWidget.VectorGlyphSink vectorGlyphSink = VectorFont != null ? new FontTextWidget.VectorGlyphSink(dc.PrimitivesRenderer2D, samplerState) {
+                Scale = 1f / vectorGtScale
+            } : null;
             int batchStart = fontBatch2D.TriangleVertices.Count;
             float blockY = CalculateBlockY();
             TextLine firstLine = m_layout.Lines[0];
@@ -408,19 +416,20 @@ namespace Game {
                     if (VectorFont != null
                         && run.Text.Length > 0
                         && VectorFont.HasGlyph(run.Text[0])) {
-                        float vectorSize = VectorFont.DefaultSize * SpanScale(run.Span);
+                        float vectorSize = VectorFont.DefaultSize * SpanScale(run.Span) * vectorGtScale;
+                        Vector2 vectorDraw = draw * vectorGtScale;
                         if (DropShadow) {
                             VectorFont.DrawText(
                                 vectorGlyphSink,
                                 run.Text,
-                                draw + 1f * new Vector2(FontScale),
+                                vectorDraw + 1f * new Vector2(FontScale) * vectorGtScale,
                                 new Color((byte)0, (byte)0, (byte)0, color.A),
                                 vectorSize,
                                 run.Span.IsBold,
                                 run.Span.IsItalic
                             );
                         }
-                        VectorFont.DrawText(vectorGlyphSink, run.Text, draw, color, vectorSize, run.Span.IsBold, run.Span.IsItalic);
+                        VectorFont.DrawText(vectorGlyphSink, run.Text, vectorDraw, color, vectorSize, run.Span.IsBold, run.Span.IsItalic);
                     }
                     else {
                         // 斜体＝run 顶点本地切变（伪斜体），末尾 GlobalTransform 整批变换后套，测量/命中不受影响
