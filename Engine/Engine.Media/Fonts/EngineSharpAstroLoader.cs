@@ -53,10 +53,15 @@ namespace Engine.Media {
         }
 
         public void GetMetricsForSize(float fontSize, out int ascent, out int descent, out int lineHeight) {
-            float scale = CalculateScale(fontSize);
-            ascent = (int)(_font.Hhea.Ascender * scale + 0.5f);
-            descent = (int)(_font.Hhea.Descender * scale - 0.5f);
-            lineHeight = (int)((_font.Hhea.Ascender - _font.Hhea.Descender + _font.Hhea.LineGap) * scale + 0.5f);
+            // 统一纵向框架：链内所有源必须上报同一线性度量。FSS DynamicSpriteFont.PreDraw 按
+            // 串首可解析字形"所属源"取整行 ascent（GetMetrics(FontSourceIndex)），多源回退链里
+            // Latin 面（Pericles asc≈0.6em）与 CJK 面（msyh asc≈1.06em）混排时，谁打头整行基线
+            // 就差 ~0.46em——表现为同排 Label 与 Link 垂直错位。此处全部源恒报 1em/-0.25em/1.25em
+            // （与字形自身 bitmap.Top 的"相对基线"语义配合：基线恒=行 ascent，墨顶=ascent−Top），
+            // 基线与首字符的供字源解耦。行高消费方（widget 行距/切变轴）用自有常数，不受此项影响
+            ascent = (int)(fontSize + 0.5f);
+            descent = -(int)(0.25f * fontSize + 0.5f);
+            lineHeight = (int)(1.25f * fontSize + 0.5f);
         }
 
         public int? GetGlyphId(int codepoint) {
