@@ -288,7 +288,10 @@ namespace Game {
             bool vertical = TextOrientation == TextOrientation.VerticalLeft;
             int lineIndex = 0;
             foreach (string line in m_lines) {
-                float lineWidth = VectorFont.MeasureString(line, size).X;
+                // 行宽必须按 widget 空间字号量（不含 gtScale）：锚点 runOffset 作用在 widget 空间 pivot 上，
+                // 若混入栅格空间行宽（×gtScale），UI 全局缩放≠1 时 Center/Right 锚点偏移被放大 gtScale 倍
+                //（ModSettingsScreen Description 不居中根因）；探针 gt=1 测不到，F9 矩阵以 RenderTransform ×1.6 复现
+                float lineWidth = VectorFont.MeasureString(line, VectorFont.DefaultSize * VectorFontScale).X;
                 float x = 0f;
                 float runOffset = 0f; // CalculateTextOffset.X 口径：Center −w/2、Right −w（沿行进轴的行宽偏移）
                 if ((anchor & TextAnchor.HorizontalCenter) != 0) {
