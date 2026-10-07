@@ -246,6 +246,8 @@ namespace Game {
             TextureLinearFilter = true;
             ShowLinkUnderline = true;
             Size = new Vector2(-1f);
+            // P4：默认启用矢量链（回滚点=本行，与 FontTextWidget ctor 同口径）；链未构建/构建失败时为 null → 位图伪粗/切变路径
+            VectorFont = FontManager.DefaultChain;
         }
 
         public override void Update() {
