@@ -259,8 +259,10 @@ namespace Game {
 
         // 矢量绘制路径（P4）：m_lines 行列表与位图路径同源（UpdateLines 已在 Measure 时填充）。
         // 颜色（Color*GlobalColorTransform、阴影黑底取主色 A）、垂直锚点（num 行高累计）、
-        // 水平锚点（位图经 QueueText→CalculateTextOffset 按行宽偏移，此处按行宽直接算起点）、
-        // GlobalTransform（每批记录本 widget 入队前顶点数，收尾 TransformTriangles 同 :225）语义逐一镜像位图路径；
+        // GlobalTransform（每批记录本 widget 入队前顶点数，收尾 TransformTriangles 同 :225）语义镜像位图路径；
+        // 水平锚点：位图经 QueueText→CalculateTextOffset（Center −w/2、Right −w）沿行进轴偏移——
+        // 水平排=沿 widget X（pivot.X 扣行宽）；竖排=行进轴为 (0,-1)（FontBatch2D.cs:74 Offset.X*vector），
+        // 锚点 x 落在行高带轴（widget X，不扣行宽），行宽偏移折入 pivot.Y（Center/Right 使 run 以其为中心/终点）；
         // VerticalLeft 以 sink 内 -90° 刚体变换实现（QueueGlyphQuad 后 quad 仍轴对齐，与位图 QueueText 的 angle 路径同布局；
         // 差异：字形不逐点吸附像素，矢量图集 LinearClamp 采样按亚像素定位，v1 接受）
         void DrawVectorText(DrawContext dc) {
@@ -281,13 +283,20 @@ namespace Game {
             foreach (string line in m_lines) {
                 float lineWidth = VectorFont.MeasureString(line, size).X;
                 float x = 0f;
+                float runOffset = 0f; // CalculateTextOffset.X 口径：Center −w/2、Right −w（沿行进轴的行宽偏移）
                 if ((anchor & TextAnchor.HorizontalCenter) != 0) {
-                    x = ActualSize.X / 2f - lineWidth / 2f;
+                    x = ActualSize.X / 2f;
+                    runOffset = -lineWidth / 2f;
                 }
                 else if ((anchor & TextAnchor.Right) != 0) {
-                    x = ActualSize.X - lineWidth;
+                    x = ActualSize.X;
+                    runOffset = -lineWidth;
                 }
-                Vector2 pivot = vertical ? new Vector2(x, ActualSize.Y + num) : new Vector2(x, num);
+                Vector2 pivot = vertical
+                    ? // 竖排（位图 QueueText angle 路径口径）：锚点 x 施加在行高带轴（widget X，不扣行宽），
+                      // 行宽偏移沿行进轴基向量 (0,-1)（widget Y，取负号）——Center 以 pivot.Y 为 run 中心、Right 为 run 终点
+                      new Vector2(x, ActualSize.Y + num - runOffset)
+                    : new Vector2(x + runOffset, num); // 水平：锚点偏移沿行进轴（widget X）
                 sink.Rotated = vertical;
                 if (DropShadow) {
                     // 阴影位移在 widget 空间恒 (+1,+1)*缩放：两种朝向下都等价于 pivot 平移（旋转分支输出两分量同加）
