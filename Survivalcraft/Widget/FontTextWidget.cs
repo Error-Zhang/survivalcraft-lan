@@ -286,6 +286,7 @@ namespace Game {
             float size = VectorFont.DefaultSize * VectorFontScale * gtScale;
             sink.Scale = 1f / gtScale;
             bool vertical = TextOrientation == TextOrientation.VerticalLeft;
+            int lineIndex = 0;
             foreach (string line in m_lines) {
                 float lineWidth = VectorFont.MeasureString(line, size).X;
                 float x = 0f;
@@ -298,11 +299,18 @@ namespace Game {
                     x = ActualSize.X;
                     runOffset = -lineWidth;
                 }
-                Vector2 pivot = vertical
-                    ? // 竖排（位图 QueueText angle 路径口径）：锚点 x 施加在行高带轴（widget X，不扣行宽），
-                      // 行宽偏移沿行进轴基向量 (0,-1)（widget Y，取负号）——Center 以 pivot.Y 为 run 中心、Right 为 run 终点
-                      new Vector2(x, ActualSize.Y + num - runOffset)
-                    : new Vector2(x + runOffset, num); // 水平：锚点偏移沿行进轴（widget X）
+                Vector2 pivot;
+                if (vertical) {
+                    // 竖排（位图 QueueText angle 路径口径）：行 k 沿行高带轴 +X 堆叠（QueueText 行距 num·vector4，
+                    // vector4=+X——行次序自左向右），锚点 x 不扣行宽；行宽偏移沿行进轴 (0,-1) 折入 pivot.Y
+                    //（Center 以 pivot.Y 为 run 中心、Right 为 run 终点），各行共享同一基点 Y
+                    pivot = new Vector2(x + lineIndex * lineHeight, ActualSize.Y + num - runOffset);
+                    lineIndex++;
+                }
+                else {
+                    pivot = new Vector2(x + runOffset, num); // 水平：锚点偏移沿行进轴（widget X）
+                    num += lineHeight;
+                }
                 sink.Rotated = vertical;
                 if (DropShadow) {
                     // 阴影位移在 widget 空间恒 (+1,+1)*缩放：两种朝向下都等价于 pivot 平移（旋转分支输出两分量同加）
@@ -311,7 +319,9 @@ namespace Game {
                 }
                 sink.Pivot = pivot;
                 VectorFont.DrawText(sink, line, Vector2.Zero, color, size);
-                num += lineHeight;
+                if (!vertical) {
+                    num += lineHeight; // 水平行距（竖排已在分支内走 lineIndex 沿 +X 堆叠，num 恒=锚点基值）
+                }
             }
             sink.TransformTriangles(GlobalTransform);
         }
