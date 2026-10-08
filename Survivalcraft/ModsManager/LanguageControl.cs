@@ -389,6 +389,10 @@ namespace Game {
 #endif
             Window.TitlePrefix = title;
 #endif
+            // 矢量字体链按新语言同步重建（AFontMatcher 按语言选 CJK 面，如 zh-CN→NotoSansCJK
+            // 的 SC 面）：必须在屏重建前——新屏 ctor 逐个捕获链引用，异步重建会让新屏捕到旧
+            // locale 的链。平台门外此调用为空转（链恒 null）
+            FontManager.RebuildChainsSync();
             List<KeyValuePair<string, Screen>> oldScreens = [.. ScreensManager.m_screens];
             Dictionary<string, object> objs = [];
             foreach (KeyValuePair<string, Screen> c in ScreensManager.m_screens) {

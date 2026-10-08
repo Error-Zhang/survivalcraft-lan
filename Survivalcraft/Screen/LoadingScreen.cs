@@ -246,7 +246,6 @@ namespace Game {
                 ModsManager.DisposeNotEnabledModsResources();
             });
             AddLoadAction(ContentLoaded);
-            AddLoadAction(FontManager.Initialize); //P4：默认矢量链同步构建（加载线程，阻塞加载进度可接受），必须先于 InitScreens 的全部屏构建
             AddLoadAction(() => {
                     Dictionary<string, Assembly[]> assemblies = [];
                     ModsManager.ModListAllDo(modEntity => {
@@ -467,6 +466,7 @@ namespace Game {
 #endif
                 }
             );
+            AddLoadAction(FontManager.Initialize); //默认矢量链同步构建：必须在语言初始化之后（Android AFontMatcher 按 CurrentLanguageName 选 CJK 面）且先于全部屏构建
             AddLoadAction(ModsManager.ParseAllModSettings); //语言已加载（日志可国际化）+ 模组 dll 已加载（类型可解析）
 #if !IOS && !BROWSER
             AddLoadAction(

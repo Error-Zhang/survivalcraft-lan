@@ -181,6 +181,28 @@ namespace Game {
         }
 
         /// <summary>
+        /// 同步重建双链（语言切换专用）：ChangeLanguage 本身同步重建全屏，新屏 ctor 逐个捕获
+        /// 链引用，异步 rebuild 会让新屏捕到旧 locale 的链。阻塞量=系统字体解析（数百 ms 级），
+        /// 语言切换低频可接受。旧链当场释放：切换动画窗内残留旧屏的绘制走缺链守卫（位图回退，
+        /// 不崩，见 VectorFont.Dispose）
+        /// </summary>
+        public static void RebuildChainsSync() {
+            lock (m_rebuildLock) {
+                List<VectorFont> retired = RebuildChainsCore();
+                if (retired != null) {
+                    foreach (VectorFont chain in retired) {
+                        try {
+                            chain.Dispose();
+                        }
+                        catch (Exception ex) {
+                            Log.Warning($"[FontManager] previous chain dispose failed: {ex.Message}");
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// 后台重建双链（发现+解析在线程池，不阻塞 UI）；完成后引用原子换入
         /// （引用赋值原子，绘制中的 widget 要么用旧链要么用新链），随后 onCompleted 经
         /// <see cref="Dispatcher.Dispatch"/> 编组在主线程执行（供 T10 设置屏热切换刷新），
@@ -456,10 +478,10 @@ namespace Game {
             HashSet<string> added = new(StringComparer.OrdinalIgnoreCase);
             foreach (SystemFontFace face in systemFaces) {
                 if (face.IsMono != mono
-                    || !added.Add(face.FilePath)) {
+                    || !added.Add($"{face.FilePath}#{face.FaceIndex}")) {
                     continue;
                 }
-                TryAddEntry(entries, GetFileEntry(face.FilePath, fileEntries));
+                TryAddEntry(entries, GetFileEntry(face, fileEntries));
             }
         }
 
@@ -467,26 +489,32 @@ namespace Game {
         static ChainEntry FirstSystemEntry(List<SystemFontFace> systemFaces, bool mono, Dictionary<string, ChainEntry> fileEntries) {
             foreach (SystemFontFace face in systemFaces) {
                 if (face.IsMono == mono) {
-                    return GetFileEntry(face.FilePath, fileEntries);
+                    return GetFileEntry(face, fileEntries);
                 }
             }
             return null;
         }
 
-        /// <summary>系统字体文件 → 链条目（缓存：一次重建内同一文件只读盘/解析一次，失败不重试）。</summary>
-        static ChainEntry GetFileEntry(string filePath, Dictionary<string, ChainEntry> fileEntries) {
-            if (fileEntries.TryGetValue(filePath, out ChainEntry cached)) {
+        /// <summary>
+        /// 系统字体面 → 链条目。只入发现面指定的那一个 face（缓存键 path#face）——
+        /// ttc 容器序首面未必是目标地区变体（NotoSansCJK/SECCJK 面 0=JP），全面入链会让
+        /// 渲染回落撞到 JP 面字形（"置"显示日文写法）；face 由系统 AFontMatcher 按语言
+        /// 挑定（Windows 打表路线由 ProbeFontFile 按样式位挑定）。失败不重试。
+        /// </summary>
+        static ChainEntry GetFileEntry(SystemFontFace face, Dictionary<string, ChainEntry> fileEntries) {
+            string cacheKey = $"{face.FilePath}#{face.FaceIndex}";
+            if (fileEntries.TryGetValue(cacheKey, out ChainEntry cached)) {
                 return cached;
             }
             ChainEntry entry = null;
             try {
-                byte[] data = File.ReadAllBytes(filePath);
-                entry = VectorFontReader.BuildEntries(data, $"system:{Storage.GetFileName(filePath)}")[0];
+                byte[] data = File.ReadAllBytes(face.FilePath);
+                entry = VectorFontReader.BuildEntry(data, $"system:{Storage.GetFileName(face.FilePath)}", face.FaceIndex, face.Style);
             }
             catch (Exception ex) {
-                Log.Warning($"[FontManager] font file \"{filePath}\" load failed: {ex.Message}");
+                Log.Warning($"[FontManager] font file \"{face.FilePath}\" face {face.FaceIndex} load failed: {ex.Message}");
             }
-            fileEntries.Add(filePath, entry);
+            fileEntries.Add(cacheKey, entry);
             return entry;
         }
 

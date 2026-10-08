@@ -5,7 +5,7 @@
         <NoWarn>$(NoWarn);XA0141;XA4301;NU1605</NoWarn>
         <AndroidUseLatestPlatformSdk>true</AndroidUseLatestPlatformSdk>
         <AndroidApplication>true</AndroidApplication>
-        <ApplicationId>com.candy.SurvivalcraftAPI1_8</ApplicationId>
+        <ApplicationId>com.candy.SurvivalcraftAPI1_9</ApplicationId>
         <AndroidStoreUncompressedFileExtensions>.dll</AndroidStoreUncompressedFileExtensions>
         <AndroidPackageFormat>apk</AndroidPackageFormat>
         <AndroidUseDesignerAssembly>true</AndroidUseDesignerAssembly>

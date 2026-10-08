@@ -35,6 +35,7 @@ namespace Game {
             if (TryDiscoverViaMatcher(result)) {
                 return result;
             }
+            Log.Information("[FontLocator] matcher unavailable/empty, falling back to candidate table.");
             try {
                 Dictionary<string, string> files = EnumerateFontFiles();
                 MatchAndAdd(result, files, BodyCandidates, mono: false);
@@ -106,6 +107,7 @@ namespace Game {
                 VectorFontStyle style = matchedWeight >= 600
                     ? (NativeFont.AFont_isItalic(font) ? VectorFontStyle.BoldItalic : VectorFontStyle.Bold)
                     : (NativeFont.AFont_isItalic(font) ? VectorFontStyle.Italic : VectorFontStyle.Regular);
+                Log.Information($"[FontLocator] matcher [{familyName}] locales={locales} weight={matchedWeight} file={path} face={collectionIndex} -> {style}");
                 result.Add(new SystemFontFace {
                     FilePath = path,
                     Family = displayFamily,

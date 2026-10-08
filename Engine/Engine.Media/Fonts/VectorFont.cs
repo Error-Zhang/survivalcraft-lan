@@ -248,7 +248,6 @@ namespace Engine.Media {
                 if (!degrade || IsItalicAvailable) {
                     return VectorFontStyle.Italic;
                 }
-                return VectorFontStyle.Regular;
             }
             return VectorFontStyle.Regular;
         }

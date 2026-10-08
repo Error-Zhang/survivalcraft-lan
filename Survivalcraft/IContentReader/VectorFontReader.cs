@@ -27,6 +27,18 @@ namespace Game.IContentReader {
             return [new ChainEntry { Data = data, Origin = origin, StyleFaces = BuildStyleFaces(faces) }];
         }
 
+        /// <summary>
+        ///     构建单面链条目（系统发现路线专用）：只装 faceIndex 指定的那一个面，样式由发现方判定
+        ///     （Android AFontMatcher 按字重、Windows ProbeFontFile 按样式位）。ttc 容器序首面未必是
+        ///     目标地区变体（NotoSansCJK/SECCJK 面 0=JP），全面入链会让渲染回落撞到 JP 面字形。
+        /// </summary>
+        public static ChainEntry BuildEntry(byte[] data, string origin, int faceIndex, VectorFontStyle style)
+            => new ChainEntry {
+                Data = data,
+                Origin = origin,
+                StyleFaces = new Dictionary<VectorFontStyle, FontSourceSpec> { [style] = new FontSourceSpec(faceIndex) }
+            };
+
         // 按 OS/2 fsSelection 样式位映射（bit5=Bold、bit0=Italic；PericlesPro.ttc 四面为 0x00/0x20/0x01/0x21）。
         // 缺 OS/2 表或全 0 位归 Regular；face index i 与 FontSourceSpec(i) 一一对应
         static Dictionary<VectorFontStyle, FontSourceSpec> BuildStyleFaces(OpenTypeFont[] faces) {
