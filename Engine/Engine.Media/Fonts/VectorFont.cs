@@ -57,6 +57,25 @@ namespace Engine.Media {
                 if (specs.Count == 0) {
                     continue; // 该样式整链缺失
                 }
+                // 非 Regular 样式系统尾部按 degrade 序并挂低级样式源：样式面常只覆盖部分文字
+                // （链首合成斜体/粗斜面仅有拉丁字形、Windows CJK 全家族无斜体文件），样式请求落到
+                // 缺字面时 FSS 逐码点回退，字形不丢（修复前 CJK 斜体/粗斜请求整字空白）。
+                // BoldItalic 中间并挂 Bold 面：CJK 缺合成粗斜面时落真 Bold 面（有 CJK），字重不降级。
+                // 斜体切变由 ShearedFontBatchSink 统一施加（含回退段）→CJK 斜体=正排字形切变，
+                // 与位图伪斜体同观感；度量（MeasureString/GetBoldAdvanceScale）同享回退，不按样式缺字失真
+                if (style != VectorFontStyle.Regular) {
+                    VectorFontStyle[] fallbackStyles = style == VectorFontStyle.BoldItalic
+                        ? [VectorFontStyle.Bold, VectorFontStyle.Regular]
+                        : [VectorFontStyle.Regular];
+                    foreach (var fbStyle in fallbackStyles) {
+                        foreach (var entry in entries) {
+                            if (entry.StyleFaces.TryGetValue(fbStyle, out var fbSpec)) {
+                                specs.Add(fbSpec);
+                                datas.Add(entry.Data);
+                            }
+                        }
+                    }
+                }
                 // 每样式一个 loader 实例（spec 队列=链序，AddFont→Load 串行一一对应），
                 // Regular 的 CreatedSources 供 HasGlyph 查 glyph 覆盖
                 var loader = new EngineSharpAstroLoader(specs);
