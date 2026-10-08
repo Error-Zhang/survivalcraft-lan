@@ -60,7 +60,11 @@ namespace Game {
                 return false;
             }
             try {
-                string locales = CultureInfo.CurrentUICulture.Name;
+                // matcher locale=游戏内语言设置（LanguageControl），进程 CultureInfo.CurrentUICulture
+                // 只作垫后——.NET Android 进程区域文化默认不随系统/游戏语言同步（恒 en-US），
+                // 无 zh 偏好时 NotoSansCJK ttc 会落到容器首面=JP 面（"置"显示日文字形）；
+                // locale 列表按优先序排列，首标签即游戏渲染目标语言
+                string locales = $"{LanguageControl.CurrentLanguageName},{CultureInfo.CurrentUICulture.Name}";
                 bool any = false;
                 any |= TryMatchFace(result, matcher, locales, "sans-serif", "生存", 400, false, false, "System Sans-Serif");
                 any |= TryMatchFace(result, matcher, locales, "sans-serif", "生存", 700, false, false, "System Sans-Serif Bold");
