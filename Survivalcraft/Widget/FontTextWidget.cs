@@ -157,6 +157,33 @@ namespace Game {
 
         public bool DropShadow { get; set; }
 
+        // 整件字重/字形（单样式件用；富文本按 span 走 RichTextWidget）：矢量路径直出（真面或
+        // Stroked1/15° 切变降级在 VectorFont.DrawText 内解析），位图路径伪粗双绘 + 切变
+        // （RichTextWidget 位图分支同构）。两路径 advance 均不加宽（Stroked 不改 XAdvance、
+        // 双绘不改 advance），但矢量真 Bold 面/真斜体面度量随样式变→须使行缓存失效
+        bool m_bold;
+        bool m_italic;
+
+        public bool Bold {
+            get => m_bold;
+            set {
+                if (value != m_bold) {
+                    m_bold = value;
+                    m_linesSize = null;
+                }
+            }
+        }
+
+        public bool Italic {
+            get => m_italic;
+            set {
+                if (value != m_italic) {
+                    m_italic = value;
+                    m_linesSize = null;
+                }
+            }
+        }
+
         public bool TextureLinearFilter { get; set; }
         public bool m_usedebug;
 
@@ -230,6 +257,25 @@ namespace Game {
                             angle
                         );
                     }
+                    if (m_bold) {
+                        // 伪粗体：同串横偏 1×FontScale 双绘（RichTextWidget 位图分支同构；advance 不加宽，度量无感）
+                        int boldStart = fontBatch2D.TriangleVertices.Count;
+                        fontBatch2D.QueueText(
+                            line,
+                            vector + new Vector2(FontScale, 0f),
+                            0f,
+                            color,
+                            anchor,
+                            new Vector2(FontScale),
+                            FontSpacing,
+                            angle
+                        );
+                        if (m_italic
+                            && TextOrientation == TextOrientation.Horizontal) {
+                            fontBatch2D.TransformTriangles(ItalicShearMatrix(vector.Y), boldStart);
+                        }
+                    }
+                    int runStart = fontBatch2D.TriangleVertices.Count;
                     fontBatch2D.QueueText(
                         line,
                         vector,
@@ -240,11 +286,30 @@ namespace Game {
                         FontSpacing,
                         angle
                     );
+                    if (m_italic
+                        && TextOrientation == TextOrientation.Horizontal) {
+                        fontBatch2D.TransformTriangles(ItalicShearMatrix(vector.Y), runStart);
+                    }
                     //}
                     num += num4;
                 }
                 fontBatch2D.TransformTriangles(GlobalTransform, count);
             }
+        }
+
+        // 斜体切变矩阵（位图路径用，RichTextWidget.ItalicShearMatrix 同构但原点不同）：
+        // x' = x − k·(y − 行带中心)，k = tan(12°) ≈ 0.2126，顶部右倾；行带中心 = lineTop + emHeight/2
+        // （emHeight = GlyphHeight×FontScale×Font.Scale）。逐行传本行顶 Y：绝对坐标变换下每行绕
+        // 自身行带中点切变，多行不逐行横向错位。竖排（VerticalLeft）不切变：QueueText 的 angle
+        // 已把字形烤进顶点，widget 空间 X 切变落在旋转后的错误轴上（矢量路径无此限制——
+        // ShearedFontBatchSink 先在文本空间切变、sink Rotated 后旋转，两序正确）
+        Matrix ItalicShearMatrix(float lineTop) {
+            const float k = 0.2126f;
+            float emHeight = Font.GlyphHeight * FontScale * Font.Scale;
+            Matrix m = Matrix.Identity;
+            m.M21 = -k;
+            m.M41 = k * (lineTop + emHeight * 0.5f);
+            return m;
         }
 
         // 矢量绘制路径（P4）：m_lines 行列表与位图路径同源（UpdateLines 已在 Measure 时填充）。
@@ -279,7 +344,7 @@ namespace Game {
                 // 行宽必须按 widget 空间字号量（不含 gtScale）：锚点 runOffset 作用在 widget 空间 pivot 上，
                 // 若混入栅格空间行宽（×gtScale），UI 全局缩放≠1 时 Center/Right 锚点偏移被放大 gtScale 倍
                 //（ModSettingsScreen Description 不居中根因）；探针 gt=1 测不到，F9 矩阵以 RenderTransform ×1.6 复现
-                float lineWidth = VectorFont.MeasureString(line, VectorFont.DefaultSize * FontScale).X;
+                float lineWidth = VectorFont.MeasureString(line, VectorFont.DefaultSize * FontScale, Bold, Italic).X;
                 float x = 0f;
                 float runOffset = 0f; // CalculateTextOffset.X 口径：Center −w/2、Right −w（沿行进轴的行宽偏移）
                 if ((anchor & TextAnchor.HorizontalCenter) != 0) {
@@ -319,7 +384,7 @@ namespace Game {
         // sink 出 quad 时除回 widget 空间，屏上落点字距=FontSpacing.X（与位图 spacing 含尾字符记账一致）
         void DrawVectorLine(VectorGlyphSink sink, string line, Color color, float size, float gtScale) {
             if (FontSpacing.X == 0f) {
-                VectorFont.DrawText(sink, line, Vector2.Zero, color, size);
+                VectorFont.DrawText(sink, line, Vector2.Zero, color, size, Bold, Italic);
                 return;
             }
             float x = 0f;
@@ -330,8 +395,8 @@ namespace Game {
                     continue;
                 }
                 string s = c.ToString();
-                VectorFont.DrawText(sink, s, new Vector2(x, 0f), color, size);
-                x += VectorFont.MeasureString(s, size).X + spacingFss;
+                VectorFont.DrawText(sink, s, new Vector2(x, 0f), color, size, Bold, Italic);
+                x += VectorFont.MeasureString(s, size, Bold, Italic).X + spacingFss;
             }
         }
 
@@ -427,7 +492,7 @@ namespace Game {
                     || c == '\u200b') {
                     continue;
                 }
-                num += VectorFont.MeasureString(c.ToString(), size).X + FontSpacing.X;
+                num += VectorFont.MeasureString(c.ToString(), size, Bold, Italic).X + FontSpacing.X;
                 if (num > width) {
                     return i - start;
                 }
@@ -511,7 +576,7 @@ namespace Game {
             string[] array = (Text ?? string.Empty).Split(["\n"], StringSplitOptions.None);
             string text = "...";
             float x = VectorFont != null
-                ? VectorFont.MeasureString(text, VectorFont.DefaultSize * FontScale).X + text.Length * FontSpacing.X
+                ? VectorFont.MeasureString(text, VectorFont.DefaultSize * FontScale, Bold, Italic).X + text.Length * FontSpacing.X
                 : Font.MeasureText(text, new Vector2(FontScale), FontSpacing).X;
             if (WordWrap) {
                 int num3 = (int)MathUtils.Min(MathF.Floor(availableHeight / CalculateLineHeight()), MaxLines);
@@ -584,7 +649,7 @@ namespace Game {
             Vector2 zero = Vector2.Zero;
             for (int k = 0; k < m_lines.Count; k++) {
                 Vector2 vector = VectorFont != null
-                    ? new Vector2(VectorFont.MeasureString(m_lines[k], VectorFont.DefaultSize * FontScale).X + m_lines[k].Length * FontSpacing.X, 0f)
+                    ? new Vector2(VectorFont.MeasureString(m_lines[k], VectorFont.DefaultSize * FontScale, Bold, Italic).X + m_lines[k].Length * FontSpacing.X, 0f)
                     : Font.MeasureText(m_lines[k], new Vector2(FontScale), FontSpacing);
                 zero.X = MathUtils.Max(zero.X, vector.X);
                 if (k < m_lines.Count - 1) {
