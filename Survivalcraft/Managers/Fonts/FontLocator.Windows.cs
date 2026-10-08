@@ -7,11 +7,22 @@ using Microsoft.Win32;
 
 namespace Game {
     static partial class FontLocator {
-        // 雅黑 family 三文件分离：msyh.ttc(Regular)/msyhbd.ttc(Bold)/msyhl.ttc(Light)；无 Italic。
-        // Pattern=注册表值数据中的文件名去扩展名（大小写不敏感精确匹配，避免 "cour" 误吞 "courbd"）
+        // 各语言系统默认正文字体打表（Win7~11 文件名统计恒定）：zh-CN 雅黑 / zh-TW 正黑 /
+        // ja Meiryo / ko Malgun Gothic / en Segoe UI。注册表键=文件名去扩展名（各语言 Windows
+        // 均附带全套，存在性不分流），序=链内回退优先序：雅黑垫 CJK 首位，Segoe UI 无 CJK
+        // 且拉丁已由 Pericles 链头供给，垫底仅作"原版英文风格关闭"后的拉丁回落。
+        // ttc 多面（msyh.ttc=Regular+UI 两面）由 ProbeFontFile 按样式位选面
         static readonly (string Family, string Pattern, VectorFontStyle Style)[] BodyCandidates = [
             ("Microsoft YaHei", "msyh", VectorFontStyle.Regular),
             ("Microsoft YaHei", "msyhbd", VectorFontStyle.Bold),
+            ("Microsoft JhengHei", "msjh", VectorFontStyle.Regular),
+            ("Microsoft JhengHei", "msjhbd", VectorFontStyle.Bold),
+            ("Meiryo", "meiryo", VectorFontStyle.Regular),
+            ("Meiryo", "meiryob", VectorFontStyle.Bold),
+            ("Malgun Gothic", "malgun", VectorFontStyle.Regular),
+            ("Malgun Gothic", "malgunbd", VectorFontStyle.Bold),
+            ("Segoe UI", "segoeui", VectorFontStyle.Regular),
+            ("Segoe UI", "segoeuib", VectorFontStyle.Bold),
         ];
 
         static readonly (string Family, string Pattern, VectorFontStyle Style)[] MonoCandidates = [
