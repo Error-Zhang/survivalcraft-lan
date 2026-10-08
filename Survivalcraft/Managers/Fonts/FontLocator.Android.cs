@@ -1,4 +1,7 @@
 #if ANDROID
+using System.Globalization;
+using System.Runtime.InteropServices;
+using Android.OS;
 using Engine;
 using Engine.Media;
 
@@ -7,22 +10,31 @@ namespace Game {
         // /system/fonts 世界可读（API 23→36 核验）；/system/product/fonts、/vendor/fonts 部分设备存在（存在性探测）
         static readonly string[] FontDirectories = ["/system/fonts", "/system/product/fonts", "/vendor/fonts"];
 
-        // 候选名覆盖 AOSP+主流 OEM（MiSans=小米、HarmonyOS Sans=华为）；组内按序取首个可用文件
+        // 兜底打表（API<29 或 AFontMatcher 失败时用）：候选名覆盖 AOSP+主流 OEM；
+        // 组内按序取首个可用文件。AOSP 系统侧 CJK 无 Bold 文件（NotoSansCJK-Bold 系
+        // OEM/MTK 定制 ROM 才有），Bold 组以 OEM 文件为主——缺真 bold 落 Stroked1 兜底
         static readonly (string[] Names, string Family, VectorFontStyle Style)[] BodyCandidates = [
-            (["NotoSansCJK-Regular.ttc", "NotoSansCJKsc-Regular.otf"], "Noto Sans CJK SC", VectorFontStyle.Regular),
+            (["NotoSansCJK-Regular.ttc", "NotoSansCJKsc-Regular.otf", "NotoSansSC-Regular.otf", "DroidSansFallback.ttf"], "Noto Sans CJK SC", VectorFontStyle.Regular),
             (["MiSans-Regular.ttf", "MIUI_Normal.ttf", "HarmonyOS_Sans_SC_Medium.ttf"], "OEM Sans", VectorFontStyle.Regular),
         ];
 
         static readonly (string[] Names, string Family, VectorFontStyle Style)[] BoldCandidates = [
-            (["MiSans-Bold.ttf", "MiSans-Demibold.ttf", "HarmonyOS_Sans_SC_Bold.ttf"], "OEM Sans", VectorFontStyle.Bold),
+            (["NotoSansCJK-Bold.ttc", "NotoSansCJKsc-Bold.otf", "DroidSansFallbackBold.ttf", "MiSans-Bold.ttf", "MiSans-Demibold.ttf", "HarmonyOS_Sans_SC_Bold.ttf"], "Bold", VectorFontStyle.Bold),
         ];
 
         static readonly (string[] Names, string Family, VectorFontStyle Style)[] MonoCandidates = [
-            (["DroidSansMono.ttf", "RobotoMono-Regular.ttf", "CutiveMono.ttf"], "Mono", VectorFontStyle.Regular),
+            (["DroidSansMono.ttf", "NotoSansMono-Regular.ttf", "RobotoMono-Regular.ttf", "CutiveMono.ttf"], "Mono", VectorFontStyle.Regular),
         ];
 
         public static List<SystemFontFace> Discover() {
             List<SystemFontFace> result = [];
+            // 主路线（API 29+）：系统级 AFontMatcher 按 通用族+文本+语言+字重 选字体——
+            // fonts.xml/font_fallback.xml/font_customization.xml 的合并结果由系统内部消化
+            // （OEM 覆写自动生效），NotoSansCJK ttc 的 JP/KR/SC/TC 面序由系统按 locale 选对，
+            // 免解析 XML 的 schema 漂移。API<29 或匹配失败落兜底打表
+            if (TryDiscoverViaMatcher(result)) {
+                return result;
+            }
             try {
                 Dictionary<string, string> files = EnumerateFontFiles();
                 MatchAndAdd(result, files, BodyCandidates, mono: false);
@@ -33,6 +45,94 @@ namespace Game {
                 Log.Warning($"[FontLocator] Android discover failed: {ex.Message}");
             }
             return result;
+        }
+
+        // AFontMatcher（libandroid，API 29+）：body=CJK 探针字（拉丁已由 Pericles 链头供给，
+        // 不依赖系统），mono=拉丁探针。bold 请求在系统无真 bold 文件时 matcher 返回 Regular
+        // 面（getWeight<600）→ 丢弃，由 Stroked1 兜底；OEM 有 bold（MiSans 等）则自动命中。
+        // 部分成功也算成功（如仅 body regular+mono regular 三件，bold 缺席=降级语义正确）
+        static bool TryDiscoverViaMatcher(List<SystemFontFace> result) {
+            if (Build.VERSION.SdkInt < BuildVersionCodes.Q) {
+                return false;
+            }
+            IntPtr matcher = NativeFont.AFontMatcher_create();
+            if (matcher == IntPtr.Zero) {
+                return false;
+            }
+            try {
+                string locales = CultureInfo.CurrentUICulture.Name;
+                bool any = false;
+                any |= TryMatchFace(result, matcher, locales, "sans-serif", "生存", 400, false, false, "System Sans-Serif");
+                any |= TryMatchFace(result, matcher, locales, "sans-serif", "生存", 700, false, false, "System Sans-Serif Bold");
+                any |= TryMatchFace(result, matcher, locales, "monospace", "A0", 400, false, true, "System Mono");
+                any |= TryMatchFace(result, matcher, locales, "monospace", "A0", 700, false, true, "System Mono Bold");
+                return any;
+            }
+            catch (Exception ex) {
+                // EntryPointNotFound（API 门误判/OEM 阉割 libandroid）等一律落兜底打表
+                Log.Warning($"[FontLocator] AFontMatcher discover failed: {ex.Message}");
+                return false;
+            }
+            finally {
+                NativeFont.AFontMatcher_destroy(matcher);
+            }
+        }
+
+        static bool TryMatchFace(List<SystemFontFace> result, IntPtr matcher, string locales, string familyName, string probeText, int weight, bool italic, bool mono, string displayFamily) {
+            NativeFont.AFontMatcher_setLocales(matcher, locales);
+            NativeFont.AFontMatcher_setStyle(matcher, (ushort)weight, italic);
+            ushort[] text = probeText.Select(c => (ushort)c).ToArray();
+            IntPtr font = NativeFont.AFontMatcher_match(matcher, familyName, text, (uint)text.Length, out uint _);
+            if (font == IntPtr.Zero) {
+                return false;
+            }
+            try {
+                string path = Marshal.PtrToStringAnsi(NativeFont.AFont_getFontFilePath(font));
+                int collectionIndex = (int)NativeFont.AFont_getCollectionIndex(font);
+                int matchedWeight = NativeFont.AFont_getWeight(font);
+                if (string.IsNullOrEmpty(path)
+                    || !File.Exists(path)) {
+                    return false;
+                }
+                // bold 请求落到低字重面（系统无真 bold 文件）→ 不入链，Stroked1 兜底接管
+                if (weight >= 600
+                    && matchedWeight < 600) {
+                    return false;
+                }
+                VectorFontStyle style = matchedWeight >= 600
+                    ? (NativeFont.AFont_isItalic(font) ? VectorFontStyle.BoldItalic : VectorFontStyle.Bold)
+                    : (NativeFont.AFont_isItalic(font) ? VectorFontStyle.Italic : VectorFontStyle.Regular);
+                result.Add(new SystemFontFace {
+                    FilePath = path,
+                    Family = displayFamily,
+                    Style = style,
+                    FaceIndex = collectionIndex,
+                    IsMono = mono
+                });
+                return true;
+            }
+            finally {
+                NativeFont.AFont_close(font);
+            }
+        }
+
+        // NDK font.h/font_matcher.h（API 29+）逐字面签名（本地 NDK 29 sysroot 核对）：
+        // AFont_getCollectionIndex 返回 size_t（指针宽）→ UIntPtr；getLocale 可空不取用。
+        // 符号在 API<29 的 libandroid.so 中不存在，调用时才解析 → EntryPointNotFound 由
+        // 上层 catch 落兜底
+        static class NativeFont {
+            [DllImport("libandroid.so")] internal static extern IntPtr AFontMatcher_create();
+            [DllImport("libandroid.so")] internal static extern void AFontMatcher_destroy(IntPtr matcher);
+            [DllImport("libandroid.so")] internal static extern void AFontMatcher_setLocales(IntPtr matcher, [MarshalAs(UnmanagedType.LPStr)] string languageTags);
+            // NDK C99 _Bool=1 字节，默认 bool marshal=4 字节 BOOL → 参数/返回均须 U1
+            [DllImport("libandroid.so")] internal static extern void AFontMatcher_setStyle(IntPtr matcher, ushort weight, [MarshalAs(UnmanagedType.U1)] bool italic);
+            [DllImport("libandroid.so")] internal static extern IntPtr AFontMatcher_match(IntPtr matcher, [MarshalAs(UnmanagedType.LPStr)] string familyName, ushort[] text, uint textLength, out uint runLengthOut);
+            [DllImport("libandroid.so")] internal static extern void AFont_close(IntPtr font);
+            [DllImport("libandroid.so")] internal static extern IntPtr AFont_getFontFilePath(IntPtr font);
+            [DllImport("libandroid.so")] internal static extern ushort AFont_getWeight(IntPtr font);
+            [return: MarshalAs(UnmanagedType.U1)]
+            [DllImport("libandroid.so")] internal static extern bool AFont_isItalic(IntPtr font);
+            [DllImport("libandroid.so")] internal static extern UIntPtr AFont_getCollectionIndex(IntPtr font);
         }
 
         static Dictionary<string, string> EnumerateFontFiles() {
