@@ -108,6 +108,43 @@ namespace Engine.Media {
             return new Vector2(size2.X, size2.Y);
         }
 
+        // 粗体排版宽度系数探针串：Latin 比例字真 Bold 面 advance>Regular，CJK 等宽 em 粗体 advance 恒同，
+        // 分档实测；wide 分类阈 CJK 部首扩展起（汉字/假名/谚文全落等宽档）
+        const string BoldScaleLatinProbe = "Survivalcraft abcdefg 0123";
+        const string BoldScaleWideProbe = "生存战争测试字体";
+        const int BoldScaleWideCharThreshold = 0x2E80;
+
+        float? _boldScaleLatin;
+        float? _boldScaleWide;
+
+        /// <summary>
+        /// 粗体 span 的排版宽度系数（RichTextLayout 布局预算用）：按 ResolveStyle(bold, degrade:true)
+        /// 实际解析结果量探针串 Bold/Regular advance 比。真 Bold 面→实测比值；降级 Stroked1
+        /// （FSS Stroked 只扩字形纹理边，XAdvance 取 Regular advance 不变）与整链缺失→1。
+        /// 惰性缓存：链构建后度量不变；Dispose 后度量守卫返 Zero→兜 1
+        /// </summary>
+        public float GetBoldAdvanceScale(char c) {
+            ref float? cache = ref c >= BoldScaleWideCharThreshold ? ref _boldScaleWide : ref _boldScaleLatin;
+            if (cache.HasValue) {
+                return cache.Value;
+            }
+            var regular = GetStyleFont(ResolveStyle(false, false, degrade: true), DefaultSize);
+            var bold = GetStyleFont(ResolveStyle(true, false, degrade: true), DefaultSize);
+            float scale = 1f;
+            if (regular != null && bold != null) {
+                string probe = c >= BoldScaleWideCharThreshold ? BoldScaleWideProbe : BoldScaleLatinProbe;
+                float regularWidth = regular.MeasureString(probe).X;
+                if (regularWidth > 0f) {
+                    float ratio = bold.MeasureString(probe).X / regularWidth;
+                    if (float.IsFinite(ratio) && ratio > 0f) {
+                        scale = ratio;
+                    }
+                }
+            }
+            cache = scale;
+            return scale;
+        }
+
         internal SpriteFontBase GetStyleFont(VectorFontStyle style, float size)
             => _systems[(int)style]?.GetFont(size);
 

@@ -613,6 +613,7 @@ namespace Game {
             }
             m_layout.Font = Font;
             m_layout.FontSpacing = FontSpacing;
+            m_layout.VectorFont = VectorFont;
             m_layout.DefaultFontScale = FontScale;
             m_layout.WordWrap = WordWrap;
             m_layout.WordBreak = WordBreak;

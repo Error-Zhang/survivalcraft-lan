@@ -4,7 +4,7 @@ using Engine.Media;
 namespace Game {
     // 富文本排版：spans 摊平为字符单元 → 贪心断行（拉丁词回扫 + CJK 禁则，复用 FontTextWidget 规则）→ 按 span 组装 run
     // 字符推进量公式必须与 FontBatch2D.QueueLine 一致：(glyph.Width - kerning + spacing) * scale，
-    // 否则排版宽度与实际绘制宽度漂移
+    // 否则排版宽度与实际绘制宽度漂移；粗体 span 额外乘矢量链粗体系数（真 Bold 面绘制 advance>位图 Regular 预算）
     public class RichTextLayout {
         public BitmapFont Font { get; set; }
 
@@ -33,6 +33,10 @@ namespace Game {
         // 自动同口径。负值合法（CSS 允许负字距收紧）；默认 0 时 advance 公式 +0 浮点无变化，
         // 既有排版逐位不变
         public float LetterSpacing { get; set; }
+
+        // 矢量链（RichTextWidget.UpdateLayout 接线）：粗体 span 预算加宽系数出处。
+        // null=纯位图路径（位图伪粗=双绘不改 advance），系数不生效，既有排版逐位不变
+        public VectorFont VectorFont { get; set; }
 
         public float DefaultFontScale { get; set; } = 1f;
 
@@ -229,7 +233,7 @@ namespace Game {
                 float width = 0f;
                 for (int k = i; k <= j; k++) {
                     text[k - i] = cells[k].C;
-                    width += CharacterAdvance(cells[k].C, scale);
+                    width += CharacterAdvance(cells[k].C, scale, span.IsBold);
                     if (k < j) {
                         width -= Font.GetKerning(cells[k].C, cells[k + 1].C) * scale * Font.Scale;
                     }
@@ -285,7 +289,7 @@ namespace Game {
                     }
                 }
                 float scale = SpanScale(cells[i].Span);
-                width += CharacterAdvance(cells[i].C, scale);
+                width += CharacterAdvance(cells[i].C, scale, cells[i].Span.IsBold);
                 if (i + 1 < end
                     && cells[i + 1].Sequence == cells[i].Sequence) {
                     width -= Font.GetKerning(cells[i].C, cells[i + 1].C) * scale * Font.Scale;
@@ -301,9 +305,13 @@ namespace Game {
         float SpanScale(TextSpan span) => span.FontScale > 0f ? span.FontScale : DefaultFontScale;
 
         // 字符推进量唯一出处（AddLine run 宽与 CountFittingCells 折行判定共用）：字距是绝对 px，
-        // 不随 span 字号/Font.Scale 缩放（CSS px 口径），kerning 减项保持原样（字距与 kerning 并存）
-        float CharacterAdvance(char c, float fontScale) =>
-            (Font.GetGlyph(c).Width + Font.Spacing.X + FontSpacing.X) * fontScale * Font.Scale + LetterSpacing;
+        // 不随 span 字号/Font.Scale 缩放（CSS px 口径），kerning 减项保持原样（字距与 kerning 并存）。
+        // 粗体 span 乘矢量链实测粗体系数（真 Bold 面 Latin advance>Regular；无链/伪粗 Stroked=1），
+        // 抹平布局预算 vs 矢量绘制的宽度漂移；kerning 减项不乘（真粗面 kerning 差异近似 0）
+        float CharacterAdvance(char c, float fontScale, bool bold = false) {
+            float advance = (Font.GetGlyph(c).Width + Font.Spacing.X + FontSpacing.X) * fontScale * Font.Scale + LetterSpacing;
+            return bold && VectorFont != null ? advance * VectorFont.GetBoldAdvanceScale(c) : advance;
+        }
 
         float MeasureEllipsisWidth(float fontScale) {
             const string text = "...";
