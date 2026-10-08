@@ -481,6 +481,13 @@ namespace Game {
                     TerrainRenderer.DrawTransparent(camera);
                 }
             }
+            ModsManager.HookAction(
+                "OnTerrainDraw",
+                loader => {
+                    loader.OnTerrainDraw(this, camera, drawOrder);
+                    return false;
+                }
+            );
         }
 
         public virtual void Update(float dt) {
@@ -502,7 +509,15 @@ namespace Game {
             m_subsystemTime = Project.FindSubsystem<SubsystemTime>();
             m_subsystemTimeOfDay = Project.FindSubsystem<SubsystemTimeOfDay>();
             SubsystemPalette = Project.FindSubsystem<SubsystemPalette>(true);
-            Terrain = new Terrain();
+            Terrain terrain = new Terrain();
+            ModsManager.HookAction(
+                "OnTerrainCreated",
+                loader => {
+                    loader.OnTerrainCreated(this, ref terrain);
+                    return false;
+                }
+            );
+            Terrain = terrain;
             TerrainRenderer = new TerrainRenderer(this);
             TerrainUpdater = new TerrainUpdater(this);
             TerrainSerializer = new TerrainSerializer23(SubsystemGameInfo.DirectoryName);
@@ -552,6 +567,13 @@ namespace Game {
         }
 
         public override void Save(ValuesDictionary valuesDictionary) {
+            ModsManager.HookAction(
+                "BeforeTerrainSave",
+                loader => {
+                    loader.BeforeTerrainSave(this);
+                    return false;
+                }
+            );
             TerrainUpdater.UpdateEvent.WaitOne();
             try {
                 TerrainChunk[] allocatedChunks = Terrain.AllocatedChunks;

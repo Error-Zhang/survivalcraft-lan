@@ -177,7 +177,15 @@ namespace Game {
             if (GetChunkAtCoords(chunkX, chunkZ) != null) {
                 throw new InvalidOperationException("Chunk already allocated.");
             }
-            TerrainChunk terrainChunk = new(this, chunkX, chunkZ);
+            TerrainChunk terrainChunk = null;
+            ModsManager.HookAction(
+                "OnTerrainChunkCreated",
+                loader => {
+                    loader.OnTerrainChunkCreated(this, chunkX, chunkZ, ref terrainChunk);
+                    return false;
+                }
+            );
+            terrainChunk ??= new(this, chunkX, chunkZ);
             m_allocatedChunks.Add(terrainChunk);
             m_allChunks.Add(chunkX, chunkZ, terrainChunk);
             m_allocatedChunksArray = null;
