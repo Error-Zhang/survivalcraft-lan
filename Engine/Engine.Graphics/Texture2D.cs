@@ -498,6 +498,7 @@ namespace Engine.Graphics {
                 throw new ArgumentException("Pixel size is not an integer multiple of source array element size.");
             }
             if (sourceStartIndex < 0
+                || sourceStartIndex > source.Length
                 || (source.Length - sourceStartIndex) * num < num4) {
                 throw new InvalidOperationException("Not enough data in source array.");
             }
@@ -535,6 +536,7 @@ namespace Engine.Graphics {
                 throw new ArgumentException("Pixel size is not an integer multiple of source array element size.");
             }
             if (sourceStartIndex < 0
+                || sourceStartIndex > source.Length
                 || (source.Length - sourceStartIndex) * num < num4) {
                 throw new InvalidOperationException("Not enough data in source array.");
             }
@@ -553,12 +555,13 @@ namespace Engine.Graphics {
         }
 
         static void VerifySubRectangle(int mipLevel, int x, int y, int width, int height, int mipWidth, int mipHeight) {
+            // 减法式比较防 x/y=极大值时 x+width 回绕为负漏检
             if (x < 0
                 || y < 0
                 || width < 0
                 || height < 0
-                || x + width > mipWidth
-                || y + height > mipHeight) {
+                || x > mipWidth - width
+                || y > mipHeight - height) {
                 throw new ArgumentException($"Sub-rectangle ({x}, {y}, {width}, {height}) is outside mip level {mipLevel} ({mipWidth}x{mipHeight}).");
             }
         }

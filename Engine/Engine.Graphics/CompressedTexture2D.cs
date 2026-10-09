@@ -66,10 +66,22 @@ namespace Engine.Graphics {
         public override void SetData(int mipLevel, nint source) => throw new InvalidOperationException();
 
         [Obsolete("Invalid", true)]
+        public override void SetData<T>(int mipLevel, int x, int y, int width, int height, T[] source, int sourceStartIndex = 0) where T : struct => throw new InvalidOperationException();
+
+        [Obsolete("Invalid", true)]
+        public override void SetData(int mipLevel, int x, int y, int width, int height, nint source) => throw new InvalidOperationException();
+
+        [Obsolete("Invalid", true)]
         public override void SetDataInternal(int mipLevel, nint source) => throw new InvalidOperationException();
 
         [Obsolete("Invalid", true)]
+        public override void SetDataInternal(int mipLevel, int x, int y, int width, int height, nint source) => throw new InvalidOperationException();
+
+        [Obsolete("Invalid", true)]
         public override unsafe void SetDataInternal(int mipLevel, void* source) => throw new InvalidOperationException();
+
+        [Obsolete("Invalid", true)]
+        public override unsafe void SetDataInternal(int mipLevel, int x, int y, int width, int height, void* source) => throw new InvalidOperationException();
 
         [Obsolete("Invalid", true)]
         public override void SetData(Image<Rgba32> source) => throw new InvalidOperationException();
