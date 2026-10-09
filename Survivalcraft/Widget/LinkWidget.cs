@@ -63,6 +63,26 @@ namespace Game {
             set => m_labelWidget.Ellipsis = value;
         }
 
+        public Color BackgroundColor {
+            get => m_labelWidget.BackgroundColor;
+            set => m_labelWidget.BackgroundColor = value;
+        }
+
+        public bool Strikethrough {
+            get => m_labelWidget.Strikethrough;
+            set => m_labelWidget.Strikethrough = value;
+        }
+
+        public bool Underline {
+            get => m_labelWidget.Underline;
+            set => m_labelWidget.Underline = value;
+        }
+
+        public float BaselineShift {
+            get => m_labelWidget.BaselineShift;
+            set => m_labelWidget.BaselineShift = value;
+        }
+
         public string Url { get; set; }
 
         public LinkWidget() {

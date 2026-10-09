@@ -157,6 +157,18 @@ namespace Game {
 
         public bool DropShadow { get; set; }
 
+        // 行内装饰四件（TextSpan 同款语义，整件粒度）：背景=文字盒 em 高矩形（A==0 跳过）、
+        // 删除线=em 中线（layer 2 压字上，同 RichTextWidget 防烘焙黑描边切缝）、下划线=em 下 1px
+        // （layer -1 压字下）、BaselineShift=em 比例纯绘制偏移（度量/布局无感）。竖排不施装饰：
+        // 字形经 angle/sink 旋转，widget 轴向矩形/偏移落在错误轴（位图切变同款限制）
+        public Color BackgroundColor { get; set; }
+
+        public bool Strikethrough { get; set; }
+
+        public bool Underline { get; set; }
+
+        public float BaselineShift { get; set; }
+
         // 整件字重/字形（单样式件用；富文本按 span 走 RichTextWidget）：矢量路径直出（真面或
         // Stroked1/15° 切变降级在 VectorFont.DrawText 内解析），位图路径伪粗双绘 + 切变
         // （RichTextWidget 位图分支同构）。两路径 advance 均不加宽（Stroked 不改 XAdvance、
@@ -206,6 +218,16 @@ namespace Game {
                 }
                 SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
                 FontBatch2D fontBatch2D = dc.PrimitivesRenderer2D.FontBatch(Font, 1, DepthStencilState.None, null, null, samplerState);
+                // 装饰批：背景/下划线 layer -1 压文字下、删除线 layer 2 压文字上（RichTextWidget 同款分层；
+                // 渲染器按 batch Layer 排序，删除线在文字下会被字形黑描边切成暗缝）
+                bool horizontal = TextOrientation == TextOrientation.Horizontal;
+                FlatBatch2D underlayBatch = horizontal
+                    && (BackgroundColor.A != 0 || Underline) ? dc.PrimitivesRenderer2D.FlatBatch(-1, DepthStencilState.None) : null;
+                FlatBatch2D overlayBatch = horizontal && Strikethrough ? dc.PrimitivesRenderer2D.FlatBatch(2, DepthStencilState.None) : null;
+                // BaselineShift 纯绘制偏移（TextSpan 同款：em=GlyphHeight×FontScale×Font.Scale），竖排不施
+                float baselineShiftY = horizontal ? BaselineShift * Font.GlyphHeight * FontScale * Font.Scale : 0f;
+                float emHeight = Font.GlyphHeight * FontScale * Font.Scale;
+                float decorThickness = MathUtils.Max(FontScale * Font.Scale, 1f);
                 int count = fontBatch2D.TriangleVertices.Count;
                 float num = 0f;
                 if ((TextAnchor & TextAnchor.VerticalCenter) != 0) {
@@ -242,6 +264,35 @@ namespace Game {
                         vector = new Vector2(x, ActualSize.Y + num);
                         angle = MathUtils.DegToRad(-90f);
                         //flag = true;
+                    }
+                    vector.Y += baselineShiftY;
+                    if (underlayBatch != null
+                        || overlayBatch != null) {
+                        // 装饰矩形 x 与 QueueText 锚点同口径手动偏移（QueueText 内部 CalculateTextOffset
+                        // 扣行宽，矩形复算）；行宽=排版同式 MeasureText（spacing 记账口径一致）
+                        float lineWidth = Font.MeasureText(line, new Vector2(FontScale), FontSpacing).X;
+                        float decorX = vector.X;
+                        if ((TextAnchor & TextAnchor.HorizontalCenter) != 0) {
+                            decorX -= lineWidth / 2f;
+                        }
+                        else if ((TextAnchor & TextAnchor.Right) != 0) {
+                            decorX -= lineWidth;
+                        }
+                        if (underlayBatch != null) {
+                            if (BackgroundColor.A != 0) {
+                                QueueTransformedQuad(underlayBatch, decorX, vector.Y, lineWidth, emHeight, BackgroundColor * GlobalColorTransform);
+                            }
+                            if (Underline) {
+                                // 字形下方 1px（RichTextWidget 同基准）
+                                QueueTransformedQuad(underlayBatch, decorX, vector.Y + emHeight + 1f, lineWidth, decorThickness, color);
+                            }
+                        }
+                        if (overlayBatch != null) {
+                            // 删除线＝em 中线；Y 连同全局平移取整，线压满整行像素呈实色
+                            float strikeY = vector.Y + emHeight * 0.5f - decorThickness * 0.5f;
+                            strikeY = MathF.Round(strikeY + GlobalTransform.M42) - GlobalTransform.M42;
+                            QueueTransformedQuad(overlayBatch, decorX, strikeY, lineWidth, decorThickness, color);
+                        }
                     }
                     //if (flag)
                     //{
@@ -312,6 +363,18 @@ namespace Game {
             return m;
         }
 
+        // 局部坐标 quad（x,y 左上）四角各自经 GlobalTransform 变换后入 FlatBatch（RichTextWidget 同款，
+        // 只变换两对角点会在旋转/斜切下塌陷）；flat batch 按 Layer 跨 widget 共享实例，队列时即变换
+        // 避免与 sink 顶点收尾变换叠乘
+        void QueueTransformedQuad(FlatBatch2D batch, float x, float y, float width, float height, Color color) {
+            Matrix m = GlobalTransform;
+            Vector2 p1 = Vector2.Transform(new Vector2(x, y), m);
+            Vector2 p2 = Vector2.Transform(new Vector2(x + width, y), m);
+            Vector2 p3 = Vector2.Transform(new Vector2(x + width, y + height), m);
+            Vector2 p4 = Vector2.Transform(new Vector2(x, y + height), m);
+            batch.QueueQuad(p1, p2, p3, p4, 0f, color);
+        }
+
         // 矢量绘制路径（P4）：m_lines 行列表与位图路径同源（UpdateLines 已在 Measure 时填充）。
         // 颜色（Color*GlobalColorTransform、阴影黑底取主色 A）、垂直锚点（num 行高累计）、
         // GlobalTransform（每批记录本 widget 入队前顶点数，收尾 TransformTriangles 同 :225）语义镜像位图路径；
@@ -322,6 +385,15 @@ namespace Game {
         // 差异：字形不逐点吸附像素，矢量图集 LinearClamp 采样按亚像素定位，v1 接受）
         void DrawVectorText(DrawContext dc) {
             SamplerState samplerState = TextureLinearFilter ? SamplerState.LinearClamp : SamplerState.PointClamp;
+            // 装饰批（位图路径同款分层/竖排限定）；矩形走 GlobalTransform 四角变换（与 sink 顶点收尾
+            // 变换同栅），文字装饰基准照抄 RichTextWidget：em=GlyphHeight×FontScale×Font.Scale 不分流两态
+            bool horizontal = TextOrientation == TextOrientation.Horizontal;
+            FlatBatch2D underlayBatch = horizontal
+                && (BackgroundColor.A != 0 || Underline) ? dc.PrimitivesRenderer2D.FlatBatch(-1, DepthStencilState.None) : null;
+            FlatBatch2D overlayBatch = horizontal && Strikethrough ? dc.PrimitivesRenderer2D.FlatBatch(2, DepthStencilState.None) : null;
+            float baselineShiftY = horizontal ? BaselineShift * Font.GlyphHeight * FontScale * Font.Scale : 0f;
+            float emHeight = Font.GlyphHeight * FontScale * Font.Scale;
+            float decorThickness = MathUtils.Max(FontScale * Font.Scale, 1f);
             VectorGlyphSink sink = new(dc.PrimitivesRenderer2D, samplerState);
             float lineHeight = VectorFont.LineHeight * FontScale;
             float num = 0f;
@@ -366,6 +438,25 @@ namespace Game {
                 else {
                     pivot = new Vector2(x + runOffset, num); // 水平：锚点偏移沿行进轴（widget X）
                     num += lineHeight; // 行距只在水平分支累加（竖排走 lineIndex，num 恒=锚点基值）——切勿再留 foreach 尾部累加，否则水平双倍行距
+                    pivot.Y += baselineShiftY;
+                    if (underlayBatch != null
+                        || overlayBatch != null) {
+                        // 装饰矩形：行宽用排版同式（MeasureString+len×FontSpacing.X，spacing 记账口径一致）
+                        float decorWidth = lineWidth + line.Length * FontSpacing.X;
+                        if (underlayBatch != null) {
+                            if (BackgroundColor.A != 0) {
+                                QueueTransformedQuad(underlayBatch, pivot.X, pivot.Y, decorWidth, emHeight, BackgroundColor * GlobalColorTransform);
+                            }
+                            if (Underline) {
+                                QueueTransformedQuad(underlayBatch, pivot.X, pivot.Y + emHeight + 1f, decorWidth, decorThickness, color);
+                            }
+                        }
+                        if (overlayBatch != null) {
+                            float strikeY = pivot.Y + emHeight * 0.5f - decorThickness * 0.5f;
+                            strikeY = MathF.Round(strikeY + GlobalTransform.M42) - GlobalTransform.M42;
+                            QueueTransformedQuad(overlayBatch, pivot.X, strikeY, decorWidth, decorThickness, color);
+                        }
+                    }
                 }
                 sink.Rotated = vertical;
                 if (DropShadow) {
