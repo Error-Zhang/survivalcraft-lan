@@ -53,6 +53,11 @@ namespace Game {
             set => m_labelWidget.DropShadow = value;
         }
 
+        public Color DropShadowColor {
+            get => m_labelWidget.DropShadowColor;
+            set => m_labelWidget.DropShadowColor = value;
+        }
+
         public bool WordWrap {
             get => m_labelWidget.WordWrap;
             set => m_labelWidget.WordWrap = value;

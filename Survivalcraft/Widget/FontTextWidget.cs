@@ -157,6 +157,10 @@ namespace Game {
 
         public bool DropShadow { get; set; }
 
+        // 阴影色：默认 Black（ctor 置），A 通道乘文字 A——默认 255×textA/255=textA 精确保持历史
+        // 黑影随文字透明度衰减语义；自定义半透明影同比例随文字淡出
+        public Color DropShadowColor { get; set; }
+
         // 行内装饰四件（TextSpan 同款语义，整件粒度）：背景=文字盒 em 高矩形（A==0 跳过）、
         // 删除线=em 中线（layer 2 压字上，同 RichTextWidget 防烘焙黑描边切缝）、下划线=em 下 1px
         // （layer -1 压字下）、BaselineShift=em 比例纯绘制偏移（度量/布局无感）。竖排不施装饰：
@@ -203,6 +207,7 @@ namespace Game {
             IsHitTestVisible = false;
             FontScale = 1f;
             Color = Color.White;
+            DropShadowColor = Color.Black;
             TextureLinearFilter = true;
             Size = new Vector2(-1f);
             // P4：默认启用矢量链（回滚点=本行）；链未构建/构建失败时为 null → 位图路径零改动
@@ -301,7 +306,7 @@ namespace Game {
                             line,
                             vector + 1f * new Vector2(FontScale),
                             0f,
-                            new Color((byte)0, (byte)0, (byte)0, color.A),
+                            ShadowColor(color),
                             anchor,
                             new Vector2(FontScale),
                             FontSpacing,
@@ -346,6 +351,17 @@ namespace Game {
                 }
                 fontBatch2D.TransformTriangles(GlobalTransform, count);
             }
+        }
+
+        // 阴影色：DropShadowColor 的 A 乘文字 A（默认 Black 255×textA/255=textA，精确等于历史
+        // 黑影随文字透明度衰减语义）；RGB 原样——自定义影色（如暖灰、彩色辉光）不随文字色染
+        Color ShadowColor(Color textColor) {
+            return new Color(
+                DropShadowColor.R,
+                DropShadowColor.G,
+                DropShadowColor.B,
+                (byte)(DropShadowColor.A * textColor.A / 255)
+            );
         }
 
         // 斜体切变矩阵（位图路径用，RichTextWidget.ItalicShearMatrix 同构但原点不同）：
@@ -462,7 +478,7 @@ namespace Game {
                 if (DropShadow) {
                     // 阴影位移在 widget 空间恒 (+1,+1)*缩放：两种朝向下都等价于 pivot 平移（旋转分支输出两分量同加）
                     sink.Pivot = pivot + new Vector2(FontScale);
-                    DrawVectorLine(sink, line, new Color((byte)0, (byte)0, (byte)0, color.A), size, gtScale);
+                    DrawVectorLine(sink, line, ShadowColor(color), size, gtScale);
                 }
                 sink.Pivot = pivot;
                 DrawVectorLine(sink, line, color, size, gtScale);
