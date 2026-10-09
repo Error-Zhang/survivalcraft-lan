@@ -433,15 +433,19 @@ namespace Game {
                 // 若混入栅格空间行宽（×gtScale），UI 全局缩放≠1 时 Center/Right 锚点偏移被放大 gtScale 倍
                 //（ModSettingsScreen Description 不居中根因）；探针 gt=1 测不到，F9 矩阵以 RenderTransform ×1.6 复现
                 float lineWidth = VectorFont.MeasureString(line, VectorFont.DefaultSize * FontScale, Bold, Italic).X;
+                // 锚点 runOffset 基于墨迹宽：字符间 spacing 实画 n−1 个（末字符后无 spacing 墨迹），
+                // 与装饰矩形的 n 口径（含尾 advance 记账）语义不同——用 MeasureString 裸宽时
+                // Center/Right 随字距整体越界 (n−1)·FontSpacing.X
+                float inkWidth = lineWidth + MathF.Max(line.Length - 1, 0) * FontSpacing.X;
                 float x = 0f;
                 float runOffset = 0f; // CalculateTextOffset.X 口径：Center −w/2、Right −w（沿行进轴的行宽偏移）
                 if ((anchor & TextAnchor.HorizontalCenter) != 0) {
                     x = ActualSize.X / 2f;
-                    runOffset = -lineWidth / 2f;
+                    runOffset = -inkWidth / 2f;
                 }
                 else if ((anchor & TextAnchor.Right) != 0) {
                     x = ActualSize.X;
-                    runOffset = -lineWidth;
+                    runOffset = -inkWidth;
                 }
                 Vector2 pivot;
                 if (vertical) {

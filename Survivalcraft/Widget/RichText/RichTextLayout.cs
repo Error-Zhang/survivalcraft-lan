@@ -292,7 +292,17 @@ namespace Game {
                 width += CharacterAdvance(cells[i].C, scale, cells[i].Span);
                 if (i + 1 < end
                     && cells[i + 1].Sequence == cells[i].Sequence) {
-                    width -= Font.GetKerning(cells[i].C, cells[i + 1].C) * scale * Font.Scale;
+                    // 位图 kerning 减项只服务双位图字符对：挂链字符 advance 已走矢量实测（FSS 无
+                    // 逐对公开 kerning API），减位图 kerning 是两个独立来源混算——矢量对不扣
+                    // （kerning 常见为负，预算略松=折行保守），与 MeasureRunWidth 分段盒同口径
+                    TextSpan spanI = cells[i].Span;
+                    TextSpan spanJ = cells[i + 1].Span;
+                    VectorFont chainI = spanI.Monospace ? (MonoVectorFont ?? VectorFont) : VectorFont;
+                    VectorFont chainJ = spanJ.Monospace ? (MonoVectorFont ?? VectorFont) : VectorFont;
+                    if ((chainI == null || !chainI.HasGlyph(cells[i].C))
+                        && (chainJ == null || !chainJ.HasGlyph(cells[i + 1].C))) {
+                        width -= Font.GetKerning(cells[i].C, cells[i + 1].C) * scale * Font.Scale;
+                    }
                 }
                 float limit = reserveEllipsis ? availableWidth - MeasureEllipsisWidth(scale) : availableWidth;
                 if (width + borderWidths > limit) {
@@ -304,25 +314,43 @@ namespace Game {
 
         float SpanScale(TextSpan span) => span.FontScale > 0f ? span.FontScale : DefaultFontScale;
 
-        // run 盒宽：与 Draw 的 run 级分流同口径。矢量 run（首字符在链覆盖内）= 整串矢量实测——
-        // FSS 推进含字符对 kerning（跨链源恒 0、无逐对公开 API），逐字符和会漏 kerning 使
-        // run 间累积漂移（实测 +5~6px/行）；整串量测与 DrawText 同函数同值。位图 run（首字符
-        // 缺字整 run 回退位图绘制）= 逐字符位图预算（与折行口径同源）。矢量分支字距按字符数
-        // 线性并入（run 盒含间距；Draw 侧经 characterSpacing 直绘同一间距，逐字符步进含尾间距
-        // n 个、整串绘制含字符间 n−1 个+段尾补 1，两端同口径）
+        // run 盒宽：与 Draw 的 run 级分流同口径——按字符 HasGlyph 切段，镜像 VectorFont.DrawText
+        // 内部的矢量/位图分段状态机。矢量段整串量测：FSS 推进含字符对 kerning（跨链源恒 0、
+        // 无逐对公开 API），逐字符和会漏 kerning 使 run 间累积漂移（实测 +5~6px/行）；整串量测
+        // 与 DrawText 同函数同值。位图段逐字符位图预算：FSS 度量对链内缺字码点直接跳过 X 贡献
+        // （prevGlyph 不复位），整串量测会静默丢缺字字符宽——run 首字挂链+后续含链外字符（emoji/
+        // PUA/生僻符号）时盒窄于实画、后续 run 压上来。跨段 kerning 两端都不计（DrawText 各段
+        // 独立排布）。字距按段字符数线性并入（每字符后一个，与 CountFittingCells 逐字符口径同 n）；
+        // Draw 侧字距经 characterSpacing 直绘同一间距（FSS 段字符间 n−1+段尾补 1）
         float MeasureRunWidth(string text, TextSpan span, float fontScale) {
             VectorFont chain = span.Monospace ? (MonoVectorFont ?? VectorFont) : VectorFont;
-            if (chain != null
-                && text.Length > 0
-                && chain.HasGlyph(text[0])) {
-                return chain.MeasureString(text, chain.DefaultSize * fontScale, span.Bold, span.Italic).X + LetterSpacing * text.Length;
-            }
             float width = 0f;
-            for (int i = 0; i < text.Length; i++) {
-                width += CharacterAdvance(text[i], fontScale, span);
-                if (i + 1 < text.Length) {
-                    width -= Font.GetKerning(text[i], text[i + 1]) * fontScale * Font.Scale;
+            int start = 0;
+            bool segVector = chain != null
+                && text.Length > 0
+                && chain.HasGlyph(text[0]);
+            for (int i = 1; i <= text.Length; i++) {
+                bool segIsVector = i < text.Length
+                    && chain != null
+                    && chain.HasGlyph(text[i]);
+                if (i < text.Length
+                    && segIsVector == segVector) {
+                    continue;
                 }
+                if (segVector) {
+                    width += chain.MeasureString(text[start..i], chain.DefaultSize * fontScale, span.Bold, span.Italic).X
+                        + LetterSpacing * (i - start);
+                }
+                else {
+                    for (int k = start; k < i; k++) {
+                        width += CharacterAdvance(text[k], fontScale, span);
+                        if (k + 1 < i) {
+                            width -= Font.GetKerning(text[k], text[k + 1]) * fontScale * Font.Scale;
+                        }
+                    }
+                }
+                start = i;
+                segVector = segIsVector;
             }
             return width;
         }

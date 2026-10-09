@@ -216,7 +216,11 @@ namespace Engine.Media {
                 float runHeight;
                 if (runIsBitmap) {
                     runHeight = DrawBitmapFallback(sink, run, new Vector2(pos.X + xAdvance, pos.Y), color, size, 0f, characterSpacing);
-                    xAdvance += MeasureBitmapRun(run, size) + characterSpacing * run.Length;
+                    if (_fallbackBitmapFont != null) {
+                        // spacing 只计实际推进的字符（\r/\u200b 被推进循环跳过不加间距）；
+                        // 回退字体缺失时段整体不画不推进，累计量与 spacing 一并不动
+                        xAdvance += MeasureBitmapRun(run, size) + characterSpacing * CountBitmapAdvanced(run);
+                    }
                 }
                 else {
                     spriteFont.DrawText(_renderer, run,
@@ -284,6 +288,20 @@ namespace Engine.Media {
                 return 0f;
             }
             return font.MeasureText(text, new Vector2(size / DefaultSizeValue), Vector2.Zero).X;
+        }
+
+        // DrawBitmapFallback 实际推进的字符数：跳过 \r/\u200b（\u00a0 转空格照常推进）——
+        // 段宽的 spacing 记账与推进循环同口径
+        static int CountBitmapAdvanced(string text) {
+            int count = 0;
+            for (int i = 0; i < text.Length; i++) {
+                char c = text[i];
+                if (c != '\r'
+                    && c != '\u200b') {
+                    count++;
+                }
+            }
+            return count;
         }
 
         /// <summary>
