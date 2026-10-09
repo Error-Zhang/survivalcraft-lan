@@ -700,6 +700,41 @@ namespace Game {
         public virtual void OnTerrainDraw(SubsystemTerrain subsystemTerrain, Camera camera, int drawOrder) { }
 
         /// <summary>
+        ///     在创建方块几何生成器（BlockGeometryGenerator）时执行，可通过替换实例来自定义
+        ///     顶点光照/几何生成（如扩展世界高度时对越界坐标的处理）。未提供实例时按原逻辑 new。
+        ///     注意：主世界地形与移动方块子系统的临时画布地形各创建一份，两处都会触发
+        /// </summary>
+        /// <param name="subsystemTerrain">所属的SubsystemTerrain（移动方块画布传的也是主世界这个）</param>
+        /// <param name="terrain">该生成器使用的地形（移动方块画布用的是它自己的临时Terrain）</param>
+        /// <param name="subsystemElectricity">原版构造参数，可能为null</param>
+        /// <param name="subsystemFurnitureBlockBehavior">原版构造参数，可能为null</param>
+        /// <param name="subsystemMetersBlockBehavior">原版构造参数，可能为null</param>
+        /// <param name="subsystemPalette">原版构造参数，可能为null</param>
+        /// <param name="generator">即将使用的生成器，可替换为自己的BlockGeometryGenerator子类</param>
+        public virtual void OnBlockGeometryGeneratorCreated(SubsystemTerrain subsystemTerrain,
+            Terrain terrain,
+            SubsystemElectricity subsystemElectricity,
+            SubsystemFurnitureBlockBehavior subsystemFurnitureBlockBehavior,
+            SubsystemMetersBlockBehavior subsystemMetersBlockBehavior,
+            SubsystemPalette subsystemPalette,
+            ref BlockGeometryGenerator generator) { }
+
+        /// <summary>
+        ///     在收集地形碰撞箱时执行（物理体做碰撞检测时调用），Skip为true则跳过原版实现。
+        ///     用于需要改变地形碰撞扫描范围/负坐标支持等场景
+        /// </summary>
+        /// <param name="componentBody">正在检测的物理体</param>
+        /// <param name="box">检测范围</param>
+        /// <param name="result">碰撞箱输出，往这个集合里添加</param>
+        /// <param name="skip">设为true跳过原版实现</param>
+        public virtual void FindTerrainCollisionBoxes(ComponentBody componentBody,
+            BoundingBox box,
+            DynamicArray<ComponentBody.CollisionBox> result,
+            out bool skip) {
+            skip = false;
+        }
+
+        /// <summary>
         ///     子系统帧更新时执行
         /// </summary>
         [Obsolete("Use SubsystemUpdate(SubsystemUpdate subsystemUpdate, float dt)")]

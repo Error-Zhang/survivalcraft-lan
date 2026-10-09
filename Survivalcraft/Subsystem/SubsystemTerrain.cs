@@ -521,12 +521,30 @@ namespace Game {
             TerrainRenderer = new TerrainRenderer(this);
             TerrainUpdater = new TerrainUpdater(this);
             TerrainSerializer = new TerrainSerializer23(SubsystemGameInfo.DirectoryName);
-            BlockGeometryGenerator = new BlockGeometryGenerator(
+            SubsystemElectricity subsystemElectricity = Project.FindSubsystem<SubsystemElectricity>(true);
+            SubsystemMetersBlockBehavior subsystemMetersBlockBehavior = Project.FindSubsystem<SubsystemMetersBlockBehavior>(true);
+            BlockGeometryGenerator blockGeometryGenerator = null;
+            ModsManager.HookAction(
+                "OnBlockGeometryGeneratorCreated",
+                loader => {
+                    loader.OnBlockGeometryGeneratorCreated(
+                        this,
+                        Terrain,
+                        subsystemElectricity,
+                        SubsystemFurnitureBlockBehavior,
+                        subsystemMetersBlockBehavior,
+                        SubsystemPalette,
+                        ref blockGeometryGenerator
+                    );
+                    return false;
+                }
+            );
+            BlockGeometryGenerator = blockGeometryGenerator ?? new BlockGeometryGenerator(
                 Terrain,
                 this,
-                Project.FindSubsystem<SubsystemElectricity>(true),
+                subsystemElectricity,
                 SubsystemFurnitureBlockBehavior,
-                Project.FindSubsystem<SubsystemMetersBlockBehavior>(true),
+                subsystemMetersBlockBehavior,
                 SubsystemPalette
             );
             TerrainGenerationMode terrainGenerationMode = SubsystemGameInfo.WorldSettings.TerrainGenerationMode;

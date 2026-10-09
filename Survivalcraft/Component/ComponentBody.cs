@@ -996,6 +996,18 @@ namespace Game {
             if (!TerrainCollidable) {
                 return;
             }
+            bool skip = false;
+            ModsManager.HookAction(
+                "FindTerrainCollisionBoxes",
+                loader => {
+                    loader.FindTerrainCollisionBoxes(this, box, result, out bool Skip);
+                    skip |= Skip;
+                    return false;
+                }
+            );
+            if (skip) {
+                return;
+            }
             Point3 point = Terrain.ToCell(box.Min);
             Point3 point2 = Terrain.ToCell(box.Max);
             point.Y = MathUtils.Max(point.Y, 0);

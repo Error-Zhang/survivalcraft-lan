@@ -574,14 +574,27 @@ namespace Game {
             if (m_blockGeometryGenerator == null) {
                 int x = 2;
                 x = (int)MathUtils.NextPowerOf2((uint)x);
-                m_blockGeometryGenerator = new BlockGeometryGenerator(
-                    new Terrain(),
-                    m_subsystemTerrain,
-                    null,
-                    Project.FindSubsystem<SubsystemFurnitureBlockBehavior>(true),
-                    null,
-                    Project.FindSubsystem<SubsystemPalette>(true)
+                Terrain canvasTerrain = new Terrain();
+                SubsystemFurnitureBlockBehavior canvasFurniture = Project.FindSubsystem<SubsystemFurnitureBlockBehavior>(true);
+                SubsystemPalette canvasPalette = Project.FindSubsystem<SubsystemPalette>(true);
+                BlockGeometryGenerator canvasGenerator = null;
+                ModsManager.HookAction(
+                    "OnBlockGeometryGeneratorCreated",
+                    loader => {
+                        loader.OnBlockGeometryGeneratorCreated(
+                            m_subsystemTerrain,
+                            canvasTerrain,
+                            null,
+                            canvasFurniture,
+                            null,
+                            canvasPalette,
+                            ref canvasGenerator
+                        );
+                        return false;
+                    }
                 );
+                m_blockGeometryGenerator = canvasGenerator
+                    ?? new BlockGeometryGenerator(canvasTerrain, m_subsystemTerrain, null, canvasFurniture, null, canvasPalette);
                 for (int i = 0; i < x; i++) {
                     for (int j = 0; j < x; j++) {
                         m_blockGeometryGenerator.Terrain.AllocateChunk(i, j);
