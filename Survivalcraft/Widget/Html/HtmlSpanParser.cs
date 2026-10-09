@@ -495,7 +495,7 @@ namespace Game {
                         && spans[i].Href == null) {
                         spans[i].Color = forceColor;
                     }
-                    spans[i].BackgroundColor = background;
+                    spans[i].BackgroundColor = background ?? Color.Transparent;
                 }
             }
         }
@@ -510,7 +510,7 @@ namespace Game {
             spans.Add(
                 new TextSpan(text, style.Color ?? defaultColor, style.Bold, style.Italic) {
                     Href = style.Href,
-                    BackgroundColor = style.Background,
+                    BackgroundColor = style.Background ?? Color.Transparent,
                     Strikethrough = style.Strikethrough,
                     FontScale = style.Scale,
                     Underline = style.Underline,

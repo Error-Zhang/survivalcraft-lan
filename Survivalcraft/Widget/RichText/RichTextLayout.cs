@@ -260,7 +260,7 @@ namespace Game {
                 float sourceScale = source != null ? SpanScale(source) : DefaultFontScale;
                 TextSpan ellipsis = new("...") {
                     Color = source?.Color,
-                    BackgroundColor = source?.BackgroundColor,
+                    BackgroundColor = source != null ? source.BackgroundColor : Color.Transparent,
                     FontScale = sourceScale,
                     Bold = source?.Bold ?? false,
                     Italic = source?.Italic ?? false,

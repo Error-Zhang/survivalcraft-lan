@@ -315,7 +315,7 @@ namespace Game {
                     }
                     if (color.A == 0
                         && !run.Span.IsLink
-                        && run.Span.BackgroundColor == null
+                        && run.Span.BackgroundColor.A == 0
                         && run.Span.Border == null) {
                         continue;
                     }
@@ -349,9 +349,9 @@ namespace Game {
                     Vector2 drawDelta = draw - position;
                     TextAnchor anchor = TextAnchor.Default | TextAnchor.DisableSnapToPixels;
                     if (flatBatch2D != null
-                        && run.Span.BackgroundColor is Color background) {
+                        && run.Span.BackgroundColor.A != 0) {
                         // 背景＝run 自身字号的 em 高矩形（同下划线基准）；fade<1 时随 run 淡出
-                        Color backgroundColor = background * GlobalColorTransform;
+                        Color backgroundColor = run.Span.BackgroundColor * GlobalColorTransform;
                         if (fade < 1f) {
                             backgroundColor *= fade;
                         }
@@ -571,7 +571,7 @@ namespace Game {
         bool HasBackground {
             get {
                 foreach (TextSpan span in Spans) {
-                    if (span.BackgroundColor != null) {
+                    if (span.BackgroundColor.A != 0) {
                         return true;
                     }
                 }

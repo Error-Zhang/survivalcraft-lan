@@ -7,8 +7,8 @@ namespace Game {
         // null 时回退到 RichTextWidget.Color
         public Color? Color { get; set; }
 
-        // 行内背景色，null 时无背景
-        public Color? BackgroundColor { get; set; }
+        // 行内背景色，A==0（含未声明 default 与 CSS background:transparent 解析值）时无背景
+        public Color BackgroundColor { get; set; }
 
         // 删除线（markdown ~~x~~ / HTML del|s|strike），绘制于 em 中线
         public bool Strikethrough { get; set; }
