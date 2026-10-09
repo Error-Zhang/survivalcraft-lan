@@ -72,7 +72,6 @@ namespace Game {
             m_screenshotSizeCustomWidthSlider = Children.Find<SliderWidget>("ScreenshotSizeCustomWidthSlider");
             m_screenshotSizeCustomAspectRatioSliderContainer = Children.Find<ContainerWidget>("ScreenshotSizeCustomAspectRatioSliderContainer");
             m_screenshotSizeCustomAspectRatioSlider = Children.Find<SliderWidget>("ScreenshotSizeCustomAspectRatioSlider");
-            m_communityContentModeButton = Children.Find<ButtonWidget>("CommunityContentModeButton");
             m_originalCommunityContentModeButton = Children.Find<ButtonWidget>("OriginalCommunityContentModeButton");
             m_deleteWorldNeedToTextButton = Children.Find<ButtonWidget>("DeleteWorldNeedToTextButton");
             int maxWidth = Math.Min(Display.MaxTextureSize, 16320);
@@ -170,10 +169,6 @@ namespace Game {
             if (m_deleteWorldNeedToTextButton.IsClicked) {
                 SettingsManager.DeleteWorldNeedToText = !SettingsManager.DeleteWorldNeedToText;
             }
-            if (m_communityContentModeButton.IsClicked) {
-                SettingsManager.CommunityContentMode = (CommunityContentMode)((int)(SettingsManager.CommunityContentMode + 1)
-                    % EnumUtils.GetEnumValues<CommunityContentMode>().Count);
-            }
             if (m_originalCommunityContentModeButton.IsClicked) {
                 SettingsManager.OriginalCommunityContentMode = (CommunityContentMode)((int)(SettingsManager.OriginalCommunityContentMode + 1)
                     % EnumUtils.GetEnumValues<CommunityContentMode>().Count);
@@ -195,7 +190,6 @@ namespace Game {
             m_screenshotSizeCustomWidthSlider.Text = SettingsManager.ScreenshotSizeCustomWidths[SettingsManager.ScreenshotSizeCustomWidthIndex].ToString();
             m_screenshotSizeCustomAspectRatioSlider.Text = SettingsManager.ScreenshotSizeCustomAspectRatiosNames[SettingsManager.ScreenshotSizeCustomAspectRatioIndex];
             m_deleteWorldNeedToTextButton.Text = SettingsManager.DeleteWorldNeedToText ? LanguageControl.Yes : LanguageControl.No;
-            m_communityContentModeButton.Text = LanguageControl.Get("CommunityContentMode", SettingsManager.CommunityContentMode.ToString());
             m_originalCommunityContentModeButton.Text = LanguageControl.Get(
                 "CommunityContentMode",
                 SettingsManager.OriginalCommunityContentMode.ToString()

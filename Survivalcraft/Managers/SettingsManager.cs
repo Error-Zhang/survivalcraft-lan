@@ -297,7 +297,11 @@ namespace Game {
 
         public static string LastLaunchedVersion { get; set; }
 
-        public static CommunityContentMode CommunityContentMode { get; set; }
+        [Obsolete]
+        public static CommunityContentMode CommunityContentMode {
+            get => CommunityContentMode.Normal;
+            set {}
+        }
 
         public static CommunityContentMode OriginalCommunityContentMode { get; set; }
 
@@ -680,7 +684,6 @@ namespace Game {
                 MotdLastDownloadedData = string.Empty;
                 UserId = string.Empty;
                 LastLaunchedVersion = string.Empty;
-                CommunityContentMode = CommunityContentMode.Normal;
                 OriginalCommunityContentMode = CommunityContentMode.Normal;
                 CommunityDownloadSourceManualSelectEnabled = false;
                 CommunityDefaultDownloadSourceName = CommunityDownloadSourceManager.DefaultCnInfo.Name;

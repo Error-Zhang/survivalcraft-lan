@@ -159,18 +159,10 @@
         }
 
         public static IEnumerable<Info> GetAllInfos() {
-            if (SettingsManager.OriginalCommunityContentMode == CommunityContentMode.Disabled) {
-                if (SettingsManager.CommunityContentMode != CommunityContentMode.Disabled) {
-                    yield return DefaultChineseInfo;
-                }
-            }
-            else if (SettingsManager.CommunityContentMode == CommunityContentMode.Disabled) {
+            if (SettingsManager.OriginalCommunityContentMode != CommunityContentMode.Disabled) {
                 yield return DefaultOriginalInfo;
             }
-            else {
-                yield return DefaultOriginalInfo;
-                yield return DefaultChineseInfo;
-            }
+            yield return DefaultChineseInfo;
             foreach (Info info in UserInfos) {
                 yield return info;
             }

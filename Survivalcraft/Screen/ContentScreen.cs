@@ -61,7 +61,8 @@ namespace Game {
         }
 
         public override void Update() {
-            m_communityContentButton.IsEnabled = SettingsManager.CommunityContentMode != CommunityContentMode.Disabled && SettingsManager.OriginalCommunityContentMode != CommunityContentMode.Disabled;
+            //m_communityContentButton.IsEnabled = SettingsManager.CommunityContentMode != CommunityContentMode.Disabled && SettingsManager.OriginalCommunityContentMode != CommunityContentMode.Disabled;
+            m_communityContentButton.IsEnabled = true;
             if (m_externalContentButton.IsClicked) {
                 ScreensManager.SwitchScreen("ExternalContent");
             }
