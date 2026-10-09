@@ -12,7 +12,6 @@ namespace Game {
         public ButtonWidget m_compatibilityButton;
         public ButtonWidget m_audioButton;
         public ButtonWidget m_controlsButton;
-        public ButtonWidget m_fontButton;
         public ButtonWidget m_modSettingsButton;
 
         public StackPanelWidget m_leftStack, m_rightPanel;
@@ -27,7 +26,6 @@ namespace Game {
             m_compatibilityButton = Children.Find<ButtonWidget>("Compatibility");
             m_audioButton = Children.Find<ButtonWidget>("Audio");
             m_controlsButton = Children.Find<ButtonWidget>("Controls");
-            m_fontButton = Children.Find<ButtonWidget>("Font");
             m_modSettingsButton = Children.Find<ButtonWidget>("ModSettings");
             m_leftStack = Children.Find<StackPanelWidget>("LeftStack");
             m_rightPanel = Children.Find<StackPanelWidget>("RightStack");
@@ -44,12 +42,6 @@ namespace Game {
                 }
             );
         }
-
-        /*public override void Enter(object[] parameters) {
-            if (m_previousScreen == null) {
-                m_previousScreen = ScreensManager.PreviousScreen;
-            }
-        }*/
 
         public override void Update() {
             if (m_performanceButton.IsClicked) {
@@ -70,9 +62,6 @@ namespace Game {
             if (m_controlsButton.IsClicked) {
                 ScreensManager.SwitchScreen("SettingsControls");
             }
-            if (m_fontButton.IsClicked) {
-                ScreensManager.SwitchScreen("SettingsFont");
-            }
             if (m_modSettingsButton.IsClicked) {
                 ScreensManager.SwitchScreen("ModSettings");
             }
@@ -84,8 +73,6 @@ namespace Game {
             if (Input.Back
                 || Input.Cancel
                 || Children.Find<ButtonWidget>("TopBar.Back").IsClicked) {
-                //ScreensManager.SwitchScreen(m_previousScreen);
-                //m_previousScreen = null;
                 ScreensManager.GoBack();
             }
         }

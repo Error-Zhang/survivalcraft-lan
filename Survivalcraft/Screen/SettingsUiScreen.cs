@@ -10,6 +10,7 @@ namespace Game {
         public ButtonWidget m_windowModeButton;
 
         public ButtonWidget m_languageButton;
+        public ButtonWidget m_fontButton;
 
         public ButtonWidget m_displayLogButton;
 
@@ -53,6 +54,7 @@ namespace Game {
             LoadContents(this, node);
             m_windowModeContainer = Children.Find<ContainerWidget>("WindowModeContainer");
             m_languageButton = Children.Find<ButtonWidget>("LanguageButton");
+            m_fontButton = Children.Find<ButtonWidget>("FontButton");
             m_displayLogButton = Children.Find<ButtonWidget>("DisplayLogButton");
             m_windowModeButton = Children.Find<ButtonWidget>("WindowModeButton");
             m_uiScaleSlider = Children.Find<SliderWidget>("UIScaleSlider");
@@ -106,6 +108,9 @@ namespace Game {
             }
             if (m_languageButton.IsClicked) {
                 LanguageControl.CreateLanguageSelectionDialog(null);
+            }
+            if (m_fontButton.IsClicked) {
+                ScreensManager.SwitchScreen("SettingsFont");
             }
             if (m_displayLogButton.IsClicked) {
                 SettingsManager.DisplayLog = !SettingsManager.DisplayLog;
@@ -197,7 +202,7 @@ namespace Game {
             if (Input.Back
                 || Input.Cancel
                 || Children.Find<ButtonWidget>("TopBar.Back").IsClicked) {
-                ScreensManager.SwitchScreen(ScreensManager.PreviousScreen);
+                ScreensManager.GoBack();
             }
         }
     }

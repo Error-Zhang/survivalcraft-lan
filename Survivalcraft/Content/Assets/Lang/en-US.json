@@ -3638,7 +3638,9 @@
       "Custom screenshot aspect ratio",
       "Adapt edge to edge display",
       "VR GUI Size:",
-      "VR GUI Dock to Left Hand:"
+      "VR GUI Dock to Left Hand:",
+      "Font:",
+      "Settings"
     ],
     "TrialEndedScreen": {
       "1": "The day has ended",
