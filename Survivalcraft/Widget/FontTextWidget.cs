@@ -486,25 +486,12 @@ namespace Game {
             sink.TransformTriangles(GlobalTransform);
         }
 
-        // 单行矢量绘制：FontSpacing.X=0 走整串快路；≠0 逐字 DrawText 推进（FSS 无字距参数，历史矢量路径
-        // 曾整体忽略 FontSpacing——XML FontSpacing="2,0" 字距静默丢失）。字距乘 gtScale 进栅格空间：
-        // sink 出 quad 时除回 widget 空间，屏上落点字距=FontSpacing.X（与位图 spacing 含尾字符记账一致）
+        // 单行矢量绘制：FontSpacing.X 经 DrawText 的 characterSpacing 直绘（×gtScale 进栅格空间，
+        // sink 出 quad 时除回 widget 空间，屏上字距=FontSpacing.X；spacing 记账与装饰矩形
+        // MeasureString+len×FontSpacing.X 同 n 口径）。整串一次调用保留字符间 kerning——
+        // 旧逐字绕路（历史因 FSS 无字距参数，每字符独立 DrawText 手补间距）丢 kerning，作废
         void DrawVectorLine(VectorGlyphSink sink, string line, Color color, float size, float gtScale) {
-            if (FontSpacing.X == 0f) {
-                VectorFont.DrawText(sink, line, Vector2.Zero, color, size, Bold, Italic);
-                return;
-            }
-            float x = 0f;
-            float spacingFss = FontSpacing.X * gtScale;
-            foreach (char c in line) {
-                if (c == '\r'
-                    || c == '\u200b') {
-                    continue;
-                }
-                string s = c.ToString();
-                VectorFont.DrawText(sink, s, new Vector2(x, 0f), color, size, Bold, Italic);
-                x += VectorFont.MeasureString(s, size, Bold, Italic).X + spacingFss;
-            }
+            VectorFont.DrawText(sink, line, Vector2.Zero, color, size, Bold, Italic, FontSpacing.X * gtScale);
         }
 
         // widget 级字形 quad 接收口：按纹理路由/缓存 VectorFontBatch2D（layer/渲染状态与位图路径 FontBatch 同粒度），

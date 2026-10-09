@@ -308,7 +308,8 @@ namespace Game {
         // FSS 推进含字符对 kerning（跨链源恒 0、无逐对公开 API），逐字符和会漏 kerning 使
         // run 间累积漂移（实测 +5~6px/行）；整串量测与 DrawText 同函数同值。位图 run（首字符
         // 缺字整 run 回退位图绘制）= 逐字符位图预算（与折行口径同源）。矢量分支字距按字符数
-        // 线性并入（run 盒含间距；DrawText 无字距参数，矢量 run 的字距仅入排版预算——留档）
+        // 线性并入（run 盒含间距；Draw 侧经 characterSpacing 直绘同一间距，逐字符步进含尾间距
+        // n 个、整串绘制含字符间 n−1 个+段尾补 1，两端同口径）
         float MeasureRunWidth(string text, TextSpan span, float fontScale) {
             VectorFont chain = span.Monospace ? (MonoVectorFont ?? VectorFont) : VectorFont;
             if (chain != null

@@ -336,7 +336,8 @@ namespace Game {
                     // 字距折入绘制侧 spacing（QueueLine 推进=glyph.Width−kerning+fullSpacing，
                     // font 单位经 right 缩放）：除回本 run 的 scale×Font.Scale 还原绝对 px，
                     // 与排版侧 CharacterAdvance+LetterSpacing 同值——否则 run 宽虚胀、字形紧排，
-                    // 折行/锚点/命中与实画系统性漂移（排版-绘制不变量，文件头自述）
+                    // 折行/锚点/命中与实画系统性漂移（排版-绘制不变量，文件头自述）。
+                    // 矢量 run 不走此量（QueueText 只服务位图），字距经 DrawText 的 characterSpacing 直绘
                     Vector2 drawSpacing = new(FontSpacing.X + LetterSpacing / (scale.X * Font.Scale), FontSpacing.Y);
                     Vector2 position = new(lineX + run.X, blockY + line.Y);
                     // 基线偏移（sub/sup）：先融进 position，背景/文字/删除线/下划线全体跟随；
@@ -433,6 +434,9 @@ namespace Game {
                         && runChain.HasGlyph(run.Text[0])) {
                         float vectorSize = runChain.DefaultSize * SpanScale(run.Span) * vectorGtScale;
                         Vector2 vectorDraw = draw * vectorGtScale;
+                        // 矢量侧字距直绘：characterSpacing 在 FSS font 空间（经 sink Scale 除回 gt），
+                        // ×vectorGtScale 还原排版侧的 widget px——与位图侧 drawSpacing 同一不变量
+                        float vectorSpacing = LetterSpacing * vectorGtScale;
                         if (DropShadow) {
                             runChain.DrawText(
                                 vectorGlyphSink,
@@ -441,10 +445,11 @@ namespace Game {
                                 new Color((byte)0, (byte)0, (byte)0, color.A),
                                 vectorSize,
                                 run.Span.Bold,
-                                run.Span.Italic
+                                run.Span.Italic,
+                                vectorSpacing
                             );
                         }
-                        runChain.DrawText(vectorGlyphSink, run.Text, vectorDraw, color, vectorSize, run.Span.Bold, run.Span.Italic);
+                        runChain.DrawText(vectorGlyphSink, run.Text, vectorDraw, color, vectorSize, run.Span.Bold, run.Span.Italic, vectorSpacing);
                     }
                     else {
                         // 斜体＝run 顶点本地切变（伪斜体），末尾 GlobalTransform 整批变换后套，测量/命中不受影响

@@ -172,8 +172,10 @@ namespace Engine.Media {
         /// 行为锚：text 单行（换行由调用方处理），pos=行左上，字形按 baseline 对齐。
         /// 样式降级（spec §2）：bold 缺真 Bold 面→Stroked1 描边消歧；italic 缺真 Italic/BoldItalic 面→15° 切变；
         /// 位图回退段恒正排 Regular（无描边/切变）。返回绘制高度（各段行高最大值）。
+        /// characterSpacing：pos 空间的字符间距 px（FSS 段按其原值并入字符间推进、位图段每字符后直加），
+        /// 与同空间位移同标度；尾字符后补齐一个间距（FSS 计字符间 n−1，补 1 使段宽=布局逐字符 n 的口径）。
         /// </summary>
-        public float DrawText(IFontBatchSink sink, string text, Vector2 pos, Color color, float size, bool bold = false, bool italic = false) {
+        public float DrawText(IFontBatchSink sink, string text, Vector2 pos, Color color, float size, bool bold = false, bool italic = false, float characterSpacing = 0f) {
             ArgumentNullException.ThrowIfNull(sink);
             ArgumentNullException.ThrowIfNull(text);
             if (text.Length == 0) {
@@ -184,7 +186,7 @@ namespace Engine.Media {
             var system = _systems[(int)style] ?? _systems[(int)VectorFontStyle.Regular];
             if (system == null) {
                 // 矢量链整链缺失：整行走位图回退
-                return DrawBitmapFallback(sink, text, pos, color, size, 0f);
+                return DrawBitmapFallback(sink, text, pos, color, size, 0f, characterSpacing);
             }
             // bold 请求落到 Regular 源（链内无真 Bold 面）→Stroked1；italic 请求落到非 Italic/BoldItalic 源→切变。
             // bold+italic 仅 Regular 可用时两者叠加（spec 裁定 combined）
@@ -213,15 +215,20 @@ namespace Engine.Media {
                 string run = text[runStart..i];
                 float runHeight;
                 if (runIsBitmap) {
-                    runHeight = DrawBitmapFallback(sink, run, new Vector2(pos.X + xAdvance, pos.Y), color, size, 0f);
-                    xAdvance += MeasureBitmapRun(run, size);
+                    runHeight = DrawBitmapFallback(sink, run, new Vector2(pos.X + xAdvance, pos.Y), color, size, 0f, characterSpacing);
+                    xAdvance += MeasureBitmapRun(run, size) + characterSpacing * run.Length;
                 }
                 else {
                     spriteFont.DrawText(_renderer, run,
                         new System.Numerics.Vector2(pos.X + xAdvance, pos.Y), fsColor,
+                        characterSpacing: characterSpacing,
                         effect: effect, effectAmount: effectAmount);
                     runHeight = spriteFont.LineHeight;
-                    xAdvance += spriteFont.MeasureString(run, effect: effect, effectAmount: effectAmount).X;
+                    // MeasureString 带 spacing 只计字符间（n−1），补 1 个凑每字符后一个的布局口径，
+                    // 段间起点与逐字符排版步进逐位同源
+                    xAdvance += spriteFont.MeasureString(run,
+                        characterSpacing: characterSpacing,
+                        effect: effect, effectAmount: effectAmount).X + characterSpacing;
                 }
                 if (runHeight > drawHeight) {
                     drawHeight = runHeight;
@@ -236,7 +243,7 @@ namespace Engine.Media {
         // 跳过 \r、\u200b，\u00a0→空格，推进含 kerning，字形尺寸/偏移按 size 比例缩放）。
         // 恒正排 Regular：无 Stroked 消歧、无斜体切变（spec 裁定 (a)；视觉底沿对齐锚
         // BitmapBaselineAnchor 由 Task 10 探针断言校准，初值 0 即此实现）
-        float DrawBitmapFallback(IFontBatchSink sink, string text, Vector2 pos, Color color, float size, float depth) {
+        float DrawBitmapFallback(IFontBatchSink sink, string text, Vector2 pos, Color color, float size, float depth, float characterSpacing = 0f) {
             var font = _fallbackBitmapFont;
             if (font == null || font.Texture == null) {
                 return 0f;
@@ -264,7 +271,7 @@ namespace Engine.Media {
                         depth, color);
                 }
                 float kerning = i < text.Length - 1 ? font.GetKerning(c, text[i + 1]) : 0f;
-                drawPos.X += (glyph.Width - kerning + font.Spacing.X) * scale;
+                drawPos.X += (glyph.Width - kerning + font.Spacing.X) * scale + characterSpacing;
             }
             return font.LineHeight * scale;
         }
