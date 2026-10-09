@@ -45,6 +45,9 @@ namespace Game {
         // 行内边框（HTML border-* style），引用类型随结构复制共享，null=无边框
         public SpanBorder Border;
 
+        // 等宽（HTML code/samp/kbd 置位）：随结构复制继承嵌套，AddText 出口透传 span.Monospace
+        public bool Monospace;
+
         // 文本大小写变换（CSS text-transform，随嵌套继承；AddText 出口处施加）
         public TextTransform TextTransform;
 
@@ -118,6 +121,7 @@ namespace Game {
                     spans.Add(
                         new TextSpan(code.Content, RichContentPalette.CodeColor) {
                             BackgroundColor = RichContentPalette.CodeBackgroundColor,
+                            Monospace = true,
                             Bold = style.Bold,
                             FontScale = style.Scale,
                             Underline = style.Underline,

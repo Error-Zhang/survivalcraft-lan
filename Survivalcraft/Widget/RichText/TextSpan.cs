@@ -32,6 +32,10 @@ namespace Game {
 
         public bool Italic { get; set; }
 
+        // 等宽（markdown `code` / HTML code|samp|kbd）：排版 advance 与绘制都走等宽矢量链
+        //（RichTextWidget.MonoVectorFont），链 null 或首字符缺字随普通 run 回退位图路径
+        public bool Monospace { get; set; }
+
         // 非 null 时该段为链接，点击触发 RichTextWidget.LinkClicked
         public string Href { get; set; }
 

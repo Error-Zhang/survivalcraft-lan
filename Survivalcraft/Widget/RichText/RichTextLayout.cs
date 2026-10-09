@@ -2,9 +2,9 @@ using Engine;
 using Engine.Media;
 
 namespace Game {
-    // 富文本排版：spans 摊平为字符单元 → 贪心断行（拉丁词回扫 + CJK 禁则，复用 FontTextWidget 规则）→ 按 span 组装 run
-    // 字符推进量公式必须与 FontBatch2D.QueueLine 一致：(glyph.Width - kerning + spacing) * scale，
-    // 否则排版宽度与实际绘制宽度漂移；粗体 span 额外乘矢量链粗体系数（真 Bold 面绘制 advance>位图 Regular 预算）
+// 富文本排版：spans 摊平为字符单元 → 贪心断行（拉丁词回扫 + CJK 禁则，复用 FontTextWidget 规则）→ 按 span 组装 run
+// 字符推进量唯一出处=CharacterAdvance：挂链字符与矢量绘制同源实测，缺字回退位图预算
+//（(glyph.Width - kerning + spacing) * scale，与 FontBatch2D.QueueLine 一致）
     public class RichTextLayout {
         public BitmapFont Font { get; set; }
 
@@ -34,9 +34,12 @@ namespace Game {
         // 既有排版逐位不变
         public float LetterSpacing { get; set; }
 
-        // 矢量链（RichTextWidget.UpdateLayout 接线）：粗体 span 预算加宽系数出处。
-        // null=纯位图路径（位图伪粗=双绘不改 advance），系数不生效，既有排版逐位不变
+        // 矢量链（RichTextWidget.UpdateLayout 接线）：字符 advance 出处（覆盖字符走矢量实测，
+        // 缺字回退位图预算）；null=纯位图路径，既有排版逐位不变
         public VectorFont VectorFont { get; set; }
+
+        // 等宽链（span.Monospace 的行内代码用）：null=随 VectorFont
+        public VectorFont MonoVectorFont { get; set; }
 
         public float DefaultFontScale { get; set; } = 1f;
 
@@ -230,14 +233,10 @@ namespace Game {
                     j++;
                 }
                 char[] text = new char[j - i + 1];
-                float width = 0f;
                 for (int k = i; k <= j; k++) {
                     text[k - i] = cells[k].C;
-                    width += CharacterAdvance(cells[k].C, scale, span.Bold);
-                    if (k < j) {
-                        width -= Font.GetKerning(cells[k].C, cells[k + 1].C) * scale * Font.Scale;
-                    }
                 }
+                float width = MeasureRunWidth(new string(text), span, scale);
                 SpanBorder border = span.Border;
                 if (border != null) {
                     x += MathF.Max(border.Widths.X, 0f);
@@ -290,7 +289,7 @@ namespace Game {
                     }
                 }
                 float scale = SpanScale(cells[i].Span);
-                width += CharacterAdvance(cells[i].C, scale, cells[i].Span.Bold);
+                width += CharacterAdvance(cells[i].C, scale, cells[i].Span);
                 if (i + 1 < end
                     && cells[i + 1].Sequence == cells[i].Sequence) {
                     width -= Font.GetKerning(cells[i].C, cells[i + 1].C) * scale * Font.Scale;
@@ -305,17 +304,49 @@ namespace Game {
 
         float SpanScale(TextSpan span) => span.FontScale > 0f ? span.FontScale : DefaultFontScale;
 
-        // 字符推进量唯一出处（AddLine run 宽与 CountFittingCells 折行判定共用）：字距是绝对 px，
+        // run 盒宽：与 Draw 的 run 级分流同口径。矢量 run（首字符在链覆盖内）= 整串矢量实测——
+        // FSS 推进含字符对 kerning（跨链源恒 0、无逐对公开 API），逐字符和会漏 kerning 使
+        // run 间累积漂移（实测 +5~6px/行）；整串量测与 DrawText 同函数同值。位图 run（首字符
+        // 缺字整 run 回退位图绘制）= 逐字符位图预算（与折行口径同源）。矢量分支字距按字符数
+        // 线性并入（run 盒含间距；DrawText 无字距参数，矢量 run 的字距仅入排版预算——留档）
+        float MeasureRunWidth(string text, TextSpan span, float fontScale) {
+            VectorFont chain = span.Monospace ? (MonoVectorFont ?? VectorFont) : VectorFont;
+            if (chain != null
+                && text.Length > 0
+                && chain.HasGlyph(text[0])) {
+                return chain.MeasureString(text, chain.DefaultSize * fontScale, span.Bold, span.Italic).X + LetterSpacing * text.Length;
+            }
+            float width = 0f;
+            for (int i = 0; i < text.Length; i++) {
+                width += CharacterAdvance(text[i], fontScale, span);
+                if (i + 1 < text.Length) {
+                    width -= Font.GetKerning(text[i], text[i + 1]) * fontScale * Font.Scale;
+                }
+            }
+            return width;
+        }
+
+        // 字符推进量唯一出处（折行判定 CountFittingCells 用）：字距是绝对 px，
         // 不随 span 字号/Font.Scale 缩放（CSS px 口径），kerning 减项保持原样（字距与 kerning 并存）。
-        // 粗体 span 乘矢量链实测粗体系数（真 Bold 面 Latin advance>Regular；无链/伪粗 Stroked=1），
-        // 抹平布局预算 vs 矢量绘制的宽度漂移；kerning 减项不乘（真粗面 kerning 差异近似 0）
-        float CharacterAdvance(char c, float fontScale, bool bold = false) {
+        // 挂链时覆盖字符走矢量实测 advance，与 Draw 矢量直出同源——位图预算 vs 矢量字形有 ~5-7%
+        // 系统性差（实测 CJK 20→21、拉丁 15→16），逐 run 累积即行尾溢出、run 间重叠；缺字字符
+        // 随 Draw 的位图回退段走位图预算（粗体×GetBoldAdvanceScale 预算仅此路径需要——矢量实测
+        // advance 已含真面加宽，不再乘）
+        float CharacterAdvance(char c, float fontScale, TextSpan span) {
+            VectorFont chain = span.Monospace ? (MonoVectorFont ?? VectorFont) : VectorFont;
+            if (chain != null
+                && chain.HasGlyph(c)) {
+                return chain.MeasureString(c.ToString(), chain.DefaultSize * fontScale, span.Bold, span.Italic).X + LetterSpacing;
+            }
             float advance = (Font.GetGlyph(c).Width + Font.Spacing.X + FontSpacing.X) * fontScale * Font.Scale + LetterSpacing;
-            return bold && VectorFont != null ? advance * VectorFont.GetBoldAdvanceScale(c) : advance;
+            return span.Bold && chain != null ? advance * chain.GetBoldAdvanceScale(c) : advance;
         }
 
         float MeasureEllipsisWidth(float fontScale) {
             const string text = "...";
+            if (VectorFont != null) {
+                return VectorFont.MeasureString(text, VectorFont.DefaultSize * fontScale, false, false).X + text.Length * LetterSpacing;
+            }
             return Font.MeasureText(text, 0, text.Length, new Vector2(fontScale), FontSpacing).X;
         }
 

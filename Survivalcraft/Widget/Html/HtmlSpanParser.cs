@@ -134,12 +134,14 @@ namespace Game {
                     // 标签栈路径（行内 HTML）没有 DOM 后刷机制，色与底色都直接挂进样式上下文
                     inner.Color = RichContentPalette.CodeColor;
                     inner.Background = RichContentPalette.CodeBackgroundColor;
+                    inner.Monospace = true;
                     break;
                 case "kbd":
                     forceColor = RichContentPalette.KbdColor;
                     background = RichContentPalette.KbdBackgroundColor;
                     inner.Color = RichContentPalette.KbdColor;
                     inner.Background = RichContentPalette.KbdBackgroundColor;
+                    inner.Monospace = true;
                     break;
                 case "mark":
                     forceColor = RichContentPalette.MarkColor;
@@ -517,6 +519,7 @@ namespace Game {
                     BaselineShift = style.BaselineShift,
                     Border = style.Border,
                     LinkUnderlineSuppressed = style.LinkUnderlineSuppressed,
+                    Monospace = style.Monospace,
                     // 行内 opacity 透传 span（未声明=1f）：Draw 期与宿主 ColorTransform 叠乘淡出
                     Opacity = style.HasOpacity ? style.Opacity : 1f
                 }

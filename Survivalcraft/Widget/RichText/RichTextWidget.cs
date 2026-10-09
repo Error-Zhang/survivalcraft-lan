@@ -12,6 +12,8 @@ namespace Game {
 
         public VectorFont m_vectorFont;
 
+        public VectorFont m_monoVectorFont;
+
         public Vector2 m_fontSpacing;
 
         public float m_fontScale;
@@ -67,15 +69,25 @@ namespace Game {
             }
         }
 
-        // 矢量字体链（P4）：null=位图路径（零改动）；非 null 时首字符在其覆盖内的 run 真字重/真斜体
-        // 直出（样式降级 Stroked1/切变在 VectorFont.DrawText 内解析），其余 run 回退位图伪粗/切变路径。
-        // 排版仍走位图度量（RichTextLayout 字符推进无粗斜宽度差，无需矢量量测分流），矢量 run 画进
-        // 位图排版算出的 run 盒，宽度差为 v1 接受的近似
+        // 矢量字体链（P4）：null=位图路径（零改动）；挂链时排版 advance 与绘制同源矢量实测
+        //（样式降级 Stroked1/切变在 VectorFont.DrawText 内解析），缺字 run 回退位图伪粗/切变路径。
+        // 行内代码（span.Monospace）用 MonoVectorFont
         public VectorFont VectorFont {
             get => m_vectorFont;
             set {
                 if (value != m_vectorFont) {
                     m_vectorFont = value;
+                    MarkLayoutDirty();
+                }
+            }
+        }
+
+        // 等宽矢量链：行内代码 span 的排版与绘制链；null=随 VectorFont（口径同上）
+        public VectorFont MonoVectorFont {
+            get => m_monoVectorFont;
+            set {
+                if (value != m_monoVectorFont) {
+                    m_monoVectorFont = value;
                     MarkLayoutDirty();
                 }
             }
@@ -248,6 +260,7 @@ namespace Game {
             Size = new Vector2(-1f);
             // P4：默认启用矢量链（回滚点=本行，与 FontTextWidget ctor 同口径）；链未构建/构建失败时为 null → 位图伪粗/切变路径
             VectorFont = FontManager.DefaultChain;
+            MonoVectorFont = FontManager.MonoChain;
         }
 
         public override void Update() {
@@ -280,10 +293,10 @@ namespace Game {
             // GT 全局缩放的栅格补偿与 FontTextWidget 同款：字形按屏上像素栅格化（vectorSize×gtScale），
             // sink.Scale=1/gtScale 把 FSS quad 除回 widget 空间；本件走 pos 直传（非 Pivot），pos 同乘
             // gtScale 进 FSS 空间，除回后落点不变
-            float vectorGtScale = VectorFont != null
+            float vectorGtScale = VectorFont != null || MonoVectorFont != null
                 ? (MathF.Abs(GlobalTransform.M11) is float vs and > 0.0001f ? vs : 1f)
                 : 1f;
-            FontTextWidget.VectorGlyphSink vectorGlyphSink = VectorFont != null ? new FontTextWidget.VectorGlyphSink(dc.PrimitivesRenderer2D, samplerState) {
+            FontTextWidget.VectorGlyphSink vectorGlyphSink = VectorFont != null || MonoVectorFont != null ? new FontTextWidget.VectorGlyphSink(dc.PrimitivesRenderer2D, samplerState) {
                 Scale = 1f / vectorGtScale
             } : null;
             int batchStart = fontBatch2D.TriangleVertices.Count;
@@ -408,18 +421,20 @@ namespace Game {
                             }
                         }
                     }
-                    // 矢量 run 分流（P4）：挂链且 run 首字符在矢量链覆盖内→真字重/真斜体直出（降级在
+                    // 矢量 run 分流（P4）：挂链且 run 首字符在链覆盖内→真字重/真斜体直出（降级在
                     // VectorFont.DrawText 内），画位与位图路径同用 draw（含屏幕整栅对齐），跳过伪粗双绘
                     // 与 ItalicShearMatrix；位图 run（未挂链或首字符缺字整 run 回退）走原路径不变。
                     // 首字符定态为 v1 简化，run 内混排缺字段由 DrawText 的位图回退段兜底。
+                    // 行内代码（span.Monospace）走等宽链（null 随正文链）。
                     // 删除线/下划线装饰不分流，两态都照画
-                    if (VectorFont != null
+                    VectorFont runChain = run.Span.Monospace ? (MonoVectorFont ?? VectorFont) : VectorFont;
+                    if (runChain != null
                         && run.Text.Length > 0
-                        && VectorFont.HasGlyph(run.Text[0])) {
-                        float vectorSize = VectorFont.DefaultSize * SpanScale(run.Span) * vectorGtScale;
+                        && runChain.HasGlyph(run.Text[0])) {
+                        float vectorSize = runChain.DefaultSize * SpanScale(run.Span) * vectorGtScale;
                         Vector2 vectorDraw = draw * vectorGtScale;
                         if (DropShadow) {
-                            VectorFont.DrawText(
+                            runChain.DrawText(
                                 vectorGlyphSink,
                                 run.Text,
                                 vectorDraw + 1f * new Vector2(FontScale) * vectorGtScale,
@@ -429,7 +444,7 @@ namespace Game {
                                 run.Span.Italic
                             );
                         }
-                        VectorFont.DrawText(vectorGlyphSink, run.Text, vectorDraw, color, vectorSize, run.Span.Bold, run.Span.Italic);
+                        runChain.DrawText(vectorGlyphSink, run.Text, vectorDraw, color, vectorSize, run.Span.Bold, run.Span.Italic);
                     }
                     else {
                         // 斜体＝run 顶点本地切变（伪斜体），末尾 GlobalTransform 整批变换后套，测量/命中不受影响
@@ -614,6 +629,7 @@ namespace Game {
             m_layout.Font = Font;
             m_layout.FontSpacing = FontSpacing;
             m_layout.VectorFont = VectorFont;
+            m_layout.MonoVectorFont = MonoVectorFont;
             m_layout.DefaultFontScale = FontScale;
             m_layout.WordWrap = WordWrap;
             m_layout.WordBreak = WordBreak;
