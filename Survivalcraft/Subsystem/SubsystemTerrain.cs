@@ -481,6 +481,13 @@ namespace Game {
                     TerrainRenderer.DrawTransparent(camera);
                 }
             }
+            ModsManager.HookAction(
+                "OnTerrainDraw",
+                loader => {
+                    loader.OnTerrainDraw(this, camera, drawOrder);
+                    return false;
+                }
+            );
         }
 
         public virtual void Update(float dt) {
@@ -502,16 +509,42 @@ namespace Game {
             m_subsystemTime = Project.FindSubsystem<SubsystemTime>();
             m_subsystemTimeOfDay = Project.FindSubsystem<SubsystemTimeOfDay>();
             SubsystemPalette = Project.FindSubsystem<SubsystemPalette>(true);
-            Terrain = new Terrain();
+            Terrain terrain = new Terrain();
+            ModsManager.HookAction(
+                "OnTerrainCreated",
+                loader => {
+                    loader.OnTerrainCreated(this, ref terrain);
+                    return false;
+                }
+            );
+            Terrain = terrain;
             TerrainRenderer = new TerrainRenderer(this);
             TerrainUpdater = new TerrainUpdater(this);
             TerrainSerializer = new TerrainSerializer23(SubsystemGameInfo.DirectoryName);
-            BlockGeometryGenerator = new BlockGeometryGenerator(
+            SubsystemElectricity subsystemElectricity = Project.FindSubsystem<SubsystemElectricity>(true);
+            SubsystemMetersBlockBehavior subsystemMetersBlockBehavior = Project.FindSubsystem<SubsystemMetersBlockBehavior>(true);
+            BlockGeometryGenerator blockGeometryGenerator = null;
+            ModsManager.HookAction(
+                "OnBlockGeometryGeneratorCreated",
+                loader => {
+                    loader.OnBlockGeometryGeneratorCreated(
+                        this,
+                        Terrain,
+                        subsystemElectricity,
+                        SubsystemFurnitureBlockBehavior,
+                        subsystemMetersBlockBehavior,
+                        SubsystemPalette,
+                        ref blockGeometryGenerator
+                    );
+                    return false;
+                }
+            );
+            BlockGeometryGenerator = blockGeometryGenerator ?? new BlockGeometryGenerator(
                 Terrain,
                 this,
-                Project.FindSubsystem<SubsystemElectricity>(true),
+                subsystemElectricity,
                 SubsystemFurnitureBlockBehavior,
-                Project.FindSubsystem<SubsystemMetersBlockBehavior>(true),
+                subsystemMetersBlockBehavior,
                 SubsystemPalette
             );
             TerrainGenerationMode terrainGenerationMode = SubsystemGameInfo.WorldSettings.TerrainGenerationMode;
@@ -552,6 +585,13 @@ namespace Game {
         }
 
         public override void Save(ValuesDictionary valuesDictionary) {
+            ModsManager.HookAction(
+                "BeforeTerrainSave",
+                loader => {
+                    loader.BeforeTerrainSave(this);
+                    return false;
+                }
+            );
             TerrainUpdater.UpdateEvent.WaitOne();
             try {
                 TerrainChunk[] allocatedChunks = Terrain.AllocatedChunks;

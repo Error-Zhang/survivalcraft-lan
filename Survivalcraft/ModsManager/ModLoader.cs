@@ -421,6 +421,25 @@ namespace Game {
         public virtual void GuiDraw(ComponentGui componentGui, Camera camera, int drawOrder) { }
 
         /// <summary>
+        ///     在显示小消息（屏幕中下方提示条）之前执行，可通过修改参数改变显示内容，
+        ///     Skip为true则跳过原版显示
+        /// </summary>
+        /// <param name="componentGui"></param>
+        /// <param name="text">消息文本</param>
+        /// <param name="color">消息颜色</param>
+        /// <param name="blinking">是否闪烁</param>
+        /// <param name="playNotificationSound">是否播放提示音</param>
+        /// <param name="skip">设为true跳过原版显示</param>
+        public virtual void DisplaySmallMessage(ComponentGui componentGui,
+            ref string text,
+            ref Color color,
+            ref bool blinking,
+            ref bool playNotificationSound,
+            out bool skip) {
+            skip = false;
+        }
+
+        /// <summary>
         ///     更新输入时执行
         /// </summary>
         /// <param name="componentInput"></param>
@@ -647,6 +666,75 @@ namespace Game {
         /// </summary>
         // <param name="chunk"></param>
         public virtual bool ToAllocateChunks(TerrainUpdater terrainUpdater, TerrainUpdater.UpdateLocation[] locations) => false;
+
+        /// <summary>
+        ///     在本世界的地形实例创建时执行，可通过替换Terrain实例来自定义地形数据的存取
+        ///     （如扩展世界高度、改变有效高度范围等）。仅在SubsystemTerrain.Load创建Terrain时触发一次
+        /// </summary>
+        /// <param name="subsystemTerrain">所属的SubsystemTerrain</param>
+        /// <param name="terrain">即将使用的Terrain实例，可以替换为自己的Terrain子类</param>
+        public virtual void OnTerrainCreated(SubsystemTerrain subsystemTerrain, ref Terrain terrain) { }
+
+        /// <summary>
+        ///     在分配区块（Terrain.AllocateChunk）时执行，可通过替换TerrainChunk实例来自定义区块数据的存取
+        ///     注意此方法可能在地形更新线程中执行
+        /// </summary>
+        /// <param name="terrain">区块所属的Terrain</param>
+        /// <param name="chunkX">区块坐标X</param>
+        /// <param name="chunkZ">区块坐标Z</param>
+        /// <param name="chunk">即将分配的区块实例，可以替换为自己的TerrainChunk子类</param>
+        public virtual void OnTerrainChunkCreated(Terrain terrain, int chunkX, int chunkZ, ref TerrainChunk chunk) { }
+
+        /// <summary>
+        ///     在保存地形数据之前执行（原版在此之后等待地形更新线程，然后逐区块保存），
+        ///     模组可在此将自己的地形数据排入保存队列
+        /// </summary>
+        /// <param name="subsystemTerrain">所属的SubsystemTerrain</param>
+        public virtual void BeforeTerrainSave(SubsystemTerrain subsystemTerrain) { }
+
+        /// <summary>
+        ///     在地形绘制完成后执行（与SubsystemTerrain.Draw的调用时机一致，drawOrder为0与100各执行一次），
+        ///     模组可在此绘制额外的地形流
+        /// </summary>
+        /// <param name="subsystemTerrain">所属的SubsystemTerrain</param>
+        /// <param name="camera">当前摄像机</param>
+        /// <param name="drawOrder">绘制顺序</param>
+        public virtual void OnTerrainDraw(SubsystemTerrain subsystemTerrain, Camera camera, int drawOrder) { }
+
+        /// <summary>
+        ///     在创建方块几何生成器（BlockGeometryGenerator）时执行，可通过替换实例来自定义
+        ///     顶点光照/几何生成（如扩展世界高度时对越界坐标的处理）。未提供实例时按原逻辑 new。
+        ///     注意：主世界地形与移动方块子系统的临时画布地形各创建一份，两处都会触发
+        /// </summary>
+        /// <param name="subsystemTerrain">所属的SubsystemTerrain（移动方块画布传的也是主世界这个）</param>
+        /// <param name="terrain">该生成器使用的地形（移动方块画布用的是它自己的临时Terrain）</param>
+        /// <param name="subsystemElectricity">原版构造参数，可能为null</param>
+        /// <param name="subsystemFurnitureBlockBehavior">原版构造参数，可能为null</param>
+        /// <param name="subsystemMetersBlockBehavior">原版构造参数，可能为null</param>
+        /// <param name="subsystemPalette">原版构造参数，可能为null</param>
+        /// <param name="generator">即将使用的生成器，可替换为自己的BlockGeometryGenerator子类</param>
+        public virtual void OnBlockGeometryGeneratorCreated(SubsystemTerrain subsystemTerrain,
+            Terrain terrain,
+            SubsystemElectricity subsystemElectricity,
+            SubsystemFurnitureBlockBehavior subsystemFurnitureBlockBehavior,
+            SubsystemMetersBlockBehavior subsystemMetersBlockBehavior,
+            SubsystemPalette subsystemPalette,
+            ref BlockGeometryGenerator generator) { }
+
+        /// <summary>
+        ///     在收集地形碰撞箱时执行（物理体做碰撞检测时调用），Skip为true则跳过原版实现。
+        ///     用于需要改变地形碰撞扫描范围/负坐标支持等场景
+        /// </summary>
+        /// <param name="componentBody">正在检测的物理体</param>
+        /// <param name="box">检测范围</param>
+        /// <param name="result">碰撞箱输出，往这个集合里添加</param>
+        /// <param name="skip">设为true跳过原版实现</param>
+        public virtual void FindTerrainCollisionBoxes(ComponentBody componentBody,
+            BoundingBox box,
+            DynamicArray<ComponentBody.CollisionBox> result,
+            out bool skip) {
+            skip = false;
+        }
 
         /// <summary>
         ///     子系统帧更新时执行
