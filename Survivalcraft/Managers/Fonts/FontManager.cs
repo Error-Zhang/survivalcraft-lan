@@ -174,6 +174,8 @@ namespace Game {
                 lock (m_rebuildLock) {
                     RebuildChainsCore();
                 }
+                // 首建=链从 null 换入，同样通知（Core 失败在下方 catch，不达派发）
+                DispatchFontChainsRebuilt();
             }
             catch (Exception ex) {
                 Log.Error($"[FontManager] initial chain build failed: {ex}");
@@ -200,6 +202,16 @@ namespace Game {
                     }
                 }
             }
+            DispatchFontChainsRebuilt();
+        }
+
+        /// <summary>OnFontChainsRebuilt 钩子派发（主线程调用面）：仅链确实换入后调用
+        /// （Core 失败路径 retired=null 不派发）。异常经 ModsManager.TryInvoke 捕获记日志。</summary>
+        static void DispatchFontChainsRebuilt() {
+            ModsManager.HookAction("OnFontChainsRebuilt", loader => {
+                loader.OnFontChainsRebuilt();
+                return false;
+            });
         }
 
         /// <summary>
@@ -242,6 +254,8 @@ namespace Game {
                                     Log.Warning($"[FontManager] previous chain dispose failed: {ex.Message}");
                                 }
                             }
+                            // Core 失败（retired=null）链未换入，不派发 mod 通知
+                            DispatchFontChainsRebuilt();
                         }
                     });
                 }
@@ -395,7 +409,7 @@ namespace Game {
 #endif
         }
 
-        // 条目序即链序：Pericles 头（原版拉丁开关）→ FontBody/FontBodyBold/FontBodyItalic/FontBodyBoldItalic 槽位 → 系统正文字体
+        // 条目序即链序：Pericles 头（原版拉丁开关）→ FontBody/FontBodyBold/FontBodyItalic/FontBodyBoldItalic 槽位 → 模组条目（OnBuildingBodyFontChainEntries）→ 系统正文字体
         static List<ChainEntry> BuildBodyEntries(List<SystemFontFace> systemFaces, Dictionary<string, ChainEntry> fileEntries) {
             List<ChainEntry> entries = [];
             AddPericlesHead(entries);
@@ -403,11 +417,12 @@ namespace Game {
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyBold, systemFaces, depth: 0, fileEntries));
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyItalic, systemFaces, depth: 0, fileEntries));
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyBoldItalic, systemFaces, depth: 0, fileEntries));
+            AddModEntries(entries, "OnBuildingBodyFontChainEntries", static (loader, list) => loader.OnBuildingBodyFontChainEntries(list));
             AddSystemEntries(entries, systemFaces, mono: false, fileEntries);
             return entries;
         }
 
-        // 条目序即链序：FontMono/FontMonoBold/FontMonoItalic/FontMonoBoldItalic 槽位 → 系统等宽 → body 条目尾部复用
+        // 条目序即链序：FontMono/FontMonoBold/FontMonoItalic/FontMonoBoldItalic 槽位 → 模组条目（OnBuildingMonoFontChainEntries）→ 系统等宽 → body 条目尾部复用
         // （等宽字体普遍缺 CJK，尾部复用使 mono 段 CJK 沿链回落到正文字体渲染）
         static List<ChainEntry> BuildMonoEntries(List<ChainEntry> bodyEntries, List<SystemFontFace> systemFaces, Dictionary<string, ChainEntry> fileEntries) {
             List<ChainEntry> entries = [];
@@ -415,11 +430,36 @@ namespace Game {
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontMonoBold, systemFaces, depth: 0, fileEntries));
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontMonoItalic, systemFaces, depth: 0, fileEntries));
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontMonoBoldItalic, systemFaces, depth: 0, fileEntries));
+            AddModEntries(entries, "OnBuildingMonoFontChainEntries", static (loader, list) => loader.OnBuildingMonoFontChainEntries(list));
             AddSystemEntries(entries, systemFaces, mono: true, fileEntries);
             foreach (ChainEntry entry in bodyEntries) {
                 TryAddEntry(entries, entry);
             }
             return entries;
+        }
+
+        /// <summary>
+        /// 模组字体条目并入（钩子回调逐 loader 收集后统一去重入链）：回调可能在线程池执行，
+        /// 异常经 ModsManager.TryInvoke 捕获记日志不中断重建。同 Origin 先到先得——mod 回调
+        /// 每次新建 ChainEntry 实例，TryAddEntry 的引用去重失效，须按 Origin 判。
+        /// </summary>
+        static void AddModEntries(List<ChainEntry> entries, string hookName, Action<ModLoader, List<ChainEntry>> hook) {
+            List<ChainEntry> modEntries = [];
+            ModsManager.HookAction(hookName, loader => {
+                hook(loader, modEntries);
+                return false;
+            });
+            foreach (ChainEntry entry in modEntries) {
+                TryAddEntryByOrigin(entries, entry);
+            }
+        }
+
+        static void TryAddEntryByOrigin(List<ChainEntry> entries, ChainEntry entry) {
+            if (entry == null
+                || entries.Any(existing => existing.Origin == entry.Origin)) {
+                return;
+            }
+            entries.Add(entry);
         }
 
         /// <summary>
@@ -565,6 +605,41 @@ namespace Game {
                 Log.Error($"[FontManager] {name} chain build failed: {ex}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// 一步构建模组自用字体链（不做全局注册，仅供模组自己的 FontTextWidget 使用）：
+        /// 样式面按 OS/2 fsSelection 位自动映射；Regular 面缺失或解析失败返回 null（记日志）。
+        /// <paramref name="fallback"/> 缺省=引擎位图回退字体（缺字兜底）。
+        /// </summary>
+        public static VectorFont CreateFont(byte[] data, string origin, BitmapFont fallback = null) {
+            try {
+                List<ChainEntry> entries = VectorFontReader.BuildEntries(data, origin);
+                if (!entries[0].StyleFaces.ContainsKey(VectorFontStyle.Regular)) {
+                    Log.Warning($"[FontManager] CreateFont \"{origin}\" has no Regular face, returning null.");
+                    return null;
+                }
+                return new VectorFont(entries, fallback ?? FallbackBitmapFont);
+            }
+            catch (Exception ex) {
+                Log.Error($"[FontManager] CreateFont \"{origin}\" failed: {ex}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 字体文件包含的样式面集合（ttc 逐面按 OS/2 fsSelection 位判定；解析失败返回空集）。<br/>
+        /// 模组在决定 <see cref="VectorFontReader.BuildEntry"/> 的 faceIndex/样式前的查询入口。
+        /// </summary>
+        public static HashSet<VectorFontStyle> GetFontFileStyles(byte[] data) {
+            HashSet<VectorFontStyle> styles = [];
+            try {
+                CollectFaceStyles(data, styles);
+            }
+            catch (Exception ex) {
+                Log.Warning($"[FontManager] font style probe failed: {ex.Message}");
+            }
+            return styles;
         }
 
         /// <summary>

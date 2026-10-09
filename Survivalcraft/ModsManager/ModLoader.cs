@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Xml.Linq;
 using Engine;
 using Engine.Graphics;
+using Engine.Media;
 using GameEntitySystem;
 using TemplatesDatabase;
 
@@ -2222,5 +2224,28 @@ namespace Game {
         /// <param name="componentMount">被骑乘的实体。注意：可能为null</param>
         /// <param name="skipVanilla">是否跳过原版逻辑（ref，true 表示已接管）</param>
         public virtual void OnStartDismounting(ComponentRider componentRider, ComponentMount componentMount, ref bool skipVanilla) { }
+
+        /// <summary>
+        /// 正文字体链构建时执行（FontManager 重建双链时主动派发）。<br/>
+        /// 向 <paramref name="entries"/> 添加字体条目即可并入正文链，并入位置=字体槽位之后、系统字体之前
+        /// （模组字体缺字仍可回落系统字体渲染）。同 Origin 的条目先到先得（按 ModLoader 优先级定序）。<br/>
+        /// 注意：回调可能在线程池线程执行（异步重建）——勿触碰 UI；字体字节建议模组自行缓存，
+        /// 每次语言切换/设置变更都会重建双链并重新回调本方法。
+        /// </summary>
+        /// <param name="entries">正文链条目列表（引擎持有，模组只做添加）</param>
+        public virtual void OnBuildingBodyFontChainEntries(List<ChainEntry> entries) { }
+
+        /// <summary>
+        /// 等宽字体链构建时执行（同 <see cref="OnBuildingBodyFontChainEntries"/>，并入等宽链）。
+        /// </summary>
+        /// <param name="entries">等宽链条目列表（引擎持有，模组只做添加）</param>
+        public virtual void OnBuildingMonoFontChainEntries(List<ChainEntry> entries) { }
+
+        /// <summary>
+        /// 字体双链重建完成时执行（主线程；新链已换入 <see cref="FontManager.DefaultChain"/>/
+        /// <see cref="FontManager.MonoChain"/>，旧链已释放）——模组可在此刷新自家界面持有
+        /// 的字体链引用。
+        /// </summary>
+        public virtual void OnFontChainsRebuilt() { }
     }
 }
