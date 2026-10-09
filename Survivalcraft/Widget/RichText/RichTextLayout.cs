@@ -233,7 +233,7 @@ namespace Game {
                 float width = 0f;
                 for (int k = i; k <= j; k++) {
                     text[k - i] = cells[k].C;
-                    width += CharacterAdvance(cells[k].C, scale, span.IsBold);
+                    width += CharacterAdvance(cells[k].C, scale, span.Bold);
                     if (k < j) {
                         width -= Font.GetKerning(cells[k].C, cells[k + 1].C) * scale * Font.Scale;
                     }
@@ -262,7 +262,8 @@ namespace Game {
                     Color = source?.Color,
                     BackgroundColor = source?.BackgroundColor,
                     FontScale = sourceScale,
-                    Style = source?.Style ?? RichTextStyle.Normal,
+                    Bold = source?.Bold ?? false,
+                    Italic = source?.Italic ?? false,
                     Underline = source?.Underline ?? false,
                     BaselineShift = source?.BaselineShift ?? 0f,
                     Opacity = source?.Opacity ?? 1f
@@ -289,7 +290,7 @@ namespace Game {
                     }
                 }
                 float scale = SpanScale(cells[i].Span);
-                width += CharacterAdvance(cells[i].C, scale, cells[i].Span.IsBold);
+                width += CharacterAdvance(cells[i].C, scale, cells[i].Span.Bold);
                 if (i + 1 < end
                     && cells[i + 1].Sequence == cells[i].Sequence) {
                     width -= Font.GetKerning(cells[i].C, cells[i + 1].C) * scale * Font.Scale;

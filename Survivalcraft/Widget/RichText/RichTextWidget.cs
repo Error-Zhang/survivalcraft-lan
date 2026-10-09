@@ -425,15 +425,15 @@ namespace Game {
                                 vectorDraw + 1f * new Vector2(FontScale) * vectorGtScale,
                                 new Color((byte)0, (byte)0, (byte)0, color.A),
                                 vectorSize,
-                                run.Span.IsBold,
-                                run.Span.IsItalic
+                                run.Span.Bold,
+                                run.Span.Italic
                             );
                         }
-                        VectorFont.DrawText(vectorGlyphSink, run.Text, vectorDraw, color, vectorSize, run.Span.IsBold, run.Span.IsItalic);
+                        VectorFont.DrawText(vectorGlyphSink, run.Text, vectorDraw, color, vectorSize, run.Span.Bold, run.Span.Italic);
                     }
                     else {
                         // 斜体＝run 顶点本地切变（伪斜体），末尾 GlobalTransform 整批变换后套，测量/命中不受影响
-                        bool italic = run.Span.IsItalic;
+                        bool italic = run.Span.Italic;
                         if (DropShadow) {
                             int shadowStart = fontBatch2D.TriangleVertices.Count;
                             fontBatch2D.QueueText(
@@ -449,7 +449,7 @@ namespace Game {
                                 fontBatch2D.TransformTriangles(ItalicShearMatrix(scale.X), shadowStart);
                             }
                         }
-                        if (run.Span.IsBold) {
+                        if (run.Span.Bold) {
                             // 伪粗体：同串横偏 1×FontScale 双绘
                             int boldStart = fontBatch2D.TriangleVertices.Count;
                             fontBatch2D.QueueText(

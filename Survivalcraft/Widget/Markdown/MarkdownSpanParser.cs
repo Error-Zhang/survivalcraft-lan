@@ -118,7 +118,7 @@ namespace Game {
                     spans.Add(
                         new TextSpan(code.Content, RichContentPalette.CodeColor) {
                             BackgroundColor = RichContentPalette.CodeBackgroundColor,
-                            Style = style.Bold ? RichTextStyle.Bold : RichTextStyle.Normal,
+                            Bold = style.Bold,
                             FontScale = style.Scale,
                             Underline = style.Underline,
                             BaselineShift = style.BaselineShift

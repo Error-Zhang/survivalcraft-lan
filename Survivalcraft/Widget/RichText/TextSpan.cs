@@ -1,18 +1,6 @@
 using Engine;
 
 namespace Game {
-    public enum RichTextStyle {
-        Normal,
-
-        Bold,
-
-        // 合成斜体：无斜体字体变体，Draw 对该 run 施加切变（伪斜体）
-        Italic,
-
-        // 粗斜体（markdown ***x*** / HTML b+i 嵌套）＝双绘粗体 + 切变
-        BoldItalic
-    }
-
     public class TextSpan {
         public string Text { get; set; }
 
@@ -38,7 +26,11 @@ namespace Game {
 
         public float FontScale { get; set; }
 
-        public RichTextStyle Style { get; set; }
+        // 粗体/斜体（正交 bool 组与 Underline/Strikethrough 同模型）：
+        // 矢量直出真面或降级（Stroked1/15° 切变，BoldItalic 请求缺面时按 degrade 序回退），位图伪粗双绘+切变
+        public bool Bold { get; set; }
+
+        public bool Italic { get; set; }
 
         // 非 null 时该段为链接，点击触发 RichTextWidget.LinkClicked
         public string Href { get; set; }
@@ -57,7 +49,6 @@ namespace Game {
             Text = string.Empty;
             // 0 = 继承 widget 的 FontScale（排版层 SpanScale 对 ≤0 回退），显式值优先
             FontScale = 0f;
-            Style = RichTextStyle.Normal;
             Opacity = 1f;
         }
 
@@ -65,13 +56,10 @@ namespace Game {
 
         public TextSpan(string text, Color? color) : this(text) => Color = color;
 
-        public TextSpan(string text, Color? color, RichTextStyle style) : this(text, color) => Style = style;
-
-        public TextSpan(string text, Color? color, RichTextStyle style, string href) : this(text, color, style) => Href = href;
-
-        public bool IsBold => Style is RichTextStyle.Bold or RichTextStyle.BoldItalic;
-
-        public bool IsItalic => Style is RichTextStyle.Italic or RichTextStyle.BoldItalic;
+        public TextSpan(string text, Color? color, bool bold = false, bool italic = false) : this(text, color) {
+            Bold = bold;
+            Italic = italic;
+        }
 
         public bool IsLink => !string.IsNullOrEmpty(Href);
     }

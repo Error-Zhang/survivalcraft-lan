@@ -507,11 +507,9 @@ namespace Game {
             }
             // text-transform 出口施加：变换后的文本进排版（测宽/换行按变换后字形算，浏览器同款）
             text = ApplyTextTransform(text, style.TextTransform);
-            // 粗斜体并存时用 BoldItalic（原三目链 Bold 优先会丢斜体）
-            RichTextStyle richStyle = style.Bold ? style.Italic ? RichTextStyle.BoldItalic : RichTextStyle.Bold :
-                style.Italic ? RichTextStyle.Italic : RichTextStyle.Normal;
             spans.Add(
-                new TextSpan(text, style.Color ?? defaultColor, richStyle, style.Href) {
+                new TextSpan(text, style.Color ?? defaultColor, style.Bold, style.Italic) {
+                    Href = style.Href,
                     BackgroundColor = style.Background,
                     Strikethrough = style.Strikethrough,
                     FontScale = style.Scale,

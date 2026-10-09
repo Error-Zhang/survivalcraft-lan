@@ -296,15 +296,11 @@ namespace Game {
             return outer;
         }
 
-        // 表头单元格 span 染粗（Markdown 管道表与 HTML 表共用口径）：斜体升粗斜体、普通升粗体，
-        // 其余（链接色/代码底色等已染样式的）保留
+        // 表头单元格 span 染粗（Markdown 管道表与 HTML 表共用口径）：正排/斜体 span 一律加粗
+        //（斜体保留=粗斜体），其余属性不动
         protected static void BoldCellSpans(List<TextSpan> spans) {
             foreach (TextSpan span in spans) {
-                span.Style = span.Style switch {
-                    RichTextStyle.Italic => RichTextStyle.BoldItalic,
-                    RichTextStyle.Normal => RichTextStyle.Bold,
-                    _ => span.Style
-                };
+                span.Bold = true;
             }
         }
 
