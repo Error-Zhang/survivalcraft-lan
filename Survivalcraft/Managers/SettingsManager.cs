@@ -717,13 +717,14 @@ namespace Game {
                 AdaptEdgeToEdgeDisplay = Window.HasWideNotch;
                 FontVanilaEnglish = true;
                 FontBody = "system";
-                FontBodyBold = "system";
-                FontBodyItalic = "system";
-                FontBodyBoldItalic = "system";
+                // 样式槽默认"基于正文字体/基于等宽字体"（引用基础槽），跟随之联动，不再满屏"系统默认"
+                FontBodyBold = "ref:body";
+                FontBodyItalic = "ref:body";
+                FontBodyBoldItalic = "ref:body";
                 FontMono = "system";
-                FontMonoBold = "system";
-                FontMonoItalic = "system";
-                FontMonoBoldItalic = "system";
+                FontMonoBold = "ref:mono";
+                FontMonoItalic = "ref:mono";
+                FontMonoBoldItalic = "ref:mono";
                 InitializeKeyboardMappingSettings();
                 InitializeGamepadMappingSettings();
                 InitializeVrMappingSettings();

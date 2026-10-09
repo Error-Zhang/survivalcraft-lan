@@ -464,7 +464,9 @@ namespace Game {
 
         /// <summary>
         /// 槽位值 → 链条目。SystemDefault 返回 null（系统发现在条目列表尾部统一处理）；<br/>
-        /// 引用槽（ref:body/ref:mono）解析到目标槽自身的取值，目标槽再引用（A→B→A 环）或无系统字体时按 null 截断。
+        /// 引用槽（ref:body/ref:mono）解析到目标槽自身的取值，目标槽为系统默认/用户文件缺失时返回 null——
+        /// 引用系统默认≡系统默认（同走尾部系统发现，不锚独立条目，模组条目保持其链序优先级）；<br/>
+        /// A→B→A 引用环按深度截断。
         /// </summary>
         static ChainEntry ResolveSlot(string slotValue, List<SystemFontFace> systemFaces, int depth, Dictionary<string, ChainEntry> fileEntries) {
             FontSlotSetting setting = FontSlotSetting.Parse(slotValue);
@@ -474,13 +476,11 @@ namespace Game {
                 case FontSlotKind.ReferenceBody:
                     return depth > 0
                         ? null
-                        : ResolveSlot(SettingsManager.FontBody, systemFaces, depth + 1, fileEntries)
-                            ?? FirstSystemEntry(systemFaces, mono: false, fileEntries);
+                        : ResolveSlot(SettingsManager.FontBody, systemFaces, depth + 1, fileEntries);
                 case FontSlotKind.ReferenceMono:
                     return depth > 0
                         ? null
-                        : ResolveSlot(SettingsManager.FontMono, systemFaces, depth + 1, fileEntries)
-                            ?? FirstSystemEntry(systemFaces, mono: true, fileEntries);
+                        : ResolveSlot(SettingsManager.FontMono, systemFaces, depth + 1, fileEntries);
                 default:
                     return null;
             }
@@ -523,16 +523,6 @@ namespace Game {
                 }
                 TryAddEntry(entries, GetFileEntry(face, fileEntries));
             }
-        }
-
-        /// <summary>引用槽落空时的兜底：第一个系统发现面（无则 null）。</summary>
-        static ChainEntry FirstSystemEntry(List<SystemFontFace> systemFaces, bool mono, Dictionary<string, ChainEntry> fileEntries) {
-            foreach (SystemFontFace face in systemFaces) {
-                if (face.IsMono == mono) {
-                    return GetFileEntry(face, fileEntries);
-                }
-            }
-            return null;
         }
 
         /// <summary>

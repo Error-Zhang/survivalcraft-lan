@@ -146,7 +146,7 @@ namespace Game {
 
         static bool IsBaseSlot(FontSlot slot) => slot is FontSlot.Body or FontSlot.Mono;
 
-        /// <summary>槽位按钮显示当前取值（系统默认/默认字体/等宽字体/文件名），从对话框返回即随设置刷新。</summary>
+        /// <summary>槽位按钮显示当前取值（系统默认/基于正文字体/基于等宽字体/文件名），从对话框返回即随设置刷新。</summary>
         string DescribeSlotValue(FontSlot slot) {
             FontSlotSetting setting = FontSlotSetting.Parse(GetSetting(slot));
             return setting.Kind switch {

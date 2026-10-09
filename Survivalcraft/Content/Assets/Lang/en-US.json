@@ -3528,8 +3528,8 @@
       "9": "Monospace Font Bold Italic:",
       "10": "Vanilla-style English:",
       "11": "System Default",
-      "12": "Body Font",
-      "13": "Monospace Font",
+      "12": "Based on Body Font",
+      "13": "Based on Monospace Font",
       "14": "Choose File...",
       "15": "Imported Files...",
       "16": "No fonts have been imported yet."
