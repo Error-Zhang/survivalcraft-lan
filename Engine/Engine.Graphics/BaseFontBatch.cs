@@ -114,6 +114,11 @@ namespace Engine.Graphics {
             Vector2 zero = Vector2.Zero;
             if (anchor != 0) {
                 Vector2 vector = Font.MeasureText(text, start, count, scale, spacing);
+                // X 锚基于墨迹宽：MeasureText 每非跳过字符后计一个 spacing.X（含末字符，n 口径），
+                // 墨迹只含字符间 n−1 个——扣一个调用方字距使 Center/Right 以字形实际占宽锚定
+                //（与矢量路径 FontTextWidget.inkWidth 同口径）。只扣调用方字距，字体固有
+                // Font.Spacing 保持历史锚定语义不变（全 UI 零波及）；Y 行盒含行距属布局语义，不扣
+                vector.X -= spacing.X;
                 if ((anchor & TextAnchor.HorizontalCenter) != 0) {
                     zero.X = (0f - vector.X) / 2f;
                 }

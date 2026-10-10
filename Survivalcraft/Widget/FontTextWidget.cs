@@ -274,29 +274,31 @@ namespace Game {
                     if (underlayBatch != null
                         || overlayBatch != null) {
                         // 装饰矩形 x 与 QueueText 锚点同口径手动偏移（QueueText 内部 CalculateTextOffset
-                        // 扣行宽，矩形复算）；行宽=排版同式 MeasureText（spacing 记账口径一致）
+                        // 扣行宽，矩形复算）；宽取墨迹宽（MeasureText 含末字符后一个调用方字距，扣之，
+                        // 与矢量侧 inkWidth 同口径）——背景/下划线垫底贴字形实际占宽
                         float lineWidth = Font.MeasureText(line, new Vector2(FontScale), FontSpacing).X;
+                        float decorWidth = MathF.Max(lineWidth - FontSpacing.X, 0f);
                         float decorX = vector.X;
                         if ((TextAnchor & TextAnchor.HorizontalCenter) != 0) {
-                            decorX -= lineWidth / 2f;
+                            decorX -= decorWidth / 2f;
                         }
                         else if ((TextAnchor & TextAnchor.Right) != 0) {
-                            decorX -= lineWidth;
+                            decorX -= decorWidth;
                         }
                         if (underlayBatch != null) {
                             if (BackgroundColor.A != 0) {
-                                QueueTransformedQuad(underlayBatch, decorX, vector.Y, lineWidth, emHeight, BackgroundColor * GlobalColorTransform);
+                                QueueTransformedQuad(underlayBatch, decorX, vector.Y, decorWidth, emHeight, BackgroundColor * GlobalColorTransform);
                             }
                             if (Underline) {
                                 // 字形下方 1px（RichTextWidget 同基准）
-                                QueueTransformedQuad(underlayBatch, decorX, vector.Y + emHeight + 1f, lineWidth, decorThickness, color);
+                                QueueTransformedQuad(underlayBatch, decorX, vector.Y + emHeight + 1f, decorWidth, decorThickness, color);
                             }
                         }
                         if (overlayBatch != null) {
                             // 删除线＝em 中线；Y 连同全局平移取整，线压满整行像素呈实色
                             float strikeY = vector.Y + emHeight * 0.5f - decorThickness * 0.5f;
                             strikeY = MathF.Round(strikeY + GlobalTransform.M42) - GlobalTransform.M42;
-                            QueueTransformedQuad(overlayBatch, decorX, strikeY, lineWidth, decorThickness, color);
+                            QueueTransformedQuad(overlayBatch, decorX, strikeY, decorWidth, decorThickness, color);
                         }
                     }
                     //if (flag)
