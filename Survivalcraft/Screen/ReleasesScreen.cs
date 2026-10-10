@@ -41,12 +41,15 @@ namespace Game {
                 }
             };
             m_releaseInfoPanel = Children.Find<StackPanelWidget>("ReleaseInfoPanel");
-            m_releasesListPanel.ItemWidgetFactory = item => new LabelWidget {
-                Text = item is ReleaseInfo releaseInfo
-                    ? releaseInfo.name + GetVersionSuffix(releaseInfo.tag_name, APIUpdateManager.CurrentVersion)
-                    : string.Empty,
-                HorizontalAlignment = WidgetAlignment.Center,
-                VerticalAlignment = WidgetAlignment.Center
+            m_releasesListPanel.ItemWidgetFactory = item => {
+                if (item is not ReleaseInfo releaseInfo) {
+                    return new Widget();
+                }
+                return new LabelWidget {
+                    Text = releaseInfo.name + GetVersionSuffix(releaseInfo.tag_name, APIUpdateManager.CurrentVersion),
+                    VerticalAlignment = WidgetAlignment.Center,
+                    Margin = new Vector2(15f, 0f)
+                };
             };
             m_releasesListPanel.ItemClicked += DisplayReleaseInfo;
         }
@@ -159,7 +162,9 @@ namespace Game {
 
         public void DisplayReleaseInfo(object item) //档左侧版本列表中某条目点击时
         {
-            ReleaseInfo releaseInfo = (ReleaseInfo)item;
+            if (item is not ReleaseInfo releaseInfo) {
+                return;
+            }
             m_titleLabel.Text = releaseInfo.name;
             m_infoLabel.Text = string.Format(LanguageControl.GetContentWidgets(fName, 4), releaseInfo.author.name, releaseInfo.created_at);
             m_textLabel.Markdown = releaseInfo.body;

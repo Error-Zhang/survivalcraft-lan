@@ -8,10 +8,10 @@
       <LabelWidget Name="TopBar.Label" Text="[ReleasesScreen:1]" />
     </CanvasWidget>
 
-    <CanvasWidget Size="300, Infinity" Margin="10, 10">
+    <CanvasWidget Size="240, Infinity" Margin="10, 10">
 
       <BevelledRectangleWidget Style="{Styles/Area}" />
-      <ListPanelWidget Name="ReleasesList" Direction="Vertical" Margin="5, 3" ItemSize="56" SelectionColor="10, 70, 0, 90"/>
+      <ListPanelWidget Name="ReleasesList" Direction="Vertical" Margin="3, 3" ItemSize="56" SelectionColor="10, 70, 0, 90"/>
 
     </CanvasWidget>
 
