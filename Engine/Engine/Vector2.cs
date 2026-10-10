@@ -154,6 +154,10 @@ namespace Engine {
 
         // 列主序：M11/M12/M13/M14 各落在连续 4 float 的列起点；ARM64 NEON 用 Zip1/Zip2 交错，
         // x86 SSE 用 Unpack/MoveHighToLow；输出行 lane 与标量版一致，结果逐位相同
+        // 外门必须按实际分发的内联类判断：MonoVM（net10.0-android 默认）上 AdvSimd.IsSupported 恒 false
+        // 而 Vector128.IsHardwareAccelerated 恒 true，用后者会在 ARM 落进 SSE 分支抛
+        // PlatformNotSupportedException（2026-10-10 BestiaryScreen 崩溃实证）
+        // TODO: .NET 11 启用 CoreCLR-Android 后实测 NEON 分支真实生效（届时 AdvSimd.IsSupported 应为真）
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void TransformRows(ref Matrix m, out Vector128<float> row1, out Vector128<float> row2, out Vector128<float> row4) {
             Vector128<float> c1 = Vector128.LoadUnsafe(ref m.M11);
@@ -180,7 +184,7 @@ namespace Engine {
             Vector2[] destinationArray,
             int destinationIndex,
             int count) {
-            if (Vector128.IsHardwareAccelerated) {
+            if (AdvSimd.IsSupported || Sse.IsSupported) {
                 TransformRows(ref m, out Vector128<float> row1, out Vector128<float> row2, out Vector128<float> row4);
                 for (int i = 0; i < count; i++) {
                     Vector2 vector = sourceArray[sourceIndex + i];
@@ -210,7 +214,7 @@ namespace Engine {
             Vector2[] destinationArray,
             int destinationIndex,
             int count) {
-            if (Vector128.IsHardwareAccelerated) {
+            if (AdvSimd.IsSupported || Sse.IsSupported) {
                 TransformRows(ref m, out Vector128<float> row1, out Vector128<float> row2, out _);
                 for (int i = 0; i < count; i++) {
                     Vector2 vector = sourceArray[sourceIndex + i];
