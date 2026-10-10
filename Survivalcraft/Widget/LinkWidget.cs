@@ -94,6 +94,7 @@ namespace Game {
             XElement node = ContentManager.Get<XElement>("Widgets/LinkContents");
             LoadChildren(this, node);
             m_labelWidget = Children.Find<LabelWidget>("Label");
+            Underline = true;
             m_clickableWidget = Children.Find<ClickableWidget>("Clickable");
             LoadProperties(this, node);
         }

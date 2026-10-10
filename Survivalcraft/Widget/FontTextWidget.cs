@@ -434,7 +434,10 @@ namespace Game {
                 // 行宽必须按 widget 空间字号量（不含 gtScale）：锚点 runOffset 作用在 widget 空间 pivot 上，
                 // 若混入栅格空间行宽（×gtScale），UI 全局缩放≠1 时 Center/Right 锚点偏移被放大 gtScale 倍
                 //（ModSettingsScreen Description 不居中根因）；探针 gt=1 测不到，F9 矩阵以 RenderTransform ×1.6 复现
-                float lineWidth = VectorFont.MeasureString(line, VectorFont.DefaultSize * FontScale, Bold, Italic).X;
+                // 行宽按绘制同字号量测（×gt 栅格字号量完 ÷gt 回 widget 空间）：FSS advance 逐字号
+                // 整数圆整，小字号度量 ≠ 大字号栅格 ÷gt（真实链 ×2.59 下 41 字符实测漂 +3.84px
+                // ≈一个窄字符 advance，主菜单下划线末字符缺口实证）——装饰矩形/锚点必须与绘制同源
+                float lineWidth = VectorFont.MeasureString(line, VectorFont.DefaultSize * FontScale * gtScale, Bold, Italic).X / gtScale;
                 // 锚点 runOffset 基于墨迹宽：字符间 spacing 实画 n−1 个（末字符后无 spacing 墨迹），
                 // 与装饰矩形的 n 口径（含尾 advance 记账）语义不同——用 MeasureString 裸宽时
                 // Center/Right 随字距整体越界 (n−1)·FontSpacing.X
