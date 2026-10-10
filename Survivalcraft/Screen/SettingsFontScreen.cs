@@ -343,57 +343,9 @@ namespace Game {
         /// Dispose 旧屏。
         /// </summary>
         static void RebuildScreens() {
-            List<KeyValuePair<string, Screen>> oldScreens = [.. ScreensManager.m_screens];
-            Dictionary<string, Screen> newScreens = [];
-            foreach (KeyValuePair<string, Screen> c in oldScreens) {
-                Type type = c.Value.GetType();
-#pragma warning disable IL2072
-                object obj = Activator.CreateInstance(type);
-#pragma warning restore IL2072
-                newScreens.Add(c.Key, (Screen)obj);
-            }
-            // 落点名须在表替换前按旧实例捕获（审查修复 M2）：GetScreenName 按 m_screens 值引用
-            // 反查，替换后旧 CurrentScreen 已不在表中恒得空串，守卫退化为恒落 SettingsFont
-            string currentScreenName = ScreensManager.GetScreenName(ScreensManager.CurrentScreen);
-            Dictionary<Screen, Screen> oldToNew = [];
-            foreach (KeyValuePair<string, Screen> c in oldScreens) {
-                ScreensManager.m_screens[c.Key] = newScreens[c.Key];
-                oldToNew[c.Value] = newScreens[c.Key];
-            }
-            Screen previousBeforeSwitch = ScreensManager.PreviousScreen;
-            ScreensManager.SwitchScreen(string.IsNullOrEmpty(currentScreenName) ? "SettingsFont" : currentScreenName);
-            Screen newPrevious = previousBeforeSwitch != null
-                && oldToNew.TryGetValue(previousBeforeSwitch, out Screen mappedPrevious)
-                    ? mappedPrevious
-                    : ScreensManager.FindScreen<Screen>("Settings");
-            if (newPrevious != ScreensManager.CurrentScreen) {
-                ScreensManager.PreviousScreen = newPrevious;
-            }
-            // [.. Stack] 展开是 LIFO（栈顶在前），按原序回推会把整栈上下颠倒：
-            // [Loading, MainMenu, Settings, Font(旧)] 重推后变 [Settings, MainMenu, Loading(顶)]——
-            // GoBack/TopOfHistoryScreen 摸到的是栈底 Loading（返回键直接退到加载屏，
-            // PreviousScreen 口径则设置/字体两屏打转）。倒序回推恢复 底→顶 原序
-            List<Screen> history = [.. ScreensManager.HistoryStack];
-            ScreensManager.HistoryStack.Clear();
-            for (int i = history.Count - 1; i >= 0; i--) {
-                Screen mapped = oldToNew.TryGetValue(history[i], out Screen replaced) ? replaced : history[i];
-                // 重建的 SwitchScreen 恒把旧当前屏压入历史栈（切屏目标=新实例，永不命中
-                // screen==TopOfHistoryScreen 的 Pop 分支），映射后该项=新当前屏的重复——
-                // “当前屏不入历史栈”是 SwitchScreen 的不变量，命中即丢弃
-                if (mapped == ScreensManager.CurrentScreen) {
-                    continue;
-                }
-                ScreensManager.HistoryStack.Push(mapped);
-            }
-            // 旧屏实例的生命周期终点：整表重建不调 Leave，终局清理统一走 Dispose（同 ChangeLanguage 口径）
-            foreach (KeyValuePair<string, Screen> c in oldScreens) {
-                try {
-                    c.Value.Dispose();
-                }
-                catch (Exception ex) {
-                    Log.Warning($"Disposing replaced screen \"{c.Key}\" failed: {ex.Message}");
-                }
-            }
+            // 整表重建共用口（ScreensManager.RebuildAllScreens）：GameScreen 世界绑定不可重建
+            //（Activator 空壳=返回黑屏无输入），原样保留——其界面字体维持旧链直到重进世界
+            ScreensManager.RebuildAllScreens(static s => s is GameScreen, "SettingsFont");
         }
     }
 }

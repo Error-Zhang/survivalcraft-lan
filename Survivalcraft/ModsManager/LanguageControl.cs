@@ -393,36 +393,16 @@ namespace Game {
             // 的 SC 面）：必须在屏重建前——新屏 ctor 逐个捕获链引用，异步重建会让新屏捕到旧
             // locale 的链。平台门外此调用为空转（链恒 null）
             FontManager.RebuildChainsSync();
-            List<KeyValuePair<string, Screen>> oldScreens = [.. ScreensManager.m_screens];
-            Dictionary<string, object> objs = [];
-            foreach (KeyValuePair<string, Screen> c in ScreensManager.m_screens) {
-                Type type = c.Value.GetType();
-#pragma warning disable IL2072
-                object obj = Activator.CreateInstance(type);
-#pragma warning restore IL2072
-                objs.Add(c.Key, obj);
-            }
-            foreach (KeyValuePair<string, object> c in objs) {
-                ScreensManager.m_screens[c.Key] = c.Value as Screen;
-            }
+            // 整表屏重建走共用口 ScreensManager.RebuildAllScreens：落点=重建前当前屏
+            //（原硬编码 SwitchScreen("MainMenu") 会把用户从设置屏踢回主菜单）；GameScreen
+            // 世界绑定原样保留（Activator 空壳=返回游戏黑屏且无输入），其界面文本维持旧
+            // 语言直到重进世界
+            ScreensManager.RebuildAllScreens(static s => s is GameScreen, "MainMenu");
             CraftingRecipesManager.Initialize();
             BlocksManager.Blocks[ClothingBlock.Index].Initialize();
             BlocksManager.Blocks[EggBlock.Index].Initialize();
             ClothingSlot.Initialize();
             SubsystemPalette.m_nameFormat = LanguageControl.Get("SubsystemPalette", "1");
-            ScreensManager.SwitchScreen("MainMenu");
-            // 旧屏实例的生命周期终点：整表重建不调 Leave，终局清理（退订 ctor 订阅的
-            // 静态事件等）统一走 Dispose。放在切屏后：旧屏若曾是当前屏，其过渡动画过半
-            // 才触发的迟到 Leave 会晚于此处，但社区屏 Leave 仅释放实例级单槽，迟到即空
-            // 操作。单屏清理故障不阻断重建。屏表常驻，常规切屏不 Dispose。
-            foreach (KeyValuePair<string, Screen> c in oldScreens) {
-                try {
-                    c.Value.Dispose();
-                }
-                catch (Exception ex) {
-                    Log.Warning($"Disposing replaced screen \"{c.Key}\" failed: {ex.Message}");
-                }
-            }
         }
 
         public static Dictionary<string, string> CachedLanguageFullNames = [];

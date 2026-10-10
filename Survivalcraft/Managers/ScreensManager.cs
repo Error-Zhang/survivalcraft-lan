@@ -90,6 +90,75 @@ namespace Game {
         public static void GoBack(params object[] parameters) => SwitchScreen(TopOfHistoryScreen, parameters);
 
         /// <summary>
+        /// 整表屏重建（语言切换 / 字体链热切换共用）：逐屏 Activator 重建以拾取新语言/新字体链；
+        /// preserve 谓词命中的屏与 Activator 失败的屏原样保留（世界绑定的 GameScreen 经 Activator
+        /// 重建=未加载世界的空壳，返回它即黑屏且无输入）。落点=重建前的当前屏（异常兜底
+        /// fallbackScreenName）；历史栈倒序回推保持 底→顶 原序（[.. Stack] 展开是 LIFO 快照，
+        /// 按快照原序回推=整栈倒置）。被替换的旧实例统一 Dispose（整表重建不调 Leave，同
+        /// ChangeLanguage 口径）；保留屏不 Dispose。
+        /// </summary>
+        public static void RebuildAllScreens(Predicate<Screen> preserve = null, string fallbackScreenName = "MainMenu") {
+            List<KeyValuePair<string, Screen>> oldScreens = [.. m_screens];
+            Dictionary<string, Screen> newScreens = [];
+            Dictionary<Screen, Screen> oldToNew = [];
+            foreach (KeyValuePair<string, Screen> c in oldScreens) {
+                Screen replacement = c.Value;
+                if (preserve == null
+                    || !preserve(c.Value)) {
+                    try {
+                        Type type = c.Value.GetType();
+#pragma warning disable IL2072
+                        replacement = (Screen)Activator.CreateInstance(type);
+#pragma warning restore IL2072
+                    }
+                    catch (Exception ex) {
+                        Log.Warning($"Recreating screen \"{c.Key}\" failed, keeping old instance: {ex.Message}");
+                    }
+                }
+                newScreens.Add(c.Key, replacement);
+                oldToNew[c.Value] = replacement;
+            }
+            // 落点名须在表替换前按旧实例捕获：GetScreenName 按 m_screens 值引用反查，
+            // 替换后旧 CurrentScreen 已不在表中恒得空串
+            string currentScreenName = GetScreenName(CurrentScreen);
+            foreach (KeyValuePair<string, Screen> c in oldScreens) {
+                m_screens[c.Key] = newScreens[c.Key];
+            }
+            Screen previousBeforeSwitch = PreviousScreen;
+            SwitchScreen(string.IsNullOrEmpty(currentScreenName) ? fallbackScreenName : currentScreenName);
+            Screen newPrevious = previousBeforeSwitch != null
+                && oldToNew.TryGetValue(previousBeforeSwitch, out Screen mappedPrevious)
+                    ? mappedPrevious
+                    : FindScreen<Screen>(fallbackScreenName);
+            if (newPrevious != CurrentScreen) {
+                PreviousScreen = newPrevious;
+            }
+            List<Screen> history = [.. HistoryStack];
+            HistoryStack.Clear();
+            for (int i = history.Count - 1; i >= 0; i--) {
+                Screen mapped = oldToNew.TryGetValue(history[i], out Screen replaced) ? replaced : history[i];
+                // 重建的 SwitchScreen 恒把旧当前屏压入历史栈（切屏目标=新实例，永不命中
+                // screen==TopOfHistoryScreen 的 Pop 分支），映射后该项=新当前屏的重复——
+                // “当前屏不入历史栈”是 SwitchScreen 的不变量，命中即丢弃
+                if (mapped == CurrentScreen) {
+                    continue;
+                }
+                HistoryStack.Push(mapped);
+            }
+            foreach (KeyValuePair<string, Screen> c in oldScreens) {
+                if (oldToNew[c.Value] == c.Value) {
+                    continue; // 保留屏（preserve 命中/重建失败）生命周期延续，不 Dispose
+                }
+                try {
+                    c.Value.Dispose();
+                }
+                catch (Exception ex) {
+                    Log.Warning($"Disposing replaced screen \"{c.Key}\" failed: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
         ///     重启进程并在重启后直达指定屏。目标屏名持久化于 Settings.xml，
         ///     LoadingScreen 完成加载时经 ConsumeRestartReturnScreen 消费：目标屏
         ///     已注册则直达，否则照常进主菜单。screenName 为空或未注册时仅重启。
