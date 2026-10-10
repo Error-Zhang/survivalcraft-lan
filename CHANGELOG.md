@@ -35,6 +35,7 @@
     }
 }
 ```
+* 新增来自 [社区扩展模组](https://test.suancaixianyu.cn/#/post/1755) 的整合包支持，配置指南详见[此处](docs/ModPackConfig.md)
 * 新增 MarkdownWidget、HtmlWidget 用于渲染 Markdown 和 HTML（仅限基本支持）
 * 新增 FlexPanelWidget、TablePanelWidget 两种实用容器组件
 * 支持鼠标横向滚轮（Mouse.MouseWheelMovementX、WidgetInput.MouseWheelMovementX）
