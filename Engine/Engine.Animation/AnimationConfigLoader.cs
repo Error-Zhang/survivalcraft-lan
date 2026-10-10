@@ -116,11 +116,9 @@ namespace Engine.Animation {
             }
             List<string> errors = new();
 
-            // 验证模板名称
-            if (string.IsNullOrEmpty(config.Template)) {
-                errors.Add("Template name is required");
-            }
-            else if (!AnimationTemplateManager.Exists(config.Template)) {
+            // 验证模板名称（可选：为空时使用内联 layers；非空时必须已注册）
+            if (!string.IsNullOrEmpty(config.Template)
+                && !AnimationTemplateManager.Exists(config.Template)) {
                 errors.Add($"Unknown template: {config.Template}");
             }
 
@@ -341,11 +339,16 @@ namespace Engine.Animation {
                 throw new ArgumentNullException(nameof(model));
             }
 
-            // 获取模板名称
-            string templateName = config.Template ?? "Simple";
+            // 解析模板：显式引用按名查注册表（未知名退回 Simple，与 AnimationController 同口径）；
+            // 未引用时用内联 layers 构建临时模板，不进注册表
+            AnimationTemplate template = !string.IsNullOrEmpty(config.Template)
+                ? AnimationTemplateManager.Get(config.Template)
+                    ?? AnimationTemplateManager.Get("Simple")
+                    ?? throw new AnimationConfigValidationException($"Unknown template: {config.Template} and no 'Simple' fallback registered")
+                : BuildInlineTemplate(config);
 
             // 创建控制器
-            AnimationController controller = new(model, templateName);
+            AnimationController controller = new(model, template);
 
             // 设置根骨骼变换配置（rotation 度→弧度由 controller 内部转；translation 直传）
             controller.SetRootRotationConfig(config.RootBoneRotation);
@@ -420,6 +423,43 @@ namespace Engine.Animation {
                 controller.SetAnimationReferences(config.Animations);
             }
             return controller;
+        }
+
+        /// <summary>
+        /// 从配置内联的 layers 构建临时模板（template 未指定时使用）。
+        /// 层混合顺序 = index 升序（稳定排序，同 index 保持声明顺序）；
+        /// index 省略时按声明顺序自动编号（0 起）。
+        /// 模板名固定 "Inline"，不注册进 AnimationTemplateManager。
+        /// </summary>
+        static AnimationTemplate BuildInlineTemplate(AnimationConfig config) {
+            if (config.Layers == null
+                || config.Layers.Count == 0) {
+                // 与 Simple 模板等价的默认层栈
+                return new AnimationTemplate(
+                    "Inline",
+                    new Dictionary<string, LayerDefinition> { ["Base"] = new(0, AnimationBlendMode.Override) }
+                );
+            }
+            Dictionary<string, LayerDefinition> layers = new();
+            int autoIndex = 0;
+            foreach (KeyValuePair<string, LayerConfig> kvp in config.Layers) {
+                LayerConfig layerConfig = kvp.Value;
+                if (layerConfig == null) {
+                    continue; // 与模板路径 CreateTemplateFromConfig 对 null 条目的处理对齐
+                }
+                string[] boneMask = layerConfig?.Bones is { Length: > 0 } mask ? mask : null;
+                string[] boneMaskExclude = layerConfig?.BonesExclude is { Length: > 0 } exclude ? exclude : null;
+                float weight = layerConfig?.Weight is > 0 ? layerConfig.Weight.Value : 1f;
+                layers[kvp.Key] = new LayerDefinition(
+                    layerConfig?.Index ?? autoIndex,
+                    AnimationTemplateManager.ParseBlendMode(layerConfig?.BlendMode),
+                    boneMask,
+                    boneMaskExclude,
+                    weight
+                );
+                autoIndex++;
+            }
+            return new AnimationTemplate("Inline", layers);
         }
 
         /// <summary>

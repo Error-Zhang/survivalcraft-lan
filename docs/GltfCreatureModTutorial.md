@@ -308,7 +308,7 @@ YourMod/
 
 | 属性 | 类型 | 说明 |
 |------|------|------|
-| `template` | string | 动画模板名称：`Simple`、`FourLegged`、`Human`、`Bird`、`FlightlessBird`、`Fish`，或自定义模板路径 |
+| `template` | string | 动画模板名称：`Simple`、`FourLegged`、`Human`、`Bird`、`FlightlessBird`、`Fish`，或自定义模板路径。可选——省略时直接用本配置内联的 `layers` 定义层栈（写 `index`/`blendMode`），详见 [AnimationConfigReference.md](AnimationConfigReference.md) 的"内联层栈" |
 | `rootBoneRotation` | float | 根骨骼旋转修正（度），用于修正模型朝向。常见值：`0`（模型面向 +Z）或 `180`（模型面向 -Z） |
 | `modelScale` | float | 模型缩放。`1.0` 为原始大小，`0.01` 用于厘米单位的模型 |
 | `layers` | object | 层级覆盖配置（可选，覆盖模板默认值） |

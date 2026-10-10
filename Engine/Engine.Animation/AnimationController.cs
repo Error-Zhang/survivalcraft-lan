@@ -168,13 +168,24 @@ namespace Engine.Animation {
         /// </summary>
         public event AnimationEventHandler OnAnimationEvent;
 
-        public AnimationController(Model model, string templateName) {
+        public AnimationController(Model model, string templateName)
+            : this(model, ResolveTemplate(templateName)) { }
+
+        /// <summary>
+        /// 按名解析模板：未注册时退回 Simple 模板
+        /// </summary>
+        static AnimationTemplate ResolveTemplate(string templateName) {
+            return AnimationTemplateManager.Get(templateName)
+                ?? AnimationTemplateManager.Get("Simple")
+                ?? throw new ArgumentException($"Unknown animation template: '{templateName}' and no 'Simple' fallback registered", nameof(templateName));
+        }
+
+        /// <summary>
+        /// 用给定模板实例创建控制器（template 可选时由 AnimationConfigLoader 用内联层栈构建）
+        /// </summary>
+        public AnimationController(Model model, AnimationTemplate template) {
             m_model = model;
-            m_template = AnimationTemplateManager.Get(templateName);
-            if (m_template == null) {
-                // 使用简单模板作为后备
-                m_template = AnimationTemplateManager.Get("Simple");
-            }
+            m_template = template ?? throw new ArgumentNullException(nameof(template));
             if (model.RootBone != null) {
                 RootBoneName = FindAnimatableRootBoneName(model);
             }
