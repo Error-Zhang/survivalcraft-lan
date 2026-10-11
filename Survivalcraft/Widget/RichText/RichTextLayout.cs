@@ -322,7 +322,12 @@ namespace Game {
         // PUA/生僻符号）时盒窄于实画、后续 run 压上来。跨段 kerning 两端都不计（DrawText 各段
         // 独立排布）。字距按段字符数线性并入（每字符后一个，与 CountFittingCells 逐字符口径同 n）；
         // Draw 侧字距经 characterSpacing 直绘同一间距（FSS 段字符间 n−1+段尾补 1）
-        float MeasureRunWidth(string text, TextSpan span, float fontScale) {
+        // gtScale（Draw 侧背景/装饰用，排版侧恒 1）：矢量段改按 s×gt 量测、段内 ÷gt——FSS advance
+        // 逐栅格字号整数圆整，小字号量测 ≠ 大字号栅格 ÷gt（每字符 ±半像素级系统差，随 run 长度
+        // 线性累积成行内代码灰底"尾 padding"实证）；与绘制同字号量测即同源归零。位图段绘制不经
+        // gt 补偿，段宽不参与 ÷gt。字距为绝对 px（DrawText characterSpacing 经 sink 除回原值），
+        // 不随 gtScale 缩放
+        public float MeasureRunWidth(string text, TextSpan span, float fontScale, float gtScale = 1f) {
             VectorFont chain = span.Monospace ? (MonoVectorFont ?? VectorFont) : VectorFont;
             float width = 0f;
             int start = 0;
@@ -338,7 +343,7 @@ namespace Game {
                     continue;
                 }
                 if (segVector) {
-                    width += chain.MeasureString(text[start..i], chain.DefaultSize * fontScale, span.Bold, span.Italic).X
+                    width += chain.MeasureString(text[start..i], chain.DefaultSize * fontScale * gtScale, span.Bold, span.Italic).X / gtScale
                         + LetterSpacing * (i - start);
                 }
                 else {

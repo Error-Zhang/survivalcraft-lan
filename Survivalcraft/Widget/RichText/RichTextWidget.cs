@@ -362,6 +362,23 @@ namespace Game {
                     );
                     Vector2 drawDelta = draw - position;
                     TextAnchor anchor = TextAnchor.Default | TextAnchor.DisableSnapToPixels;
+                    // 背景/边框盒宽：矢量 run 改按绘制字号（×gt 量测、÷gt 回控件空间）重测——排版期
+                    // run.Width 按控件字号量测，FSS advance 逐栅格字号整数圆整，两字号圆整差随 run
+                    // 长度线性累积成行内代码灰底右端"尾 padding"（12 字符实测 14px @gt2.4，Consolas
+                    // 0.5498em×23 圆整进位 vs ×55 圆整舍去）。与绘制同字号量测即同源归零；位图 run 与
+                    // gt=1 重测同值，直接用排版宽免重算。折行/命中仍用 run.Width（排版口径不变）。
+                    // 仅带背景/边框的 run 重测（其余 run 无矩形装饰），普通文字零开销
+                    float decorationWidth = run.Width;
+                    VectorFont runChain = run.Span.Monospace ? (MonoVectorFont ?? VectorFont) : VectorFont;
+                    if ((flatBatch2D != null || overlayBatch2D != null)
+                        && vectorGtScale != 1f
+                        && runChain != null
+                        && (run.Span.BackgroundColor.A != 0
+                            || run.Span.Border != null
+                            || run.Span.Strikethrough
+                            || (!run.Span.LinkUnderlineSuppressed && (run.Span.Underline || run.Span.IsLink)))) {
+                        decorationWidth = m_layout.MeasureRunWidth(run.Text, run.Span, scale.X, vectorGtScale);
+                    }
                     if (flatBatch2D != null
                         && run.Span.BackgroundColor.A != 0) {
                         // 背景＝run 自身字号的 em 高矩形（同下划线基准）；fade<1 时随 run 淡出
@@ -374,7 +391,7 @@ namespace Game {
                                 flatBatch2D,
                                 position.X + drawDelta.X,
                                 position.Y + drawDelta.Y,
-                                run.Width,
+                                decorationWidth,
                                 Font.GlyphHeight * scale.X * Font.Scale,
                                 backgroundColor
                             );
@@ -392,7 +409,7 @@ namespace Game {
                         if (bl + bt + br + bb > 0f) {
                             float boxLeft = position.X + drawDelta.X - bl;
                             float boxTop = blockY + line.Y + drawDelta.Y;
-                            float boxWidth = bl + run.Width + br;
+                            float boxWidth = bl + decorationWidth + br;
                             float boxHeight = line.Height;
                             if (bt > 0f) {
                                 QueueTransformedQuad(flatBatch2D, boxLeft, boxTop, boxWidth, bt, BorderColor(border.Top, run.Span, fade));
@@ -426,9 +443,7 @@ namespace Game {
                     // VectorFont.DrawText 内），画位与位图路径同用 draw（含屏幕整栅对齐），跳过伪粗双绘
                     // 与 ItalicShearMatrix；位图 run（未挂链或首字符缺字整 run 回退）走原路径不变。
                     // 首字符定态为 v1 简化，run 内混排缺字段由 DrawText 的位图回退段兜底。
-                    // 行内代码（span.Monospace）走等宽链（null 随正文链）。
-                    // 删除线/下划线装饰不分流，两态都照画
-                    VectorFont runChain = run.Span.Monospace ? (MonoVectorFont ?? VectorFont) : VectorFont;
+                    // 删除线/下划线装饰不分流，两态都照画（runChain 声明见上方背景盒宽处）
                     if (runChain != null
                         && run.Text.Length > 0
                         && runChain.HasGlyph(run.Text[0])) {
@@ -505,7 +520,7 @@ namespace Game {
                         float thickness = MathUtils.Max(FontScale * Font.Scale, 1f);
                         float strikeY = position.Y + Font.GlyphHeight * scale.X * Font.Scale * 0.5f - thickness * 0.5f;
                         strikeY = MathF.Round(strikeY + drawDelta.Y + GlobalTransform.M42) - drawDelta.Y - GlobalTransform.M42;
-                        QueueTransformedQuad(overlayBatch2D, position.X + drawDelta.X, strikeY + drawDelta.Y, run.Width, thickness, color);
+                        QueueTransformedQuad(overlayBatch2D, position.X + drawDelta.X, strikeY + drawDelta.Y, decorationWidth, thickness, color);
                     }
                     bool underline = !run.Span.LinkUnderlineSuppressed && (run.Span.Underline || (run.Span.IsLink && ShowLinkUnderline));
                     if (underline && flatBatch2D != null) {
@@ -514,7 +529,7 @@ namespace Game {
                         // position 自动跟随
                         float underlineY = position.Y + Font.GlyphHeight * scale.X * Font.Scale + 1f;
                         float thickness = MathUtils.Max(FontScale * Font.Scale, 1f);
-                        QueueTransformedQuad(flatBatch2D, position.X + drawDelta.X, underlineY + drawDelta.Y, run.Width, thickness, color);
+                        QueueTransformedQuad(flatBatch2D, position.X + drawDelta.X, underlineY + drawDelta.Y, decorationWidth, thickness, color);
                     }
                 }
             }
