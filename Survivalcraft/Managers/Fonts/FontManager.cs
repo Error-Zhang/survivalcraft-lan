@@ -234,18 +234,32 @@ namespace Game {
             // RebuildChainsCore 的系统槽位回退（回内置+落盘+日志，"加载设置即系统默认但没获取到
             // →立即回退"裁定）。门=本会话未发起过扫描（成败都算）：回调经 RebuildChains→
             // RebuildAllScreens 重建屏表，无门即扫描→重建→再扫描反馈环（2026-10-11 崩页实录）。
-            // 屏重建 preserve LoadingScreen：扫描完成时启动可能仍在进行，屏表里的 Loading 是带
-            // 加载动作的活屏，换新实例=启动中断；保留原实例 SwitchScreen 同屏早退。
+            // 重建回调经 BootScanRebuildAfterLoading 排到启动排空后（时序见其注释）；
+            // preserve LoadingScreen 保留为兜底（扫描完成时启动若仍在进行，屏表里的 Loading 是
+            // 带加载动作的活屏，换新实例=启动中断；保留原实例 SwitchScreen 同屏早退）。
             if (SystemFontsSupported
                 && !FontLocator.SystemFontsScanAttempted
                 && (IsSystemSlot(SettingsManager.FontBody)
                     || IsSystemSlot(SettingsManager.FontMono))) {
-                ScanSystemFontsAsync(
-                    static () => RebuildChains(
-                        static () => ScreensManager.RebuildAllScreens(static s => s is GameScreen or LoadingScreen, "MainMenu")));
+                ScanSystemFontsAsync(BootScanRebuildAfterLoading);
             }
 #endif
         }
+
+#if BROWSER
+        /// <summary>boot 扫描完成回调：启动未完（CurrentScreen 仍是带加载动作的活 Loading 屏）时
+        /// 逐帧重排队，加载动作排空后再重建——线程池 RebuildChainsCore 若在启动期并发，与分帧
+        /// 加载动作存在 ModHooks 无锁 Dictionary 竞态（二轮审查 P2-2；后果有界但自愈代价是回退/
+        /// 系统字体推迟到下次重建）；启动完成后 CurrentScreen 离开 Loading 直接重建。</summary>
+        static void BootScanRebuildAfterLoading() {
+            if (ScreensManager.CurrentScreen is LoadingScreen) {
+                Dispatcher.Dispatch(BootScanRebuildAfterLoading);
+                return;
+            }
+            RebuildChains(
+                static () => ScreensManager.RebuildAllScreens(static s => s is GameScreen or LoadingScreen, "MainMenu"));
+        }
+#endif
 
         /// <summary>
         /// 同步重建双链（语言切换专用）：ChangeLanguage 本身同步重建全屏，新屏 ctor 逐个捕获
@@ -326,7 +340,13 @@ namespace Game {
                 m_pendingScanCallbacks.Clear();
             }
             foreach (Action callback in callbacks) {
-                callback?.Invoke();
+                try {
+                    callback?.Invoke();
+                }
+                catch (Exception ex) {
+                    // 逐回调隔离：单回调失败不吞其余排队回调（同 Dispatcher 逐动作 catch 口径）
+                    Log.Error($"[FontManager] font scan completion callback failed: {ex}");
+                }
             }
         }
 #endif
@@ -536,8 +556,10 @@ namespace Game {
         /// <summary>
         /// 系统槽位回退（IOS 以外全平台，用户裁定）：系统发现已实际尝试（W/A/L 每次重建即尝试；
         /// 浏览器=至少发起过一次扫描）仍无该族可用面 → 基础槽 "system" 立即回退内置字体并落盘，
-        /// 日志说明=告知用户系统字体不可用。浏览器扫描前不回退——字体并非不可用只是待手势扫描，
-        /// 回退会静默清掉用户持久化的选择。链构建前执行：本次重建直接按回退后语义出链，免二次重建。
+        /// 日志说明=告知用户系统字体不可用。回退是持久落盘的：事后装字体/浏览器侧授权不会自动
+        /// 恢复，恢复=用户重选"系统默认"（日志载明）。浏览器扫描前不回退——字体并非不可用只是
+        /// 待手势扫描，回退会静默清掉用户持久化的选择。链构建前执行：本次重建直接按回退后语义
+        /// 出链，免二次重建。
         /// </summary>
         static void RevertSystemSlotsIfUnavailable(List<SystemFontFace> systemFaces) {
             if (!SystemFontsSupported
@@ -559,7 +581,8 @@ namespace Game {
                 return false;
             }
             assign(BuiltinSlotValue);
-            Log.Information($"[FontManager] no usable system fonts for {(mono ? "mono" : "body")} chain, slot reverted to built-in font.");
+            // 恢复路径（回退是持久落盘的，事后装字体/授权不自动恢复）：用户重选"系统默认"重试
+            Log.Information($"[FontManager] no usable system fonts for {(mono ? "mono" : "body")} chain, slot reverted to built-in font; re-select the system default to retry once fonts become available.");
             return true;
         }
 
