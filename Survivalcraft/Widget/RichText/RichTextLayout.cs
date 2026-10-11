@@ -315,20 +315,21 @@ namespace Game {
         float SpanScale(TextSpan span) => span.FontScale > 0f ? span.FontScale : DefaultFontScale;
 
         // run 盒宽：与 Draw 的 run 级分流同口径——按字符 HasGlyph 切段，镜像 VectorFont.DrawText
-        // 内部的矢量/位图分段状态机。矢量段整串量测：FSS 推进含字符对 kerning（跨链源恒 0、
+        // 内部的矢量/位图分段状态机。矢量段默认整串量测：FSS 推进含字符对 kerning（跨链源恒 0、
         // 无逐对公开 API），逐字符和会漏 kerning 使 run 间累积漂移（实测 +5~6px/行）；整串量测
         // 与 DrawText 同函数同值。位图段逐字符位图预算：FSS 度量对链内缺字码点直接跳过 X 贡献
         // （prevGlyph 不复位），整串量测会静默丢缺字字符宽——run 首字挂链+后续含链外字符（emoji/
         // PUA/生僻符号）时盒窄于实画、后续 run 压上来。跨段 kerning 两端都不计（DrawText 各段
         // 独立排布）。字距按段字符数线性并入（每字符后一个，与 CountFittingCells 逐字符口径同 n）；
         // Draw 侧字距经 characterSpacing 直绘同一间距（FSS 段字符间 n−1+段尾补 1）
-        // gtScale（Draw 侧背景/装饰用，排版侧恒 1）：矢量段改按 s×gt 量测、段内 ÷gt——FSS advance
-        // 逐栅格字号整数圆整，小字号量测 ≠ 大字号栅格 ÷gt（每字符 ±半像素级系统差，随 run 长度
-        // 线性累积成行内代码灰底"尾 padding"实证）；与绘制同字号量测即同源归零。位图段绘制不经
-        // gt 补偿，段宽不参与 ÷gt。字距为绝对 px（DrawText characterSpacing 经 sink 除回原值），
-        // 不随 gtScale 缩放
-        public float MeasureRunWidth(string text, TextSpan span, float fontScale, float gtScale = 1f) {
+        // 带装饰 span（背景/边框/删除线/下划线/链接）矢量段改逐字符量测：FSS advance 逐栅格字号
+        // 整数圆整，整串按控件字号量测 vs 绘制侧 ×gt 栅格 ÷gt 两套圆整，差随 run 长度线性累积
+        // （行内代码灰底"尾 padding"实证）——装饰 run 的 Draw 侧改按逐字符前缀 ×gt 定位（见
+        // RichTextWidget.Draw），推进量必须与绘制定位同源：逐字符圆整和。代价=装饰 run 丢段内
+        // kerning（行内代码/链接 URL 无 kerning 对，视觉无差）；非装饰 run 保持整串+kerning 不变
+        public float MeasureRunWidth(string text, TextSpan span, float fontScale) {
             VectorFont chain = span.Monospace ? (MonoVectorFont ?? VectorFont) : VectorFont;
+            bool perChar = chain != null && HasSpanDecoration(span);
             float width = 0f;
             int start = 0;
             bool segVector = chain != null
@@ -343,8 +344,16 @@ namespace Game {
                     continue;
                 }
                 if (segVector) {
-                    width += chain.MeasureString(text[start..i], chain.DefaultSize * fontScale * gtScale, span.Bold, span.Italic).X / gtScale
-                        + LetterSpacing * (i - start);
+                    if (perChar) {
+                        for (int k = start; k < i; k++) {
+                            width += chain.MeasureString(text[k].ToString(), chain.DefaultSize * fontScale, span.Bold, span.Italic).X
+                                + LetterSpacing;
+                        }
+                    }
+                    else {
+                        width += chain.MeasureString(text[start..i], chain.DefaultSize * fontScale, span.Bold, span.Italic).X
+                            + LetterSpacing * (i - start);
+                    }
                 }
                 else {
                     for (int k = start; k < i; k++) {
@@ -358,6 +367,16 @@ namespace Game {
                 segVector = segIsVector;
             }
             return width;
+        }
+
+        // 装饰判定（排版/绘制两端同谓词）：命中即装饰 run——矢量段逐字符量测（排版）、
+        // gt≠1 时逐字符前缀 ×gt 定位（绘制），盒宽与字形落点逐位同源
+        public static bool HasSpanDecoration(TextSpan span) {
+            return span.BackgroundColor.A != 0
+                || span.Border != null
+                || span.Strikethrough
+                || span.Underline
+                || span.IsLink;
         }
 
         // 字符推进量唯一出处（折行判定 CountFittingCells 用）：字距是绝对 px，
