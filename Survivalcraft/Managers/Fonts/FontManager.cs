@@ -24,8 +24,9 @@ namespace Game {
 
     /// <summary>
     /// 平台系统字体发现（各平台恰好一个 Discover 实现）：Windows=FontLocator.Windows.cs（注册表）、
-    /// Android=FontLocator.Android.cs（系统字体目录）、其余平台（IOS/BROWSER/LINUX/裸 API 构建）=
-    /// FontLocator.None.cs 空实现（平台级位图回退，spec §1）。共享面探测助手亦置于本 partial（无平台条件）。
+    /// Android=FontLocator.Android.cs（系统字体目录）、Linux=FontLocator.Linux.cs（fontconfig+
+    /// 目录扫描兜底）、其余平台（IOS/BROWSER/裸 API 构建）=FontLocator.None.cs 空实现（平台级
+    /// 位图回退，spec §1）。共享面探测助手亦置于本 partial（无平台条件）。
     /// </summary>
     static partial class FontLocator {
         /// <summary>
@@ -76,7 +77,7 @@ namespace Game {
         /// <summary>"builtin"：游戏内置字体（Content Fonts/PericlesPro 四样式面，全平台可用，不依赖系统发现）。</summary>
         BuiltIn,
 
-        /// <summary>"system"：跟随系统发现（正文章体/系统等宽），不产生独立条目；仅 WINDOWS/ANDROID 可用（见 FontManager.SystemFontsSupported）。</summary>
+        /// <summary>"system"：跟随系统发现（正文章体/系统等宽），不产生独立条目；仅 WINDOWS/ANDROID/LINUX 可用（见 FontManager.SystemFontsSupported）。</summary>
         SystemDefault,
 
         /// <summary>"ref:body"：引用 body 主槽（FontBody）的解析结果。</summary>
@@ -85,7 +86,7 @@ namespace Game {
         /// <summary>"ref:mono"：引用 mono 主槽（FontMono）的解析结果。</summary>
         ReferenceMono,
 
-        /// <summary>"user:&lt;file&gt;"：用户导入字体（UserFontDir 下文件名）。</summary>
+        /// <summary>"user:&lt;file&gt;"：用户导入字体（ModsManager.FontsPath 下文件名）。</summary>
         UserFile
     }
 
@@ -93,7 +94,7 @@ namespace Game {
     public struct FontSlotSetting {
         public FontSlotKind Kind;
 
-        /// <summary>仅 Kind==UserFile 时有效：UserFontDir 下的字体文件名。</summary>
+        /// <summary>仅 Kind==UserFile 时有效：ModsManager.FontsPath 下的字体文件名。</summary>
         public string FileName;
 
         public static FontSlotSetting SystemDefault => new() { Kind = FontSlotKind.SystemDefault };
@@ -139,21 +140,18 @@ namespace Game {
     /// onCompleted 经 <see cref="Dispatcher.Dispatch"/> 编组回主线程（Window 帧循环 BeforeFrame 泵出）。
     /// </summary>
     public static class FontManager {
-        /// <summary>用户导入字体目录（Storage 抽象路径）。</summary>
-        public const string UserFontDir = "data:/Fonts";
-
         /// <summary>
         /// 内置字体槽位值（FontSlotKind.BuiltIn 的持久化串）。
         /// </summary>
         public const string BuiltinSlotValue = "builtin";
 
         /// <summary>
-        /// 平台系统字体发现是否可用（仅 WINDOWS/ANDROID 有 FontLocator.Discover 实现）。
+        /// 平台系统字体发现是否可用（仅 WINDOWS/ANDROID/LINUX 有 FontLocator.Discover 实现）。
         /// false 平台：设置屏隐藏"系统默认"选项、加载设置时 "system" 槽位迁移为内置字体
         /// （<see cref="MigrateSystemSlotsToBuiltin"/>），矢量链由内置头/槽位/模组/用户字体构成。
         /// </summary>
         public static bool SystemFontsSupported { get; } =
-#if WINDOWS || ANDROID
+#if WINDOWS || ANDROID || LINUX
             true;
 #else
             false;
@@ -386,7 +384,7 @@ namespace Game {
             bool cacheable = false;
             try {
                 if (probeKey.StartsWith("user:", StringComparison.Ordinal)) {
-                    string path = Storage.CombinePaths(UserFontDir, probeKey.Substring(5));
+                    string path = Storage.CombinePaths(ModsManager.FontsPath, probeKey.Substring(5));
                     if (Storage.FileExists(path)) {
                         CollectFaceStyles(Storage.ReadAllBytes(path), styles);
                     }
@@ -435,8 +433,8 @@ namespace Game {
         /// <summary>双链构建本体（Discover/读盘/解析）。失败项逐级降级并记日志，正常不抛出。<br/>
         /// 返回值=被换下的上一代链（暂存，不经此 Dispose）：RebuildChains 在 onCompleted
         /// （宿主屏重建回调）跑完后统一释放，修复热切换旧图集纹理泄漏。<br/>
-        /// 平台说明：链构建全平台执行——系统发现仅 WINDOWS/ANDROID 有实现（FontLocator），
-        /// 其余平台（IOS/BROWSER/LINUX/裸 API 构建，同 FontLocator.None.cs 反集口径）Discover
+        /// 平台说明：链构建全平台执行——系统发现仅 WINDOWS/ANDROID/LINUX 有实现（FontLocator），
+        /// 其余平台（IOS/BROWSER/裸 API 构建，同 FontLocator.None.cs 反集口径）Discover
         /// 恒空：系统尾部无条目、"system" 槽位解析 null（该平台加载期已迁移为内置字体，见
         /// MigrateSystemSlotsToBuiltin），链由内置头/槽位/模组/用户字体构成，全空时才退位图路径。</summary>
         static List<VectorFont> RebuildChainsCore() {
@@ -632,7 +630,7 @@ namespace Game {
             if (string.IsNullOrEmpty(fileName)) {
                 return null;
             }
-            string path = Storage.CombinePaths(UserFontDir, fileName);
+            string path = Storage.CombinePaths(ModsManager.FontsPath, fileName);
             try {
                 if (!Storage.FileExists(path)) {
                     Log.Warning($"[FontManager] user font \"{fileName}\" missing, slot skipped.");
@@ -713,7 +711,7 @@ namespace Game {
 
         /// <summary>
         /// 校验并导入用户字体：SharpAstro 试解析（0 面即拒）+ Latin 必备字符（A-Z a-z 0-9）覆盖探测，
-        /// 通过后写入 <see cref="UserFontDir"/>（同名覆盖）。失败时 error 为原因文本并返回 false，不抛出。
+        /// 通过后写入 <see cref="ModsManager.FontsPath"/>（同名覆盖）。失败时 error 为原因文本并返回 false，不抛出。
         /// </summary>
         public static bool ValidateAndImportFont(Stream stream, string fileName, out string error) {
             error = null;
@@ -758,10 +756,10 @@ namespace Game {
                     return false;
                 }
                 string safeName = Storage.SanitizeFileNameSegment(Storage.GetFileName(fileName));
-                if (!Storage.DirectoryExists(UserFontDir)) {
-                    Storage.CreateDirectory(UserFontDir);
+                if (!Storage.DirectoryExists(ModsManager.FontsPath)) {
+                    Storage.CreateDirectory(ModsManager.FontsPath);
                 }
-                Storage.WriteAllBytes(Storage.CombinePaths(UserFontDir, safeName), data);
+                Storage.WriteAllBytes(Storage.CombinePaths(ModsManager.FontsPath, safeName), data);
                 // 同名覆盖导入使旧探测缓存失效（源内容已变，缓存键仍为 "user:<文件名>"）
                 lock (m_probeLock) {
                     _ = m_sourceStylesCache.Remove($"user:{safeName}");
@@ -779,10 +777,10 @@ namespace Game {
         /// <summary>列出已导入的用户字体文件名（按后缀过滤；目录不存在/枚举失败返回空列表）。</summary>
         public static List<string> ListUserFonts() {
             try {
-                if (!Storage.DirectoryExists(UserFontDir)) {
+                if (!Storage.DirectoryExists(ModsManager.FontsPath)) {
                     return [];
                 }
-                return Storage.ListFileNames(UserFontDir)
+                return Storage.ListFileNames(ModsManager.FontsPath)
                     .Where(fileName => FontFileSuffixes.Contains(Storage.GetExtensionBCL(fileName).ToLowerInvariant()))
                     .ToList();
             }

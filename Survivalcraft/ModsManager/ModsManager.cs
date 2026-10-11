@@ -64,6 +64,7 @@ public static class ModsManager {
     public static string ConfigsPath { get; } = $"{DocPath}/Configs.xml";
     public static string LogPath { get; } = $"{ExternalPath}/Bugs";
     public static string ModsPath = $"{ExternalPath}/Mods";
+    public static string FontsPath { get; } = $"{DocPath}/Fonts";
     public static bool IsAndroid => OperatingSystem.IsAndroid();
     //public static bool IsAndroid => VersionsManager.Platform == Platform.Android;
 
