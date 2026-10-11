@@ -116,15 +116,50 @@ namespace Engine.Media {
 
         /// <summary>
         /// 度量：与 DrawText 同一降级解析（缺失样式→Regular），保证度量的就是将绘制的矢量链；
-        /// 仅 Regular 链整链缺失时返回 Zero，调用方退位图度量
+        /// 仅 Regular 链整链缺失时返回 Zero，调用方退位图度量。<br/>
+        /// 与 DrawText 同构分段量测（HasGlyph 切分）：矢量段走 FSS、链外段走位图回退度量——
+        /// FSS 对链外字符只记 .notdef advance（Pericles ≈0.33em），整串直量会把 CJK 等回退段
+        /// 宽度记小 ~3 倍，与 DrawText 的位图回退推进错位（FontTextWidget 整串量推行宽/锚点，
+        /// 内置字体等缺字链下整行错位即此；宽随字长线性放大）。<br/>
+        /// Y=各段行高最大值（矢量段 FSS ink bounds、位图段 LineHeight×scale），并非 FSS 全串
+        /// bounds 口径，消费方勿与 DrawText 返回的行高语义混用（现网消费方均只取 X）。
         /// </summary>
         public Vector2 MeasureString(string text, float size, bool bold = false, bool italic = false) {
+            ArgumentNullException.ThrowIfNull(text);
             var font = GetStyleFont(ResolveStyle(bold, italic, degrade: true), size);
             if (font == null) {
                 return Vector2.Zero; // 整链缺失，调用方退位图度量
             }
-            var size2 = font.MeasureString(text);
-            return new Vector2(size2.X, size2.Y);
+            float width = 0f;
+            float height = 0f;
+            int start = 0;
+            bool segVector = text.Length > 0 && HasGlyph(text[0]);
+            for (int i = 1; i <= text.Length; i++) {
+                bool segIsVector = i < text.Length && HasGlyph(text[i]);
+                if (i < text.Length
+                    && segIsVector == segVector) {
+                    continue; // 同态延续，段继续累积
+                }
+                if (segVector) {
+                    var size2 = font.MeasureString(text[start..i]);
+                    width += size2.X;
+                    if (size2.Y > height) {
+                        height = size2.Y;
+                    }
+                }
+                else if (_fallbackBitmapFont != null) {
+                    // 与 DrawBitmapFallback 同几何（kerning/跳字符同口径）；回退字体缺失时段不画
+                    // 不推进（DrawText 同行为），宽度记 0
+                    width += MeasureBitmapRun(text[start..i], size);
+                    float bitmapHeight = _fallbackBitmapFont.LineHeight * (size / DefaultSizeValue * _fallbackBitmapFont.Scale);
+                    if (bitmapHeight > height) {
+                        height = bitmapHeight;
+                    }
+                }
+                start = i;
+                segVector = segIsVector;
+            }
+            return new Vector2(width, height);
         }
 
         // 粗体排版宽度系数探针串：Latin 比例字真 Bold 面 advance>Regular，CJK 等宽 em 粗体 advance 恒同，
