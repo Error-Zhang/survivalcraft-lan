@@ -3,11 +3,15 @@ using Engine.Graphics;
 using Engine.Media;
 using Game.IContentReader;
 using SharpAstro.Fonts;
+#if BROWSER
+using Engine.Browser;
+#endif
 
 namespace Game {
     /// <summary>
     /// 系统字体发现结果：一个可用的系统字体面（ttc 容器内按 <see cref="FaceIndex"/> 定位）。<br/>
-    /// 平台枚举见 <see cref="FontLocator"/>（Windows=注册表、Android=系统字体目录、其余平台空）。
+    /// 平台枚举见 <see cref="FontLocator"/>（Windows=注册表、Android=系统字体目录、
+    /// Linux=fontconfig、BROWSER=Local Font Access API、其余平台空）。
     /// </summary>
     public class SystemFontFace {
         public string FilePath;
@@ -20,13 +24,19 @@ namespace Game {
 
         /// <summary>true=等宽字体（进 Mono 链），false=正文字体（进 Default 链）。brief 四字段外的分类附加位，链条组装分流必需。</summary>
         public bool IsMono;
+
+        /// <summary>浏览器 Local Font Access 路线的字体字节（内存持有不落盘——用户裁定系统字体
+        /// 唯一落盘路径=手动导入字体到 FontsPath）；FilePath 为 "localfont://" 展示串不落盘。
+        /// 其余平台恒 null 走 FilePath 读盘。</summary>
+        public byte[] Data;
     }
 
     /// <summary>
     /// 平台系统字体发现（各平台恰好一个 Discover 实现）：Windows=FontLocator.Windows.cs（注册表）、
     /// Android=FontLocator.Android.cs（系统字体目录）、Linux=FontLocator.Linux.cs（fontconfig+
-    /// 目录扫描兜底）、其余平台（IOS/BROWSER/裸 API 构建）=FontLocator.None.cs 空实现（平台级
-    /// 位图回退，spec §1）。共享面探测助手亦置于本 partial（无平台条件）。
+    /// 目录扫描兜底）、BROWSER=FontLocator.Browser.cs（Local Font Access API，手势扫描+内存字节）、
+    /// 其余平台（IOS/裸 API 构建）=FontLocator.None.cs 空实现（平台级位图回退，spec §1）。
+    /// 共享面探测助手亦置于本 partial（无平台条件）。
     /// </summary>
     static partial class FontLocator {
         /// <summary>
@@ -77,7 +87,7 @@ namespace Game {
         /// <summary>"builtin"：游戏内置字体（Content Fonts/PericlesPro 四样式面，全平台可用，不依赖系统发现）。</summary>
         BuiltIn,
 
-        /// <summary>"system"：跟随系统发现（正文章体/系统等宽），不产生独立条目；仅 WINDOWS/ANDROID/LINUX 可用（见 FontManager.SystemFontsSupported）。</summary>
+        /// <summary>"system"：跟随系统发现（正文章体/系统等宽），不产生独立条目；仅 WINDOWS/ANDROID/LINUX 及 BROWSER（运行时探测）可用（见 FontManager.SystemFontsSupported）。</summary>
         SystemDefault,
 
         /// <summary>"ref:body"：引用 body 主槽（FontBody）的解析结果。</summary>
@@ -146,15 +156,29 @@ namespace Game {
         public const string BuiltinSlotValue = "builtin";
 
         /// <summary>
-        /// 平台系统字体发现是否可用（仅 WINDOWS/ANDROID/LINUX 有 FontLocator.Discover 实现）。
-        /// false 平台：设置屏隐藏"系统默认"选项、加载设置时 "system" 槽位迁移为内置字体
+        /// 平台系统字体发现是否可用：WINDOWS/ANDROID/LINUX 编译期恒 true；BROWSER 运行时探测
+        /// （'queryLocalFonts' in window，Firefox/Safari 恒 false）；其余平台恒 false。<br/>
+        /// false：设置屏隐藏"系统默认"选项、加载设置时 "system" 槽位迁移为内置字体
         /// （<see cref="MigrateSystemSlotsToBuiltin"/>），矢量链由内置头/槽位/模组/用户字体构成。
         /// </summary>
-        public static bool SystemFontsSupported { get; } =
-#if WINDOWS || ANDROID || LINUX
-            true;
+        public static bool SystemFontsSupported {
+            get {
+#if BROWSER
+                if (!m_browserSystemFontsSupported.HasValue) {
+                    m_browserSystemFontsSupported = BrowserInterop.IsLocalFontsSupported();
+                }
+                return m_browserSystemFontsSupported.Value;
+#elif WINDOWS || ANDROID || LINUX
+                return true;
 #else
-            false;
+                return false;
+#endif
+            }
+        }
+
+#if BROWSER
+        /// <summary>运行时探测缓存（同步 JS interop 便宜，仍缓存免重复跨界）。</summary>
+        static bool? m_browserSystemFontsSupported;
 #endif
 
         /// <summary>接受的字体文件后缀（导入过滤 + 用户字体列表过滤）。SharpAstro 亦支持 WOFF/WOFF2。</summary>
@@ -227,6 +251,34 @@ namespace Game {
             }
             DispatchFontChainsRebuilt();
         }
+
+        /// <summary>
+        /// 浏览器系统字体扫描（Local Font Access）：须在用户手势上下文调用（设置屏基础槽选"系统默认"）——
+        /// queryLocalFonts 首调触发权限弹窗（local-fonts 权限跨会话持久，重扫静默）。扫描全程内存
+        /// 不落盘（用户裁定：唯一落盘=手动导入字体到 FontsPath），完成后主线程回调重建；拒绝/失败/
+        /// 不支持照常回调（链回落 builtin 头+槽位，等同未扫描）。非浏览器平台无扫描语义，直调回调。
+        /// </summary>
+        public static void ScanSystemFontsAsync(Action onCompleted) {
+#if BROWSER
+            ScanSystemFontsCoreAsync(onCompleted);
+#else
+            onCompleted?.Invoke();
+#endif
+        }
+
+#if BROWSER
+        /// <summary>await 续体回主线程（同 Storage.ChooseFile 浏览器分支口径），不经 Task.Run——
+        /// JS interop 须主线程派发，且手势上下文经 await 传递给 queryLocalFonts。</summary>
+        static async Task ScanSystemFontsCoreAsync(Action onCompleted) {
+            try {
+                await FontLocator.ScanLocalFontsAsync();
+            }
+            catch (Exception ex) {
+                Log.Warning($"[FontManager] local font scan failed: {ex.Message}");
+            }
+            onCompleted?.Invoke();
+        }
+#endif
 
         /// <summary>OnFontChainsRebuilt 钩子派发（主线程调用面）：仅链确实换入后调用
         /// （Core 失败路径 retired=null 不派发）。异常经 ModsManager.TryInvoke 捕获记日志。</summary>
@@ -433,8 +485,9 @@ namespace Game {
         /// <summary>双链构建本体（Discover/读盘/解析）。失败项逐级降级并记日志，正常不抛出。<br/>
         /// 返回值=被换下的上一代链（暂存，不经此 Dispose）：RebuildChains 在 onCompleted
         /// （宿主屏重建回调）跑完后统一释放，修复热切换旧图集纹理泄漏。<br/>
-        /// 平台说明：链构建全平台执行——系统发现仅 WINDOWS/ANDROID/LINUX 有实现（FontLocator），
-        /// 其余平台（IOS/BROWSER/裸 API 构建，同 FontLocator.None.cs 反集口径）Discover
+        /// 平台说明：链构建全平台执行——系统发现 WINDOWS/ANDROID/LINUX 编译期实现、BROWSER 运行时
+        /// 探测（设置屏手势扫描后 Discover 有结果，未扫描恒空=链回落 builtin 头+槽位），其余平台
+        /// （IOS/裸 API 构建，同 FontLocator.None.cs 反集口径）Discover
         /// 恒空：系统尾部无条目、"system" 槽位解析 null（该平台加载期已迁移为内置字体，见
         /// MigrateSystemSlotsToBuiltin），链由内置头/槽位/模组/用户字体构成，全空时才退位图路径。</summary>
         static List<VectorFont> RebuildChainsCore() {
@@ -615,7 +668,8 @@ namespace Game {
             }
             ChainEntry entry = null;
             try {
-                byte[] data = File.ReadAllBytes(face.FilePath);
+                // 浏览器 Local Font Access 路线：字节内存持有（Data），FilePath 是展示串非盘上路径
+                byte[] data = face.Data ?? File.ReadAllBytes(face.FilePath);
                 entry = VectorFontReader.BuildEntry(data, $"system:{Storage.GetFileName(face.FilePath)}", face.FaceIndex, face.Style);
             }
             catch (Exception ex) {

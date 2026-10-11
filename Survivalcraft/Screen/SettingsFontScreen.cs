@@ -224,7 +224,8 @@ namespace Game {
         void ApplySlot(FontSlot slot, string value) {
             SetSetting(slot, value);
             SettingsManager.SaveSettings();
-            if (IsBaseSlot(slot)) {
+            // 基础槽共用路径：探测新源样式面（后台）做联动锁定，再重建——锁定与重建仍同一次 apply
+            void ApplyBaseSlot() {
                 bool mono = IsMonoSlot(slot);
                 FontManager.ProbeSourceStyles(
                     mono,
@@ -235,6 +236,20 @@ namespace Game {
                         RebuildChainsAndScreens();
                     }
                 );
+            }
+#if BROWSER
+            // 浏览器系统字体跟随：基础槽取"系统默认"时借本次点击手势现场扫描（queryLocalFonts
+            // 权限弹窗→枚举→命中面字节内存缓存，不落盘），完成后续走既有探测锁定+重建路径。
+            // 未扫描/拒绝时 Discover 恒空，链回落 builtin 头+槽位
+            if (FontManager.SystemFontsSupported
+                && IsBaseSlot(slot)
+                && value == "system") {
+                FontManager.ScanSystemFontsAsync(ApplyBaseSlot);
+                return;
+            }
+#endif
+            if (IsBaseSlot(slot)) {
+                ApplyBaseSlot();
             }
             else {
                 RebuildChainsAndScreens();

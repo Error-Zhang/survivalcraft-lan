@@ -32,6 +32,20 @@ namespace Engine.Browser {
         [JSImport("setNeedPointerLock", "main.js")]
         public static partial void SetNeedPointerLock(bool need);
 
+        // —— Local Font Access API（浏览器系统字体跟随，FontLocator.Browser 消费；仅 Chromium 103+）——
+
+        /// <summary>'queryLocalFonts' in window（Firefox/Safari 恒 false）。</summary>
+        [JSImport("isLocalFontsSupported", "main.js")]
+        public static partial bool IsLocalFontsSupported();
+
+        /// <summary>手势上下文内调用：queryLocalFonts 首调触发权限弹窗（权限跨会话持久）→ 全量元数据 JSON（family/style/ps）。</summary>
+        [JSImport("queryLocalFontsData", "main.js")]
+        public static partial Task<string> QueryLocalFontsData();
+
+        /// <summary>按 postscriptName 取命中面 SFNT 原始字节（queryLocalFontsData 之后调用，共享其枚举缓存；ttc 各面返回同一 collection 的字节）。</summary>
+        [JSImport("getLocalFontBlob", "main.js")]
+        public static partial Task<JSObject> GetLocalFontBlob(string postscriptName);
+
         [JSImport("showOpenFilePicker", "main.js")]
         public static partial Task<JSObject> ShowOpenFilePicker(string[] descAndExtArray, int[] extCounts, string defaultPath);
 

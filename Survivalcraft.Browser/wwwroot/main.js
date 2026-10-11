@@ -66,6 +66,8 @@ const engineExports = await runtime.getAssemblyExports("Engine.dll");
 const interop = engineExports.Engine.Browser.BrowserInterop; // 调用这个特别慢，屏幕刷新率过高甚至会因此导致卡顿，能少用就少用
 
 let needPointerLock = false;
+// Local Font Access API：queryLocalFontsData 一次枚举的面对象缓存，getLocalFontBlob 免重复枚举
+let localFontCache = null;
 function checkAndRequestPointerLock(){
     if (needPointerLock) {
         if (document.pointerLockElement !== canvas && canvas.requestPointerLock) {
@@ -641,6 +643,31 @@ runtime.setModuleImports("main.js", {
     openUrlInNewTab: url => globalThis.open(url, "_blank"),
     setNeedPointerLock: need => {
         needPointerLock = need;
+    },
+    // —— Local Font Access API（仅 Chromium 103+；Firefox/Safari 恒 false）——
+    isLocalFontsSupported: () => "queryLocalFonts" in globalThis,
+    queryLocalFontsData: async () => {
+        if (!("queryLocalFonts" in globalThis)) {
+            return "[]";
+        }
+        // 首调即权限弹窗（须在手势任务内发起）；授权后静默。全量元数据一次枚举缓存
+        const fonts = await globalThis.queryLocalFonts();
+        localFontCache = fonts;
+        return globalThis.JSON.stringify(fonts.map(font => ({
+            family: font.family,
+            style: font.style,
+            ps: font.postscriptName
+        })));
+    },
+    getLocalFontBlob: async postscriptName => {
+        const fonts = localFontCache ?? (localFontCache = await globalThis.queryLocalFonts());
+        const font = fonts.find(font => font.postscriptName === postscriptName);
+        if (!font) {
+            return null;
+        }
+        // SFNT 原始字节（ttc 每面共享整 collection blob，face 序由托管侧按 PS 名解析）
+        const blob = await font.blob();
+        return new Uint8Array(await blob.arrayBuffer());
     },
     showOpenFilePicker: async (descAndExtArray, extCounts, defaultPath) => {
         let types = [];
