@@ -2,6 +2,31 @@
 
 > 说明：此更新日志和发布页的更新日志略有不同
 
+## API 1.9.5 (2026-10-11)
+
+### 新增
+
+* Windows、Android 平台默认使用系统默认字体，可通过`设置-界面-字体`来改回内置字体，或导入你喜欢的字体
+* 
+
+## 调整
+
+* 源码仓库从 Gitee 迁移到 Atomgit
+* 修改语言后，不会回到主界面，如果在存档中修改语言，可能需要退出存档重进，才能看到变化
+* 链接默认有下划线
+
+### 修复
+
+* 上个版本引入的 Android 平台一系列渲染问题（例如生物图鉴屏打不开、闪电不显示、火焰卡顿）
+* 上个版本引入的底部物品栏背景色错误
+* API 版本列表屏获取不到完整发布列表
+
+### 对于开发者
+
+* 新增矢量字体相关支持，详见 FontManager、VectorFont 类
+* FontTextWidget 新增 VectorFont 以及多种文字装饰相关属性
+* ModLoader 新增钩子：DisplaySmallMessage、OnTerrainCreated、OnTerrainChunkCreated、BeforeTerrainSave、OnTerrainDraw、nBlockGeometryGeneratorCreated、FindTerrainCollisionBoxes、OnBuildingBodyFontChainEntries、OnBuildingMonoFontChainEntries、OnFontChainsRebuilt
+
 ## API 1.9.4 (2026-10-07)
 
 ### 新增

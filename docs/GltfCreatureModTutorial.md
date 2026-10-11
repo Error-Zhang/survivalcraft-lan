@@ -75,7 +75,7 @@ YourMod/
 {
   "Name": "YourCreatureMod",
   "Version": "1.0.0",
-  "ApiVersion": "1.9.4",
+  "ApiVersion": "1.9.5",
   "Description": "Adds a creature using glTF model",
   "ScVersion": "2.4",
   "GameplayImpactLevel": "Cosmetic",

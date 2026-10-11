@@ -19,9 +19,9 @@ namespace Game {
         public UpdateOrder UpdateOrder => UpdateOrder.Default;
 
         public override void OnBlockRemoved(int value, int newValue, int x, int y, int z) {
-            if (m_subsystemGameInfo.WorldSettings.EnvironmentBehaviorMode != 0
+            if (m_subsystemGameInfo.WorldSettings.EnvironmentBehaviorMode != EnvironmentBehaviorMode.Living
                 || m_leavesToCheck.Count >= 5000
-                || !(BlocksManager.Blocks[Terrain.ExtractContents(value)] is WoodBlock)) {
+                || BlocksManager.Blocks[Terrain.ExtractContents(value)] is not WoodBlock) {
                 return;
             }
             int num = x - 3;
