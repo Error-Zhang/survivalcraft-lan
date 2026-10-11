@@ -22,11 +22,10 @@ namespace Game {
         // 供给，尾部拉丁仅作"原版英文风格关闭"后的回落）。FontData 只有 family/style 文本
         // （style 串如 "Regular"/"Bold"/"Semibold"/"Bold Italic"），无 lang——与 Windows 注册表
         // 路线同构：family 精确匹配（OrdinalIgnoreCase）+ style 串判样式。
-        // family 别名双打：FontData.family 是本地化名（zh-CN 系统回 "微软雅黑" 非
-        // "Microsoft YaHei"，macOS 回 "苹方-简"），英文名+本地化名都要；"XXX UI" 是同文件
-        // 独立族（msyh.ttc 两族）一并命中。覆盖面按宿主 OS 打：Windows/macOS（苹方无真 Bold，
+        // family 别名双打：FontData.family 可能是本地化名（macOS 回 "苹方-简"），英文名+本地化名
+        // 都要；"XXX UI" 是同文件独立族（msyh.ttc 两族），主族名缺失时按序顶替（命中即止非并存入链）。覆盖面按宿主 OS 打：Windows/macOS（苹方无真 Bold，
         // Semibold=600 计 Bold，同 Android weight≥600 口径）/Linux/ChromeOS（fontconfig 族名）；
-        // iOS 全浏览器均为 WebKit 无此 API，表内不列 iOS 族名（列了也永不命中）。
+        // iOS 浏览器无此 API（LFA 是桌面 Chromium 面），表内不列 iOS 族名（列了也永不命中）。
         static readonly (string[] Families, bool Mono)[] Candidates = [
             (["Microsoft YaHei", "Microsoft YaHei UI", "微软雅黑"], false),
             (["Microsoft JhengHei", "Microsoft JhengHei UI", "微軟正黑體"], false),
@@ -68,6 +67,17 @@ namespace Game {
         /// 一次性原子换入，构建线程（RebuildChainsCore/ProbeSourceStylesCore）只读。</summary>
         static List<SystemFontFace> m_cachedFaces;
 
+        /// <summary>是否已实际发起过扫描（无论成败）——RebuildChainsCore 系统槽位回退的
+        /// 前置门：扫描前字体并非"不可用"只是待手势扫描，回退会静默清掉用户持久化选择。</summary>
+        static bool m_scanAttempted;
+
+        /// <summary>W/A/L 每次重建即系统发现尝试恒 true；浏览器=至少发起过一次扫描。</summary>
+        internal static bool SystemFontsScanAttempted => m_scanAttempted;
+
+        /// <summary>本会话扫描是否已成功过（m_cachedFaces 非空）——设置屏扫描门：
+        /// 已有结果时 Enter/ApplySlot 直接消费缓存，不再借手势重扫（每轮全量 blob 重取 ~250MB）。</summary>
+        internal static bool SystemFontsScanSucceeded => m_cachedFaces != null;
+
         public static List<SystemFontFace> Discover() {
             List<SystemFontFace> faces = m_cachedFaces;
             return faces ?? [];
@@ -81,6 +91,7 @@ namespace Game {
         /// 拒绝/不支持/枚举空/解析异常 = m_cachedFaces 不动（保持上一轮，首次则恒空）。
         /// </summary>
         public static async Task ScanLocalFontsAsync() {
+            m_scanAttempted = true;
             if (!BrowserInterop.IsLocalFontsSupported()) {
                 Log.Information("[FontLocator] local font access API unavailable.");
                 return;

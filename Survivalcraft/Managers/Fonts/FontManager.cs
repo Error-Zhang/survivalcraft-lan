@@ -227,6 +227,24 @@ namespace Game {
             catch (Exception ex) {
                 Log.Error($"[FontManager] initial chain build failed: {ex}");
             }
+#if BROWSER
+            // 浏览器 boot 自动扫描：local-fonts 权限跨会话持久，已授权时 queryLocalFonts 免手势
+            // （IAB 实证 2026-10-11：刷新后全新文档零激活态直调成功），系统字体加载即生效，
+            // 主菜单不再是内置回退。未授权此处 NotAllowedError 静默落日志，回调重建触发
+            // RebuildChainsCore 的系统槽位回退（回内置+落盘+日志，"加载设置即系统默认但没获取到
+            // →立即回退"裁定）。门=本会话未发起过扫描（成败都算）：回调经 RebuildChains→
+            // RebuildAllScreens 重建屏表，无门即扫描→重建→再扫描反馈环（2026-10-11 崩页实录）。
+            // 屏重建 preserve LoadingScreen：扫描完成时启动可能仍在进行，屏表里的 Loading 是带
+            // 加载动作的活屏，换新实例=启动中断；保留原实例 SwitchScreen 同屏早退。
+            if (SystemFontsSupported
+                && !FontLocator.SystemFontsScanAttempted
+                && (IsSystemSlot(SettingsManager.FontBody)
+                    || IsSystemSlot(SettingsManager.FontMono))) {
+                ScanSystemFontsAsync(
+                    static () => RebuildChains(
+                        static () => ScreensManager.RebuildAllScreens(static s => s is GameScreen or LoadingScreen, "MainMenu")));
+            }
+#endif
         }
 
         /// <summary>
@@ -260,23 +278,56 @@ namespace Game {
         /// </summary>
         public static void ScanSystemFontsAsync(Action onCompleted) {
 #if BROWSER
-            ScanSystemFontsCoreAsync(onCompleted);
+            lock (m_pendingScanCallbacks) {
+                if (m_scanInFlight) {
+                    // 在飞去重：进行中的扫描完成后统一回调（防 Enter 静默扫描与点击应用并发
+                    // 双扫描——每份全量 blob ~250MB，叠加逼近 wasm 堆上限）
+                    if (onCompleted != null) {
+                        m_pendingScanCallbacks.Add(onCompleted);
+                    }
+                    return;
+                }
+                m_scanInFlight = true;
+            }
+            _ = ScanSystemFontsCoreAsync(onCompleted);
 #else
             onCompleted?.Invoke();
 #endif
         }
 
 #if BROWSER
+        static bool m_scanInFlight;
+
+        static readonly List<Action> m_pendingScanCallbacks = [];
+
         /// <summary>await 续体回主线程（同 Storage.ChooseFile 浏览器分支口径），不经 Task.Run——
         /// JS interop 须主线程派发，且手势上下文经 await 传递给 queryLocalFonts。</summary>
         static async Task ScanSystemFontsCoreAsync(Action onCompleted) {
             try {
                 await FontLocator.ScanLocalFontsAsync();
+                // 扫描成功：同步刷新系统面快照+失效 system:* 探测缓存——Initialize 期 Discover 恒空
+                // 已把空集落进缓存（cacheable），不清则 ApplyBaseSlot 的联动锁定与设置屏
+                // UpdateLinkedDisableStates 永远读到扫描前空集（同 ValidateAndImportFont 失效 "user:" 先例）
+                lock (m_rebuildLock) {
+                    m_lastSystemFaces = FontLocator.Discover();
+                }
+                lock (m_probeLock) {
+                    _ = m_sourceStylesCache.Remove("system:body");
+                    _ = m_sourceStylesCache.Remove("system:mono");
+                }
             }
             catch (Exception ex) {
                 Log.Warning($"[FontManager] local font scan failed: {ex.Message}");
             }
-            onCompleted?.Invoke();
+            List<Action> callbacks;
+            lock (m_pendingScanCallbacks) {
+                m_scanInFlight = false;
+                callbacks = [onCompleted, .. m_pendingScanCallbacks];
+                m_pendingScanCallbacks.Clear();
+            }
+            foreach (Action callback in callbacks) {
+                callback?.Invoke();
+            }
         }
 #endif
 
@@ -482,6 +533,36 @@ namespace Game {
             }
         }
 
+        /// <summary>
+        /// 系统槽位回退（IOS 以外全平台，用户裁定）：系统发现已实际尝试（W/A/L 每次重建即尝试；
+        /// 浏览器=至少发起过一次扫描）仍无该族可用面 → 基础槽 "system" 立即回退内置字体并落盘，
+        /// 日志说明=告知用户系统字体不可用。浏览器扫描前不回退——字体并非不可用只是待手势扫描，
+        /// 回退会静默清掉用户持久化的选择。链构建前执行：本次重建直接按回退后语义出链，免二次重建。
+        /// </summary>
+        static void RevertSystemSlotsIfUnavailable(List<SystemFontFace> systemFaces) {
+            if (!SystemFontsSupported
+                || !FontLocator.SystemFontsScanAttempted) {
+                return;
+            }
+            bool reverted = false;
+            reverted |= RevertSystemSlotIfUnavailable(SettingsManager.FontBody, value => SettingsManager.FontBody = value, systemFaces, mono: false);
+            reverted |= RevertSystemSlotIfUnavailable(SettingsManager.FontMono, value => SettingsManager.FontMono = value, systemFaces, mono: true);
+            if (reverted) {
+                // 落盘编组回主线程（RebuildChainsCore 在线程池持 m_rebuildLock）
+                Dispatcher.Dispatch(SettingsManager.SaveSettings);
+            }
+        }
+
+        static bool RevertSystemSlotIfUnavailable(string value, Action<string> assign, List<SystemFontFace> systemFaces, bool mono) {
+            if (FontSlotSetting.Parse(value).Kind != FontSlotKind.SystemDefault
+                || systemFaces.Any(face => face.IsMono == mono)) {
+                return false;
+            }
+            assign(BuiltinSlotValue);
+            Log.Information($"[FontManager] no usable system fonts for {(mono ? "mono" : "body")} chain, slot reverted to built-in font.");
+            return true;
+        }
+
         /// <summary>双链构建本体（Discover/读盘/解析）。失败项逐级降级并记日志，正常不抛出。<br/>
         /// 返回值=被换下的上一代链（暂存，不经此 Dispose）：RebuildChains 在 onCompleted
         /// （宿主屏重建回调）跑完后统一释放，修复热切换旧图集纹理泄漏。<br/>
@@ -493,6 +574,8 @@ namespace Game {
         static List<VectorFont> RebuildChainsCore() {
             List<SystemFontFace> systemFaces = FontLocator.Discover() ?? [];
             m_lastSystemFaces = systemFaces;
+            // 系统槽位回退在链构建前：本次重建直接按回退后的槽位语义出链，无需二次重建
+            RevertSystemSlotsIfUnavailable(systemFaces);
             // 文件级条目缓存（一次重建内同一文件只读盘/解析一次；槽位引用与系统发现可能重复命中）
             Dictionary<string, ChainEntry> fileEntries = new(StringComparer.OrdinalIgnoreCase);
             List<ChainEntry> bodyEntries = BuildBodyEntries(systemFaces, fileEntries);

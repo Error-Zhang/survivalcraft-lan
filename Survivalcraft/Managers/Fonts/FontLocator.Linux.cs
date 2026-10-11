@@ -55,6 +55,9 @@ namespace Game {
             return result;
         }
 
+        /// <summary>每次重建即系统发现尝试（RebuildChainsCore 系统槽位回退前置门）。</summary>
+        internal static bool SystemFontsScanAttempted => true;
+
         // fontconfig 主路线：body=sans-serif+游戏语言 lang（跟 LanguageControl 而非系统
         // locale，两者可不同；lang 失配只重罚评分不排除候选，纯英文装机求 zh 仍回系统默认
         // sans，语义正确），mono=monospace 不带 lang（等宽取系统默认族）。无斜体请求：

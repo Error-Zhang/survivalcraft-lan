@@ -47,6 +47,9 @@ namespace Game {
             return result;
         }
 
+        /// <summary>每次重建即系统发现尝试（RebuildChainsCore 系统槽位回退前置门）。</summary>
+        internal static bool SystemFontsScanAttempted => true;
+
         // HKLM+HKCU ...\Microsoft\Windows NT\CurrentVersion\Fonts：值名（如
         // "Microsoft YaHei & Microsoft YaHei UI (TrueType)"）→ 值数据（文件名或 per-user 绝对路径）。
         // 文件解析：绝对路径直接用；相对名先探测 %WINDIR%\Fonts 再退 C:\Windows\Fonts（双路径 File.Exists）。

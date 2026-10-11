@@ -66,7 +66,10 @@ namespace Game {
 
         public override void Enter(object[] parameters) {
             // 联动禁用态预热：缓存未命中时后台探测（多 MB ttc 读盘/解析离 UI 线程），
-            // 回调落缓存后由 Update 的 TryGetSourceStyles 命中刷新；命中时同步返回不闪帧
+            // 回调落缓存后由 Update 的 TryGetSourceStyles 命中刷新；命中时同步返回不闪帧。
+            // 浏览器系统字体扫描不在 Enter 做：boot 期 FontManager.Initialize 已自动扫描
+            // （已授权免手势；未授权自动回退内置），Enter 发起扫描曾被 RebuildAllScreens
+            // 重建本屏再 Enter 放大成扫描→重建→扫描反馈环（2026-10-11 崩页实录）
             FontManager.ProbeSourceStyles(mono: false, SettingsManager.FontBody, null);
             FontManager.ProbeSourceStyles(mono: true, SettingsManager.FontMono, null);
         }
@@ -240,11 +243,18 @@ namespace Game {
 #if BROWSER
             // 浏览器系统字体跟随：基础槽取"系统默认"时借本次点击手势现场扫描（queryLocalFonts
             // 权限弹窗→枚举→命中面字节内存缓存，不落盘），完成后续走既有探测锁定+重建路径。
-            // 未扫描/拒绝时 Discover 恒空，链回落 builtin 头+槽位
+            // 未扫描/拒绝时 Discover 恒空，链回落 builtin 头+槽位。
+            // 本会话扫描已成功过则直接用内存缓存应用（全量 blob 重取 ~250MB 免了）；
+            // 未成功过（含此前拒绝）重借手势扫描=人工点击触发，无自动反馈环
             if (FontManager.SystemFontsSupported
                 && IsBaseSlot(slot)
                 && value == "system") {
-                FontManager.ScanSystemFontsAsync(ApplyBaseSlot);
+                if (FontLocator.SystemFontsScanSucceeded) {
+                    ApplyBaseSlot();
+                }
+                else {
+                    FontManager.ScanSystemFontsAsync(ApplyBaseSlot);
+                }
                 return;
             }
 #endif

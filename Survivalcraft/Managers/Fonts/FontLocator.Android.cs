@@ -48,6 +48,9 @@ namespace Game {
             return result;
         }
 
+        /// <summary>每次重建即系统发现尝试（RebuildChainsCore 系统槽位回退前置门）。</summary>
+        internal static bool SystemFontsScanAttempted => true;
+
         // AFontMatcher（libandroid，API 29+）：body=CJK 探针字（拉丁已由 Pericles 链头供给，
         // 不依赖系统），mono=拉丁探针。bold 请求在系统无真 bold 文件时 matcher 返回 Regular
         // 面（getWeight<600）→ 丢弃，由 Stroked1 兜底；OEM 有 bold（MiSans 等）则自动命中。

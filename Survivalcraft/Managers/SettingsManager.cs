@@ -719,12 +719,22 @@ namespace Game {
                 ForceThirtyTwoBitsIndexFormat = false;
                 AdaptEdgeToEdgeDisplay = Window.HasWideNotch;
                 FontVanilaEnglish = true;
+                // 浏览器基础槽默认内置字体（用户裁定）：系统字体须经 queryLocalFonts 权限弹窗+
+                // 手势扫描才可得，"system" 槽在扫描前恒解析 null（链退化），默认落 builtin 显式语义
+#if BROWSER
+                FontBody = "builtin";
+#else
                 FontBody = "system";
+#endif
                 // 样式槽默认"基于正文字体/基于等宽字体"（引用基础槽），跟随之联动，不再满屏"系统默认"
                 FontBodyBold = "ref:body";
                 FontBodyItalic = "ref:body";
                 FontBodyBoldItalic = "ref:body";
+#if BROWSER
+                FontMono = "builtin";
+#else
                 FontMono = "system";
+#endif
                 FontMonoBold = "ref:mono";
                 FontMonoItalic = "ref:mono";
                 FontMonoBoldItalic = "ref:mono";

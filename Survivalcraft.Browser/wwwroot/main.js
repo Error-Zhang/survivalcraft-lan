@@ -660,7 +660,12 @@ runtime.setModuleImports("main.js", {
         })));
     },
     getLocalFontBlob: async postscriptName => {
-        const fonts = localFontCache ?? (localFontCache = await globalThis.queryLocalFonts());
+        // 只吃 queryLocalFontsData 的枚举缓存：缺失直接 null（托管侧跳过该面），
+        // 不做无手势兜底枚举——未授权环境必炸、已授权环境属静默扩权
+        const fonts = localFontCache;
+        if (!fonts) {
+            return null;
+        }
         const font = fonts.find(font => font.postscriptName === postscriptName);
         if (!font) {
             return null;

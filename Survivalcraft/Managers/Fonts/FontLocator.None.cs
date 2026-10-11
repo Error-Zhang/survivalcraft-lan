@@ -8,6 +8,9 @@
 namespace Game {
     static partial class FontLocator {
         public static List<SystemFontFace> Discover() => [];
+
+        /// <summary>本实现无系统发现，恒未尝试（SystemFontsSupported=false 下回退门不可达，编译占位）。</summary>
+        internal static bool SystemFontsScanAttempted => false;
     }
 }
 #endif
