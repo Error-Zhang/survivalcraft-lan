@@ -29,7 +29,7 @@
         <PackageReference Include="Silk.NET.Input" Version="2.23.0" />
         <!--SharpGLTF for glTF model loading-->
         <PackageReference Include="SharpGLTF.Core" Version="1.0.7" />
-        <PackageReference Include="SharpAstro.Fonts" Version="1.13.921" /><!--MIT 纯托管 OpenType/TrueType 解析+光栅，net10+-->
+        <PackageReference Include="SharpAstro.Fonts" Version="1.13.931" /><!--MIT 纯托管 OpenType/TrueType 解析+光栅，net10+-->
         <PackageReference Include="FontStashSharp.Rasterizers.SharpAstro" Version="1.2.9" /><!--FSS 光栅器适配（自带薄壳实现，我们用自写 loader 替代）-->
         <PackageReference Include="FontStashSharp.PlatformAgnostic" Version="1.6.1" /><!--FSS 核心：FontSystem/动态图集/度量/效果-->
         <!--Belows are for solving the warning of implicit useing the old version of these packages-->
