@@ -146,10 +146,11 @@ namespace Game {
 
         static bool IsBaseSlot(FontSlot slot) => slot is FontSlot.Body or FontSlot.Mono;
 
-        /// <summary>槽位按钮显示当前取值（系统默认/基于正文字体/基于等宽字体/文件名），从对话框返回即随设置刷新。</summary>
+        /// <summary>槽位按钮显示当前取值（内置字体/系统默认/基于正文字体/基于等宽字体/文件名），从对话框返回即随设置刷新。</summary>
         string DescribeSlotValue(FontSlot slot) {
             FontSlotSetting setting = FontSlotSetting.Parse(GetSetting(slot));
             return setting.Kind switch {
+                FontSlotKind.BuiltIn => LanguageControl.GetContentWidgets(fName, "17"),
                 FontSlotKind.ReferenceBody => LanguageControl.GetContentWidgets(fName, "12"),
                 FontSlotKind.ReferenceMono => LanguageControl.GetContentWidgets(fName, "13"),
                 FontSlotKind.UserFile => setting.FileName,
@@ -174,9 +175,16 @@ namespace Game {
             }
         }
 
-        /// <summary>槽位选项清单（spec §4）：body 基础槽无引用项；mono 基础槽引用正文；mono 样式槽引用正文+等宽。</summary>
+        /// <summary>
+        /// 槽位选项清单：内置字体（全平台）；系统默认仅系统发现平台（SystemFontsSupported）出现；
+        /// body 基础槽无引用项；mono 基础槽引用正文；mono 样式槽引用正文+等宽。
+        /// </summary>
         void ShowSlotDialog(FontSlot slot) {
-            List<KeyValuePair<string, string>> options = [new(LanguageControl.GetContentWidgets(fName, "11"), "system")];
+            List<KeyValuePair<string, string>> options = [];
+            if (FontManager.SystemFontsSupported) {
+                options.Add(new(LanguageControl.GetContentWidgets(fName, "11"), "system"));
+            }
+            options.Add(new(LanguageControl.GetContentWidgets(fName, "17"), FontManager.BuiltinSlotValue));
             if (slot != FontSlot.Body) {
                 options.Add(new(LanguageControl.GetContentWidgets(fName, "12"), "ref:body"));
             }

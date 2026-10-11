@@ -71,9 +71,12 @@ namespace Game {
         }
     }
 
-    /// <summary>字体槽位种类（设置字符串 "system"|"ref:body"|"ref:mono"|"user:&lt;file&gt;" 的解析产物）。</summary>
+    /// <summary>字体槽位种类（设置字符串 "builtin"|"system"|"ref:body"|"ref:mono"|"user:&lt;file&gt;" 的解析产物）。</summary>
     public enum FontSlotKind {
-        /// <summary>"system"：跟随系统发现（正文章体/系统等宽），不产生独立条目。</summary>
+        /// <summary>"builtin"：游戏内置字体（Content Fonts/PericlesPro 四样式面，全平台可用，不依赖系统发现）。</summary>
+        BuiltIn,
+
+        /// <summary>"system"：跟随系统发现（正文章体/系统等宽），不产生独立条目；仅 WINDOWS/ANDROID 可用（见 FontManager.SystemFontsSupported）。</summary>
         SystemDefault,
 
         /// <summary>"ref:body"：引用 body 主槽（FontBody）的解析结果。</summary>
@@ -86,7 +89,7 @@ namespace Game {
         UserFile
     }
 
-    /// <summary>字体槽位设置值："system"|"ref:body"|"ref:mono"|"user:&lt;file&gt;" 与结构体的互转。</summary>
+    /// <summary>字体槽位设置值："builtin"|"system"|"ref:body"|"ref:mono"|"user:&lt;file&gt;" 与结构体的互转。</summary>
     public struct FontSlotSetting {
         public FontSlotKind Kind;
 
@@ -100,6 +103,9 @@ namespace Game {
             if (string.IsNullOrEmpty(value)
                 || value == "system") {
                 return SystemDefault;
+            }
+            if (value == "builtin") {
+                return new FontSlotSetting { Kind = FontSlotKind.BuiltIn };
             }
             if (value == "ref:body") {
                 return new FontSlotSetting { Kind = FontSlotKind.ReferenceBody };
@@ -116,6 +122,7 @@ namespace Game {
         /// <summary>槽位 → 设置字符串（SettingsManager 持久化格式）。</summary>
         public override string ToString() {
             return Kind switch {
+                FontSlotKind.BuiltIn => "builtin",
                 FontSlotKind.ReferenceBody => "ref:body",
                 FontSlotKind.ReferenceMono => "ref:mono",
                 FontSlotKind.UserFile => $"user:{FileName}",
@@ -134,6 +141,23 @@ namespace Game {
     public static class FontManager {
         /// <summary>用户导入字体目录（Storage 抽象路径）。</summary>
         public const string UserFontDir = "data:/Fonts";
+
+        /// <summary>
+        /// 内置字体槽位值（FontSlotKind.BuiltIn 的持久化串）。
+        /// </summary>
+        public const string BuiltinSlotValue = "builtin";
+
+        /// <summary>
+        /// 平台系统字体发现是否可用（仅 WINDOWS/ANDROID 有 FontLocator.Discover 实现）。
+        /// false 平台：设置屏隐藏"系统默认"选项、加载设置时 "system" 槽位迁移为内置字体
+        /// （<see cref="MigrateSystemSlotsToBuiltin"/>），矢量链由内置头/槽位/模组/用户字体构成。
+        /// </summary>
+        public static bool SystemFontsSupported { get; } =
+#if WINDOWS || ANDROID
+            true;
+#else
+            false;
+#endif
 
         /// <summary>接受的字体文件后缀（导入过滤 + 用户字体列表过滤）。SharpAstro 亦支持 WOFF/WOFF2。</summary>
         static readonly string[] FontFileSuffixes = [".ttf", ".otf", ".ttc", ".woff", ".woff2"];
@@ -163,6 +187,7 @@ namespace Game {
         /// 任何失败只降级（链=null → 位图路径），绝不上抛打断加载。
         /// </summary>
         public static void Initialize() {
+            MigrateSystemSlotsToBuiltin();
             try {
                 FallbackBitmapFont = ContentManager.Get<BitmapFont>("Fonts/Pericles");
             }
@@ -213,6 +238,34 @@ namespace Game {
                 return false;
             });
         }
+
+        /// <summary>
+        /// 平台迁移（!SystemFontsSupported 平台，Initialize 早期执行）："system" 槽位在无系统发现
+        /// 平台恒解析 null（链退化），加载设置时主动重置为内置字体并落盘一次；ref 槽随其目标
+        /// 基础槽（已迁移）自动落到内置字体，无需改写。
+        /// </summary>
+        static void MigrateSystemSlotsToBuiltin() {
+            if (SystemFontsSupported) {
+                return;
+            }
+            bool changed = false;
+            if (IsSystemSlot(SettingsManager.FontBody)) { SettingsManager.FontBody = BuiltinSlotValue; changed = true; }
+            if (IsSystemSlot(SettingsManager.FontBodyBold)) { SettingsManager.FontBodyBold = BuiltinSlotValue; changed = true; }
+            if (IsSystemSlot(SettingsManager.FontBodyItalic)) { SettingsManager.FontBodyItalic = BuiltinSlotValue; changed = true; }
+            if (IsSystemSlot(SettingsManager.FontBodyBoldItalic)) { SettingsManager.FontBodyBoldItalic = BuiltinSlotValue; changed = true; }
+            if (IsSystemSlot(SettingsManager.FontMono)) { SettingsManager.FontMono = BuiltinSlotValue; changed = true; }
+            if (IsSystemSlot(SettingsManager.FontMonoBold)) { SettingsManager.FontMonoBold = BuiltinSlotValue; changed = true; }
+            if (IsSystemSlot(SettingsManager.FontMonoItalic)) { SettingsManager.FontMonoItalic = BuiltinSlotValue; changed = true; }
+            if (IsSystemSlot(SettingsManager.FontMonoBoldItalic)) { SettingsManager.FontMonoBoldItalic = BuiltinSlotValue; changed = true; }
+            if (changed) {
+                SettingsManager.SaveSettings();
+            }
+        }
+
+        static bool IsSystemSlot(string slotValue) => FontSlotSetting.Parse(slotValue).Kind == FontSlotKind.SystemDefault;
+
+        /// <summary>基础槽是否取内置字体（该族系统尾部不入链的判据）。</summary>
+        static bool IsBuiltinSlot(string slotValue) => FontSlotSetting.Parse(slotValue).Kind == FontSlotKind.BuiltIn;
 
         /// <summary>
         /// 后台重建双链（发现+解析在线程池，不阻塞 UI）；完成后引用原子换入
@@ -301,7 +354,7 @@ namespace Game {
             }
         }
 
-        /// <summary>槽位值 → 探测键：user 文件直接成键；引用槽递归到目标基础槽取值；system 按槽位族成键。</summary>
+        /// <summary>槽位值 → 探测键：user 文件直接成键；引用槽递归到目标基础槽取值；builtin/系统按槽位族成键。</summary>
         static string ResolveProbeKey(bool mono, string slotValue, int depth) {
             if (depth > 4) {
                 return "none";
@@ -311,6 +364,7 @@ namespace Game {
                 FontSlotKind.UserFile => $"user:{setting.FileName}",
                 FontSlotKind.ReferenceBody => ResolveProbeKey(mono: false, SettingsManager.FontBody, depth + 1),
                 FontSlotKind.ReferenceMono => ResolveProbeKey(mono: true, SettingsManager.FontMono, depth + 1),
+                FontSlotKind.BuiltIn => "builtin",
                 _ => mono ? "system:mono" : "system:body"
             };
         }
@@ -350,6 +404,13 @@ namespace Game {
                     }
                     cacheable = true; // 无系统字体=确定态
                 }
+                else if (probeKey == "builtin") {
+                    byte[] data = LoadPericlesContentData();
+                    if (data != null) {
+                        CollectFaceStyles(data, styles);
+                    }
+                    cacheable = true; // 内置内容缺失=确定态
+                }
                 else {
                     cacheable = true; // "none"（引用环/超深截断）
                 }
@@ -374,11 +435,11 @@ namespace Game {
         /// <summary>双链构建本体（Discover/读盘/解析）。失败项逐级降级并记日志，正常不抛出。<br/>
         /// 返回值=被换下的上一代链（暂存，不经此 Dispose）：RebuildChains 在 onCompleted
         /// （宿主屏重建回调）跑完后统一释放，修复热切换旧图集纹理泄漏。<br/>
-        /// 平台门（owner 裁定）：仅 WINDOWS/ANDROID 启用矢量链 sourcing；其余平台（IOS/BROWSER/
-        /// LINUX/裸 API 构建，同 FontLocator.None.cs 反集口径）链恒 null → widget 走位图路径
-        /// （实测回滚形态）。槽位解析/用户字体读取在此平台不执行——即便目录存在也无 sourcing，天然无害。</summary>
+        /// 平台说明：链构建全平台执行——系统发现仅 WINDOWS/ANDROID 有实现（FontLocator），
+        /// 其余平台（IOS/BROWSER/LINUX/裸 API 构建，同 FontLocator.None.cs 反集口径）Discover
+        /// 恒空：系统尾部无条目、"system" 槽位解析 null（该平台加载期已迁移为内置字体，见
+        /// MigrateSystemSlotsToBuiltin），链由内置头/槽位/模组/用户字体构成，全空时才退位图路径。</summary>
         static List<VectorFont> RebuildChainsCore() {
-#if WINDOWS || ANDROID
             List<SystemFontFace> systemFaces = FontLocator.Discover() ?? [];
             m_lastSystemFaces = systemFaces;
             // 文件级条目缓存（一次重建内同一文件只读盘/解析一次；槽位引用与系统发现可能重复命中）
@@ -400,25 +461,21 @@ namespace Game {
             DefaultChain = BuildChain(bodyEntries, "body");
             MonoChain = BuildChain(monoEntries, "mono") ?? DefaultChain;
             return retired;
-#else
-            // 平台门外平台：无系统发现结果（样式探测取空集=确定态），链恒 null 走位图路径
-            m_lastSystemFaces = null;
-            DefaultChain = null;
-            MonoChain = null;
-            return null;
-#endif
         }
 
         // 条目序即链序：Pericles 头（原版拉丁开关）→ FontBody/FontBodyBold/FontBodyItalic/FontBodyBoldItalic 槽位 → 模组条目（OnBuildingBodyFontChainEntries）→ 系统正文字体
+        //（基础槽取 builtin 时系统尾部不入链——内置字体语义=仅用内置字形，CJK 缺字走位图兜底而非系统字体）
         static List<ChainEntry> BuildBodyEntries(List<SystemFontFace> systemFaces, Dictionary<string, ChainEntry> fileEntries) {
             List<ChainEntry> entries = [];
-            AddPericlesHead(entries);
+            AddPericlesHead(entries, fileEntries);
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontBody, systemFaces, depth: 0, fileEntries));
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyBold, systemFaces, depth: 0, fileEntries));
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyItalic, systemFaces, depth: 0, fileEntries));
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontBodyBoldItalic, systemFaces, depth: 0, fileEntries));
             AddModEntries(entries, "OnBuildingBodyFontChainEntries", static (loader, list) => loader.OnBuildingBodyFontChainEntries(list));
-            AddSystemEntries(entries, systemFaces, mono: false, fileEntries);
+            if (!IsBuiltinSlot(SettingsManager.FontBody)) {
+                AddSystemEntries(entries, systemFaces, mono: false, fileEntries);
+            }
             return entries;
         }
 
@@ -431,7 +488,9 @@ namespace Game {
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontMonoItalic, systemFaces, depth: 0, fileEntries));
             TryAddEntry(entries, ResolveSlot(SettingsManager.FontMonoBoldItalic, systemFaces, depth: 0, fileEntries));
             AddModEntries(entries, "OnBuildingMonoFontChainEntries", static (loader, list) => loader.OnBuildingMonoFontChainEntries(list));
-            AddSystemEntries(entries, systemFaces, mono: true, fileEntries);
+            if (!IsBuiltinSlot(SettingsManager.FontMono)) {
+                AddSystemEntries(entries, systemFaces, mono: true, fileEntries);
+            }
             foreach (ChainEntry entry in bodyEntries) {
                 TryAddEntry(entries, entry);
             }
@@ -464,6 +523,7 @@ namespace Game {
 
         /// <summary>
         /// 槽位值 → 链条目。SystemDefault 返回 null（系统发现在条目列表尾部统一处理）；<br/>
+        /// BuiltIn 返回内置字体条目（PericlesPro 四样式面，全平台可用）；<br/>
         /// 引用槽（ref:body/ref:mono）解析到目标槽自身的取值，目标槽为系统默认/用户文件缺失时返回 null——
         /// 引用系统默认≡系统默认（同走尾部系统发现，不锚独立条目，模组条目保持其链序优先级）；<br/>
         /// A→B→A 引用环按深度截断。
@@ -471,6 +531,8 @@ namespace Game {
         static ChainEntry ResolveSlot(string slotValue, List<SystemFontFace> systemFaces, int depth, Dictionary<string, ChainEntry> fileEntries) {
             FontSlotSetting setting = FontSlotSetting.Parse(slotValue);
             switch (setting.Kind) {
+                case FontSlotKind.BuiltIn:
+                    return GetPericlesEntry(fileEntries);
                 case FontSlotKind.UserFile:
                     return LoadUserFontEntry(setting.FileName);
                 case FontSlotKind.ReferenceBody:
@@ -486,31 +548,48 @@ namespace Game {
             }
         }
 
-        /// <summary>Pericles 链头：原版拉丁字形（FontVanilaEnglish 开关控制）。原始字节经 ContentManager.GetStream
-        /// （ContentInfo 注册期共享流，只读不释放，ToArray 与 VectorFontReader.Get 同口径）。</summary>
-        static void AddPericlesHead(List<ChainEntry> entries) {
+        /// <summary>Pericles 链头：原版拉丁字形（FontVanilaEnglish 开关控制）。与内置字体槽位
+        /// （FontSlotKind.BuiltIn）共享条目缓存——开关开启且槽位取 builtin 时同引用去重不重复入链。</summary>
+        static void AddPericlesHead(List<ChainEntry> entries, Dictionary<string, ChainEntry> fileEntries) {
             if (!SettingsManager.FontVanilaEnglish) {
                 return;
             }
+            TryAddEntry(entries, GetPericlesEntry(fileEntries));
+        }
+
+        /// <summary>内置字体（Content Fonts/PericlesPro 四样式面）→ 链条目，一次重建内共享缓存
+        /// （键 "Pericles"，VanilaEnglish 头与 builtin 槽位同源同引用）。内容缺失/解析失败降级 null（槽位跳过）。</summary>
+        static ChainEntry GetPericlesEntry(Dictionary<string, ChainEntry> fileEntries) {
+            if (fileEntries.TryGetValue("Pericles", out ChainEntry cached)) {
+                return cached;
+            }
+            ChainEntry entry = null;
             try {
-                byte[] data = null;
-                foreach (string suffix in new VectorFontReader().DefaultSuffix) {
-                    Stream stream = ContentManager.GetStream($"Fonts/PericlesPro.{suffix}");
-                    if (stream == null) {
-                        continue;
-                    }
-                    data = stream is MemoryStream memoryStream ? memoryStream.ToArray() : CopyToBytes(stream);
-                    break;
+                byte[] data = LoadPericlesContentData();
+                if (data != null) {
+                    entry = VectorFontReader.BuildEntries(data, "Pericles")[0];
                 }
-                if (data == null) {
-                    Log.Information("[FontManager] \"Fonts/PericlesPro\" not found in content, vanilla head entry skipped.");
-                    return;
+                else {
+                    Log.Information("[FontManager] \"Fonts/PericlesPro\" not found in content, built-in font entry skipped.");
                 }
-                TryAddEntry(entries, VectorFontReader.BuildEntries(data, "Pericles")[0]);
             }
             catch (Exception ex) {
-                Log.Error($"[FontManager] Pericles head entry build failed: {ex}");
+                Log.Error($"[FontManager] built-in font entry build failed: {ex}");
             }
+            fileEntries.Add("Pericles", entry);
+            return entry;
+        }
+
+        /// <summary>内置字体内容字节（PericlesPro 按后缀探测；ContentInfo 注册期共享流只读不释放，ToArray 与 VectorFontReader.Get 同口径）。</summary>
+        static byte[] LoadPericlesContentData() {
+            foreach (string suffix in new VectorFontReader().DefaultSuffix) {
+                Stream stream = ContentManager.GetStream($"Fonts/PericlesPro.{suffix}");
+                if (stream == null) {
+                    continue;
+                }
+                return stream is MemoryStream memoryStream ? memoryStream.ToArray() : CopyToBytes(stream);
+            }
+            return null;
         }
 
         /// <summary>系统发现 → 条目（同文件去重；逐文件失败降级继续）。</summary>

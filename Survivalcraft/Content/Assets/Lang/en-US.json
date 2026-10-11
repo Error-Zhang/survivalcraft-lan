@@ -3532,7 +3532,8 @@
       "13": "Based on Mono Font",
       "14": "Choose File...",
       "15": "Imported Files...",
-      "16": "No fonts have been imported yet."
+      "16": "No fonts have been imported yet.",
+      "17": "Built-in Font"
     },
     "SettingsControlsScreen": [
       "Adjust Controls Settings",
