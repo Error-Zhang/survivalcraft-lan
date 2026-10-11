@@ -40,7 +40,7 @@
 ## 2. 前置要求
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-- Survivalcraft API 模组模板：[SurvivalcraftTemplateModForAPI](https://gitee.com/SC-SPM/SurvivalcraftTemplateModForAPI)
+- Survivalcraft API 模组模板：[SurvivalcraftTemplateModForAPI](https://atomgit.com/SC-SPM/SurvivalcraftTemplateModForAPI)
 - 一个包含骨骼绑定的 glTF 或 GLB 模型文件（需带动画片段）
 
 ---

@@ -235,7 +235,7 @@ namespace Game {
             Uri.TryCreate(m_baseUrl, UriKind.Absolute, out Uri baseUri) ? $"{baseUri.AbsoluteUri.TrimEnd('/')}/translate" : null;
 
         // —— 纯文本降级渲染（原 PostDetailsContentBuilder.AppendPlainText/AppendParagraph 本地化，样式同源）——
-        // 纯文本（Gitee release notes 等）逐行渲染：行解析在 HtmlTextUtils.SplitPlainTextLines
+        // 纯文本（Git release notes 等）逐行渲染：行解析在 HtmlTextUtils.SplitPlainTextLines
         static void AppendPlainText(StackPanelWidget panel, string text) {
             foreach ((bool isListItem, string line) in HtmlTextUtils.SplitPlainTextLines(text)) {
                 if (isListItem) {

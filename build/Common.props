@@ -2,8 +2,8 @@
     <PropertyGroup>
         <NoWarn>CS1591;CS0067;NU1510</NoWarn>
         <Version>1.9.5</Version><!--For NuGet Package-->
-        <PackageProjectUrl>https://gitee.com/SC-SPM/SurvivalcraftApi</PackageProjectUrl>
-        <RepositoryUrl>https://gitee.com/SC-SPM/SurvivalcraftApi</RepositoryUrl>
+        <PackageProjectUrl>https://atomgit.com/SC-SPM/SurvivalcraftApi</PackageProjectUrl>
+        <RepositoryUrl>https://atomgit.com/SC-SPM/SurvivalcraftApi</RepositoryUrl>
         <RepositoryType>Git</RepositoryType>
         <Copyright>Copyright © 2011-2025 Candy Rufus Games</Copyright>
         <NeutralLanguage>zh-CN</NeutralLanguage>

@@ -325,7 +325,7 @@ public class TemplateModLoader : ModLoader {
 
 ### 示例模组项目
 
-[点此打开](https://gitee.com/SC-SPM/SurvivalcraftTemplateModForAPI)
+[点此打开](https://atomgit.com/SC-SPM/SurvivalcraftTemplateModForAPI)
 
 ## 9. 关键管理器速查
 

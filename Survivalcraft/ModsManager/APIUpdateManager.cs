@@ -41,14 +41,14 @@ namespace Game {
         }
 
         /// <summary>
-        ///     获取 Gitee release最后一个版本的Json文件数据
+        ///     获取 Atomgit release最后一个版本的Json文件数据
         /// </summary>
         /// <returns></returns>
         public static async Task<JsonDocument> GetLatestAPIJsonDocument() =>
             await OnlineJsonReader.GetJsonFromUrlAsync(ModsManager.APILatestReleaseLink_API);
 
         /// <summary>
-        ///     获取 Gitee 所有release版本的Json文件数据
+        ///     获取 Atomgit 所有release版本的Json文件数据
         /// </summary>
         /// <returns></returns>
         public static async Task<JsonDocument> GetAPIReleasesJsonDocument() =>
@@ -86,19 +86,18 @@ namespace Game {
         }
 
         /// <summary>
-        ///     获取 Gitee release最后一个版本的版本号
+        ///     获取 Atomgit release最后一个版本的版本号
         /// </summary>
         /// <returns>最新版本号</returns>
-        //当 direct 为真，将获取的 json 直接当做数组中的一个元素
-        //常用于链接自带 latest 标识的情况
+        //当 direct 为真，将获取的 json 直接当做一个 release 对象解析
+        //常用于链接自带 latest 标识的情况；否则当做 release 数组解析并取第一个元素（列表链接为 direction=desc，新→旧）
         public static async Task<string> GetLatestVersion(bool direct) {
             using (JsonDocument remoteDoc = await GetLatestAPIJsonDocument()) {
                 JsonElement root = remoteDoc.RootElement;
-                // 假设 API 返回的版本信息在第一个 release 的 tag_name 字段
-                string input = direct
-                    ? root.GetProperty("tag_name").GetString()
-                    : root[root.GetArrayLength() - 1].GetProperty("tag_name").GetString();
-                return input;
+                AtomgitReleaseInfo release = direct
+                    ? JsonSerializer.Deserialize(root.GetRawText(), AtomgitReleaseInfoJsonContext.Default.AtomgitReleaseInfo)
+                    : JsonSerializer.Deserialize(root.GetRawText(), AtomgitReleaseInfoJsonContext.Default.ListAtomgitReleaseInfo)[0];
+                return release.tag_name;
             }
         }
 
@@ -185,6 +184,66 @@ namespace Game {
     [JsonSerializable(typeof(List<Asset>))]
     [JsonSerializable(typeof(Asset))]
     public partial class GiteeReleaseInfoJsonContext : JsonSerializerContext
+    {
+    }
+
+    /*
+     这里面的字段名称由于涉及到反序列化解析千万不能改！！
+     这里面的字段名称由于涉及到反序列化解析千万不能改！！
+     这里面的字段名称由于涉及到反序列化解析千万不能改！！
+    */
+    public class AtomgitReleaseInfo {
+        public string tag_name { get; set; }
+        public string target_commitish { get; set; }
+        public bool prerelease { get; set; }
+        public string name { get; set; }
+        public string body { get; set; }
+        public AtomgitAuthor author { get; set; }
+        public string created_at { get; set; }
+        public List<AtomgitAsset> assets { get; set; }
+        public string release_status { get; set; }
+    }
+
+    /*
+     这里面的字段名称由于涉及到反序列化解析千万不能改！！
+     这里面的字段名称由于涉及到反序列化解析千万不能改！！
+     这里面的字段名称由于涉及到反序列化解析千万不能改！！
+    */
+    public class AtomgitAuthor {
+        public string id { get; set; }
+        public string login { get; set; }
+        public string name { get; set; }
+        public string avatar_url { get; set; }
+        public string html_url { get; set; }
+        public string type { get; set; }
+        public string url { get; set; }
+    }
+
+    /*
+     这里面的字段名称由于涉及到反序列化解析千万不能改！！
+     这里面的字段名称由于涉及到反序列化解析千万不能改！！
+     这里面的字段名称由于涉及到反序列化解析千万不能改！！
+    */
+    public class AtomgitAsset {
+        public string browser_download_url { get; set; }
+        public string name { get; set; }
+
+        /// <summary>
+        ///     资源类型："source"：源码归档（下载源码）；"attach"：附件（上传的发布文件）
+        /// </summary>
+        public string type { get; set; }
+        public long? id { get; set; }
+    }
+
+    [JsonSourceGenerationOptions(
+        PropertyNamingPolicy = JsonKnownNamingPolicy.SnakeCaseLower
+    )]
+    [JsonSerializable(typeof(List<AtomgitReleaseInfo>))]
+    [JsonSerializable(typeof(AtomgitReleaseInfo))]
+    [JsonSerializable(typeof(AtomgitAuthor))]
+    [JsonSerializable(typeof(List<AtomgitAsset>))]
+    [JsonSerializable(typeof(AtomgitAsset))]
+    public partial class AtomgitReleaseInfoJsonContext : JsonSerializerContext
     {
     }
 }

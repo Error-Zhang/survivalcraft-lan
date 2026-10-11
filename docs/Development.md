@@ -6,7 +6,7 @@
 2. 如果此仓库不在本地，请使用 Git 克隆此仓库
 
     ```bat
-    git clone https://gitee.com/SC-SPM/SurvivalcraftApi.git
+    git clone https://atomgit.com/SC-SPM/SurvivalcraftApi.git
     ```
 
    > 还没有 Git？[官网下载](https://git-scm.com/downloads)
@@ -55,7 +55,7 @@
     ```
 
 3. **不推荐以上方法之外的引用方式**
-4. 如果网络实在不通畅无法自动完成 nupkg 的下载，可从 [发布页](https://gitee.com/SC-SPM/SurvivalcraftApi/releases/latest) 下载前缀为`[Nupkgs]`，后缀为`.7z`的压缩包，将其中的所有`nupkg`文件解压到您喜欢的目录，之后按照 [微软官方教程](https://learn.microsoft.com/zh-cn/nuget/hosting-packages/local-feeds) 手动添加
+4. 如果网络实在不通畅无法自动完成 nupkg 的下载，可从 [发布页](https://atomgit.com/SC-SPM/SurvivalcraftApi/releases/latest) 下载前缀为`[Nupkgs]`，后缀为`.7z`的压缩包，将其中的所有`nupkg`文件解压到您喜欢的目录，之后按照 [微软官方教程](https://learn.microsoft.com/zh-cn/nuget/hosting-packages/local-feeds) 手动添加
 5. 当然还有更麻烦的引用方式，按照上一步提到的方式或其他方式得到 nupkg 后，将其逐一解压，找到其中的`Engine.dll`、`EntitySystem.dll`、`Survivalcraft.dll`，将它们放到你喜欢的位置，在`.csproj`文件的`<Project>...</Project>`中添加以下行（大部分 IDE 支持在图形界面进行该操作，最终达成相同的效果就好）
 
 ```xml
@@ -70,7 +70,7 @@
 
 ```
 请阅读此文档，帮我做一个在游戏中显示当前天气+距离晴天/下雨还有多久的生存战争插件版模组
-https://gitee.com/SC-SPM/SurvivalcraftApi/raw/SCAPI1.9/docs/HowToDevelopAMod.md
+https://atomgit.com/SC-SPM/SurvivalcraftApi/raw/SCAPI1.9/docs/HowToDevelopAMod.md
 ```
 
 > AI Agent： 例如 [OpenClaw](https://openclaw.ai/)、[Claude Code](https://claude.com/product/claude-code)、[OpenCode](https://opencode.ai/)、[CodeBuddy](https://www.codebuddy.cn/) 等
@@ -94,7 +94,7 @@ https://gitee.com/SC-SPM/SurvivalcraftApi/raw/SCAPI1.9/docs/HowToDevelopAMod.md
 * 如有精力，建议提供国际化字符串（母语 + 英语）
 
 > 接下来建议阅读架构文档：[docs/Architecture.md](Architecture.md)  
-> 推荐模组开发者使用示例模组项目开始新模组的开发：[SC-SPM/SurvivalcraftTemplateModForAPI](https://gitee.com/SC-SPM/SurvivalcraftTemplateModForAPI)
+> 推荐模组开发者使用示例模组项目开始新模组的开发：[SC-SPM/SurvivalcraftTemplateModForAPI](https://atomgit.com/SC-SPM/SurvivalcraftTemplateModForAPI)
 
 ## 本仓库代码风格
 

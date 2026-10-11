@@ -263,9 +263,9 @@
 ### 对于开发者
 
 * 对于新增的 glTF 格式模型支持，你可以参考 [SurvivalcraftTemplateModForAPI](https://github.com/XiaofengdiZhu/SurvivalcraftTemplateModForAPI) 和 [AdvancedGltfFoxMod](https://github.com/XiaofengdiZhu/AdvancedGltfFoxModForSC) 来添加模型、配置动画；通过前面两个示例模组项目来学习是最快的，你还可以选择阅读以下文档来学习：
-  * [glTF 生物模组开发教程](https://gitee.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/GltfCreatureModTutorial.md)
-  * [动画配置 JSON 参考](https://gitee.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/AnimationConfigReference.md)
-  * [动画系统高级主题](https://gitee.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/AnimationAdvancedTopics.md)
+  * [glTF 生物模组开发教程](https://atomgit.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/GltfCreatureModTutorial.md)
+  * [动画配置 JSON 参考](https://atomgit.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/AnimationConfigReference.md)
+  * [动画系统高级主题](https://atomgit.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/AnimationAdvancedTopics.md)
 * 为方块添加可供重写的方法 `GetIsCollidable`，可判断身体组件与某特定方块是否可发生碰撞
 
 > 本次更新几乎完全由 [Claude Code](https://claude.com/product/claude-code) + [智谱 GLM-5.1](https://docs.bigmodel.cn/cn/guide/models/text/glm-5.1) 完成
@@ -334,16 +334,16 @@
 **<center>欢迎来到 AI 模组开发时代！</center>**
 **<center>推荐使用 HarmonyX 注入方法！</center>**
 
-* 新增适合 AI Agent 从零开始开发模组的文档 [docs/HowToDevelopAMod.md](https://gitee.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/HowToDevelopAMod.md)，你可以尝试向你的 AI Agent 这么说，就能快速得到一个可用的模组（可能存在少量问题）
+* 新增适合 AI Agent 从零开始开发模组的文档 [docs/HowToDevelopAMod.md](https://atomgit.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/HowToDevelopAMod.md)，你可以尝试向你的 AI Agent 这么说，就能快速得到一个可用的模组（可能存在少量问题）
 
 ```
 请阅读此文档，帮我做一个在游戏中显示当前天气+距离晴天/下雨还有多久的生存战争插件版模组，最后把做好的 .scmod 文件发给我
-https://gitee.com/SC-SPM/SurvivalcraftApi/raw/SCAPI1.9/docs/HowToDevelopAMod.md
+https://atomgit.com/SC-SPM/SurvivalcraftApi/raw/SCAPI1.9/docs/HowToDevelopAMod.md
 ```
 > AI Agent： 例如 [OpenClaw](https://openclaw.ai/)、[Claude Code](https://claude.com/product/claude-code)、[OpenCode](https://opencode.ai/)、[CodeBuddy](https://www.codebuddy.cn/)
 
-* 项目结构已重构，详见新增的 [架构文档](https://gitee.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/Architecture.md)
-* 新增多篇 AI 生成技术文档，详见 [docs](https://gitee.com/SC-SPM/SurvivalcraftApi/tree/SCAPI1.9/docs)
+* 项目结构已重构，详见新增的 [架构文档](https://atomgit.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/Architecture.md)
+* 新增多篇 AI 生成技术文档，详见 [docs](https://atomgit.com/SC-SPM/SurvivalcraftApi/tree/SCAPI1.9/docs)
 * 新增 [HarmonyX](https://github.com/BepInEx/HarmonyX) 包引用，通过它你可以非常方便地注入、修改、替换方法，使用方法详见此处：[HarmonyX Wiki](https://github.com/BepInEx/HarmonyX/wiki)
 * 改进以下三个 xml 数据文件的合并方式（旧写法仍然兼容），同时新增一个专门用来移除继承来的组件的空组件 `ComponentNoEffect`
 
@@ -478,7 +478,7 @@ startActivity(Intent().apply {
 ### 新增
 * Android 系统打开或分享`.scworld`、`.scmod`等格式文件时，如选择插件版，文件将自动导入到合适的位置，不再需要手动在文件管理器手动复制粘贴了；Windows 系统同理，第一次运行插件版后，将可以直接双击这些格式的文件来导入
 * Android 系统上导出存档、家具包等文件后，能立即进行分享
-* 再次支持 iOS 系统，安装注意事项详见[此处](https://gitee.com/SC-SPM/SurvivalcraftApi#iosipados-%E7%B3%BB%E7%BB%9F%E7%9C%8B%E8%BF%99%E9%87%8C)
+* 再次支持 iOS 系统，安装注意事项详见[此处](https://atomgit.com/SC-SPM/SurvivalcraftApi#iosipados-%E7%B3%BB%E7%BB%9F%E7%9C%8B%E8%BF%99%E9%87%8C)
 * 创建世界时可编辑真种子（并在多个位置显示真种子），可选择地形生成器版本
 * 扩大创建世界时多个选项的范围，包括：岛屿大小、生物群落大小、年天数、平坦地面方块、海平面高度
 * 界面设置新增自定义截图分辨率

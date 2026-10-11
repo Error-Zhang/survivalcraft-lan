@@ -34,7 +34,7 @@ namespace Game {
             return false;
         }
 
-        // 纯文本（Gitee release notes 等）逐行解析："- "/"* " 开头识别为列表项，空行丢弃。
+        // 纯文本（Git release notes 等）逐行解析："- "/"* " 开头识别为列表项，空行丢弃。
         // 渲染（widget 产出）由 CommunityPostDetailsDialog.AppendPlainText 按此结果执行。
         public static List<(bool IsListItem, string Text)> SplitPlainTextLines(string text) {
             List<(bool, string)> lines = [];
