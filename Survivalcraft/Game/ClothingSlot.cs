@@ -12,12 +12,18 @@ namespace Game {
         public static ClothingSlot Feet => ClothingSlotsByInt[3];
 
         public static void AddClothingSlot(string name) {
+            if (ClothingSlots.ContainsKey(name)) {
+                return;
+            }
             ClothingSlots[name] = new ClothingSlot { Name = name, StableId = ClothingSlots.Count };
             ClothingSlotsByInt[ClothingSlots[name].StableId] = ClothingSlots[name];
         }
 
         public static void Initialize() {
-            ClothingSlots.Clear();
+            //注意不能 Clear 后重建实例：ClothingSlot 未重写 Equals/GetHashCode，按引用相等作
+            //ComponentClothing.m_clothes/InsulationBySlots 的键，已加载世界里的实体持着旧实例键，
+            //重建会让切语言后（此方法被 LanguageControl.ChangeLanguage 重调）GetClothes 等按
+            //ClothingSlotsByInt 新实例查字典直接 KeyNotFound。重入只补缺失部位+刷新文本属性
             AddClothingSlot("Head");
             AddClothingSlot("Torso");
             AddClothingSlot("Legs");
