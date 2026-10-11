@@ -178,7 +178,8 @@ namespace Game {
         public override void Draw(DrawContext dc) {
             // 引擎 2D flat 管线按预乘 alpha 混合（BlendState.AlphaBlend = One/InvSrcAlpha），
             // 而 Unlit.psh 输出的顶点色是直色：低透明度颜色会以全亮度参混、近似实心。
-            // 此处统一预乘，让调用方按自然直色写值；不透明色与纯黑（阴影）数值不变，既有用法零影响。
+            // 此处统一预乘，让调用方按自然直色写值；不透明色与纯黑（阴影）数值不变；
+            // 存量低 alpha 用法观感随之改变，取值须改为只降 alpha 不压 RGB（ShortInventoryWidget 槽位色即此）。
             Color centerColor = PremultiplyAlpha(CenterColor * new Vector4(0.6f, 0.6f, 0.6f, 1f));
             Color bevelColor = PremultiplyAlpha(BevelColor);
             Color shadowColor = PremultiplyAlpha(ShadowColor);
