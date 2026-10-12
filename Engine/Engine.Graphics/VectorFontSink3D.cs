@@ -72,15 +72,23 @@ namespace Engine.Graphics {
         /// position = 首行左上锚点（经 anchor 对齐）；right/down 模长 = 每 text px 的世界尺寸；
         /// anchor 按墨迹宽（最长行，字距按 n−1 缝口径补入）与总行盒高（行数 × lineAdvance）对齐；
         /// 样式走 VectorFont.DrawText 降级解析（缺真面→Stroked/切变，整链缺→位图回退）。
-        /// 返回锚定用总行盒高（text px）
+        /// strokeColor+strokeAmount 双遍描边（VectorFont.DrawText strokeAmount 方案：描边遍 Stroked
+        /// 膨胀、字芯遍正排盖芯；描边色 A 随文字色 A 衰减；位图回退段无描边能力）；
+        /// resolutionScale 超采样：字号×r、基向量÷r，世界足迹与摆位不变而栅格密度×r（抗远距糊）。
+        /// 返回锚定用总行盒高（按请求字号的 text px）
         /// </summary>
         public float QueueText(VectorFont font, string text, Vector3 position, Vector3 right, Vector3 down, Color color, float size,
-            TextAnchor anchor = TextAnchor.Default, bool bold = false, bool italic = false, float characterSpacing = 0f) {
+            TextAnchor anchor = TextAnchor.Default, bool bold = false, bool italic = false, float characterSpacing = 0f,
+            Color? strokeColor = null, int strokeAmount = 0, float resolutionScale = 1f) {
             ArgumentNullException.ThrowIfNull(font);
             ArgumentNullException.ThrowIfNull(text);
+            float r = MathF.Max(resolutionScale, 0.0001f);
+            float sizeEff = size * r;
+            Vector3 rightEff = right / r;
+            Vector3 downEff = down / r;
             string[] lines = text.Split('\n');
-            float lineAdvance = GetLineAdvance(font, size, bold, italic);
-            Vector2 box = MeasureLines(font, lines, size, bold, italic, characterSpacing, lineAdvance);
+            float lineAdvance = GetLineAdvance(font, sizeEff, bold, italic);
+            Vector2 box = MeasureLines(font, lines, sizeEff, bold, italic, characterSpacing, lineAdvance);
             Vector2 offset = Vector2.Zero;
             if ((anchor & TextAnchor.HorizontalCenter) != 0) {
                 offset.X = -box.X / 2f;
@@ -94,13 +102,26 @@ namespace Engine.Graphics {
             else if ((anchor & TextAnchor.Bottom) != 0) {
                 offset.Y = -box.Y;
             }
+            // 描边遍门控同 FontTextWidget：量>0 且给色才跑（色 A=0 同样不可见，免双浪费）；
+            // 描边色 A 随文字色 A 衰减（Widget StrokeColor 同款），距离/寿命淡出同步
+            bool stroke = strokeAmount > 0
+                && strokeColor.HasValue;
+            Color strokeCol = default;
+            if (stroke) {
+                Color sc = strokeColor.Value;
+                strokeCol = new Color(sc.R, sc.G, sc.B, (byte)(sc.A * color.A / 255));
+            }
             for (int i = 0; i < lines.Length; i++) {
                 // offset/lineAdvance 为 text px 量纲，与字形推进同用原始基向量（模长=世界/px）。
                 // 不可归一化：FontBatch3D.QueueText 用 Normalize 是其 offset 已按 scale 预乘成世界量纲，口径不同
-                Begin(position + offset.X * right + (offset.Y + i * lineAdvance) * down, right, down);
-                font.DrawText(this, lines[i], Vector2.Zero, color, size, bold, italic, characterSpacing);
+                Begin(position + offset.X * rightEff + (offset.Y + i * lineAdvance) * downEff, rightEff, downEff);
+                if (stroke) {
+                    font.DrawText(this, lines[i], Vector2.Zero, strokeCol, sizeEff, bold, italic, characterSpacing, strokeAmount);
+                }
+                // 字芯遍 strokeAmount=0：VectorFont.DrawText 内描边覆盖优先于 fakeBold，正排以此恢复字重消歧
+                font.DrawText(this, lines[i], Vector2.Zero, color, sizeEff, bold, italic, characterSpacing);
             }
-            return box.Y;
+            return box.Y / r;
         }
 
         /// <summary>量测整段文本锚定盒（宽=最长行墨宽、高=行数×lineAdvance；text px，与 QueueText 锚定同口径）</summary>

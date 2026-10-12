@@ -178,7 +178,10 @@ namespace Game {
                                         * (bitmapFont.GlyphHeight + bitmapFont.Spacing.Y)
                                         * bitmapFont.Scale
                                         / FontManager.DefaultChain.LineHeight,
-                                    TextAnchor.HorizontalCenter | TextAnchor.Bottom
+                                    TextAnchor.HorizontalCenter | TextAnchor.Bottom,
+                                    strokeColor: Color.Black,
+                                    strokeAmount: 1,
+                                    resolutionScale: 3f
                                 );
                             }
                             else {

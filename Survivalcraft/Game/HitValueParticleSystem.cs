@@ -88,7 +88,10 @@ namespace Game {
                                 v * s,
                                 color,
                                 chain.DefaultSize * (bm.GlyphHeight + bm.Spacing.Y) * bm.Scale / chain.LineHeight,
-                                TextAnchor.HorizontalCenter | TextAnchor.VerticalCenter
+                                TextAnchor.HorizontalCenter | TextAnchor.VerticalCenter,
+                                strokeColor: Color.Black,
+                                strokeAmount: 1,
+                                resolutionScale: 3f
                             );
                         }
                         else {
