@@ -587,9 +587,12 @@ namespace Game {
                 && !m_fluidEffectsPlayed) {
                 m_fluidEffectsPlayed = true;
                 m_subsystemAudio.PlayRandomSound("Audio/WaterFallIn", m_random.Float(0.75f, 1f), m_random.Float(-0.3f, 0f), position, 4f, true);
-                m_subsystemParticles.AddParticleSystem(
-                    new WaterSplashParticleSystem(m_subsystemTerrain, position, (BoundingBox.Max - BoundingBox.Min).Length() > 0.8f)
-                );
+                // 水花配额用尽时只丢水花不重试（m_fluidEffectsPlayed 已置位），音效照播
+                if (WaterSplashParticleSystem.TryBeginInstantiation()) {
+                    m_subsystemParticles.AddParticleSystem(
+                        new WaterSplashParticleSystem(m_subsystemTerrain, position, (BoundingBox.Max - BoundingBox.Min).Length() > 0.8f)
+                    );
+                }
             }
             else if (ImmersionFluidBlock is MagmaBlock
                 && ImmersionDepth > 0f

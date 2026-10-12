@@ -21,6 +21,21 @@ namespace Engine.Graphics {
             TriangleIndices.Clear();
         }
 
+        /// <summary>
+        /// 按四边形数一次性把顶点/索引容量顶到位（仍走 DynamicArray 的精确扩容，不超额分配）。
+        /// 大批量 QueueQuad 前调用可避免逐 quad 超容量触发 O(N²) 整段拷贝。
+        /// </summary>
+        public void EnsureQuadCapacity(int quadCount) {
+            int vertexCapacity = quadCount * 4;
+            if (vertexCapacity > TriangleVertices.Capacity) {
+                TriangleVertices.Capacity = vertexCapacity;
+            }
+            int indexCapacity = quadCount * 6;
+            if (indexCapacity > TriangleIndices.Capacity) {
+                TriangleIndices.Capacity = indexCapacity;
+            }
+        }
+
         public virtual void Flush(Matrix matrix, bool clearAfterFlush = true) {
             Flush(matrix, Vector4.One, clearAfterFlush);
         }

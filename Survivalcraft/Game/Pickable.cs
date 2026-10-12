@@ -332,7 +332,7 @@ namespace Game {
                 && SubsystemPickables != null) {
                 if (surfaceBlock is MagmaBlock) {
                     SubsystemPickables.m_subsystemParticles.AddParticleSystem(new MagmaSplashParticleSystem(SubsystemTerrain, Position, false));
-                    SubsystemPickables.m_subsystemAudio.PlayRandomSound(
+                    SubsystemPickables.PlayRandomSound(
                         "Audio/Sizzles",
                         1f,
                         SubsystemPickables.m_random.Float(-0.2f, 0.2f),
@@ -349,10 +349,11 @@ namespace Game {
                             Value
                         );
                     }
+                    SplashGenerated = true;
                 }
-                else {
+                else if (WaterSplashParticleSystem.TryBeginInstantiation()) {
                     SubsystemPickables.m_subsystemParticles.AddParticleSystem(new WaterSplashParticleSystem(SubsystemTerrain, Position, false));
-                    SubsystemPickables.m_subsystemAudio.PlayRandomSound(
+                    SubsystemPickables.PlayRandomSound(
                         "Audio/Splashes",
                         1f,
                         SubsystemPickables.m_random.Float(-0.2f, 0.2f),
@@ -360,8 +361,12 @@ namespace Game {
                         6f,
                         true
                     );
+                    SplashGenerated = true;
                 }
-                SplashGenerated = true;
+                else {
+                    // 本帧水花配额用尽：保持未生成，下一帧重试
+                    SplashGenerated = false;
+                }
             }
             else if (surfaceBlock == null) {
                 SplashGenerated = false;
@@ -381,7 +386,7 @@ namespace Game {
                             Terrain.ToCell(Position.Y + 0.1f),
                             Terrain.ToCell(Position.Z)
                         ))) {
-                    SubsystemPickables.m_subsystemAudio.PlayRandomSound(
+                    SubsystemPickables.PlayRandomSound(
                         "Audio/Sizzles",
                         1f,
                         SubsystemPickables.m_random.Float(-0.2f, 0.2f),

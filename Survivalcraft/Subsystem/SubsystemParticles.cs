@@ -9,6 +9,9 @@ namespace Game {
 
         public Dictionary<ParticleSystemBase, bool> m_particleSystems = [];
 
+        /// <summary>各纹理批次的容量需求账本（粒子系统增删时自报累计），绘制前据此预扩容。</summary>
+        public readonly Dictionary<Texture2D, QuadDemandByBlend> m_quadDemand = [];
+
         public PrimitivesRenderer3D PrimitivesRenderer = new();
 
         public bool ParticleSystemsDraw = true;
@@ -30,6 +33,7 @@ namespace Game {
                 m_particleSystems.Add(particleSystem, true);
                 particleSystem.SubsystemParticles = this;
                 particleSystem.OnAdded();
+                BookQuadDemand(particleSystem, 1);
                 return;
             }
             if (throwOnAlreadyAdded) {
@@ -42,10 +46,28 @@ namespace Game {
                 particleSystem.OnRemoved();
                 m_particleSystems.Remove(particleSystem);
                 particleSystem.SubsystemParticles = null;
+                BookQuadDemand(particleSystem, -1);
                 return;
             }
             if (throwOnNotFound) {
                 throw new InvalidOperationException("Particle system is not added.");
+            }
+        }
+
+        /// <summary>粒子系统增删时维护各纹理批次的容量需求账本，绘制前据此一次性精确预扩容。</summary>
+        private void BookQuadDemand(ParticleSystemBase particleSystem, int sign) {
+            Texture2D texture = particleSystem.QuadDemandTexture;
+            if (texture == null) {
+                return;
+            }
+            QuadDemandByBlend demand = m_quadDemand.TryGetValue(texture, out QuadDemandByBlend value) ? value : default;
+            demand = sign > 0 ? demand + particleSystem.MaxQuadDemand : demand - particleSystem.MaxQuadDemand;
+            if (demand.Additive <= 0
+                && demand.Alpha <= 0) {
+                m_quadDemand.Remove(texture);
+            }
+            else {
+                m_quadDemand[texture] = demand;
             }
         }
 
@@ -78,6 +100,18 @@ namespace Game {
 
         public virtual void Draw(Camera camera, int drawOrder) {
             if (ParticleSystemsDraw) {
+                // 按账本（粒子系统增删时自报容量的累计）一次性精确预扩容共享批次：
+                // 消除逐 quad/逐系统扩容爬坡（DynamicArray 精确扩容下大批量入队是 O(N²) 拷贝）
+                foreach (KeyValuePair<Texture2D, QuadDemandByBlend> entry in m_quadDemand) {
+                    if (entry.Value.Additive > 0) {
+                        PrimitivesRenderer.TexturedBatch(entry.Key, true, 0, DepthStencilState.DepthRead, null, BlendState.Additive, SamplerState.PointClamp)
+                            .EnsureQuadCapacity(entry.Value.Additive);
+                    }
+                    if (entry.Value.Alpha > 0) {
+                        PrimitivesRenderer.TexturedBatch(entry.Key, true, 0, DepthStencilState.Default, null, BlendState.AlphaBlend, SamplerState.PointClamp)
+                            .EnsureQuadCapacity(entry.Value.Alpha);
+                    }
+                }
                 foreach (ParticleSystemBase key in m_particleSystems.Keys) {
                     try {
                         key.Draw(camera);

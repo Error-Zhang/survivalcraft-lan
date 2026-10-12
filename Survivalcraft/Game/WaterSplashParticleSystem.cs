@@ -19,6 +19,30 @@ namespace Game {
 
         public float m_time;
 
+        /// <summary>
+        /// 单帧允许实例化水花系统的最大次数（水花风暴限流：每次实例化即 60 粒子全量激活，成本高）。
+        /// </summary>
+        public static int MaxInstantiationsInOneFrame = 100;
+
+        static int s_lastFrameIndex = -1;
+
+        static int s_instantiationsInFrame;
+
+        /// <summary>
+        /// 实例化前调用；单帧配额内返回 true 并占一个名额，超限返回 false（调用方跳过本次水花）。
+        /// </summary>
+        public static bool TryBeginInstantiation() {
+            if (s_lastFrameIndex != Time.FrameIndex) {
+                s_lastFrameIndex = Time.FrameIndex;
+                s_instantiationsInFrame = 0;
+            }
+            if (s_instantiationsInFrame >= MaxInstantiationsInOneFrame) {
+                return false;
+            }
+            s_instantiationsInFrame++;
+            return true;
+        }
+
         public WaterSplashParticleSystem(SubsystemTerrain terrain, Vector3 position, bool large) : base(60) {
             m_subsystemTerrain = terrain;
             m_position = position;

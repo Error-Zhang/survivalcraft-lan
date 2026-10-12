@@ -42,6 +42,23 @@ namespace Game {
         public DrawBlockEnvironmentData m_drawBlockEnvironmentData = new();
 
         public static int[] m_drawOrders = [10];
+        /// <summary>
+        /// 单帧允许掉落物播放音效的最大次数（水花/燃烧等同质音效风暴限流）。
+        /// </summary>
+        public static int MaxSoundPlayInOneFrame = 10;
+
+        int m_soundPlaysInFrame;
+
+        /// <summary>
+        /// 带每帧次数上限的音效播放；超限直接丢弃，防止大量掉落物同步入水时音效风暴拖垮 Update。
+        /// </summary>
+        public void PlayRandomSound(string directory, float volume, float pitch, Vector3 position, float minDistance, bool autoDelay) {
+            if (m_soundPlaysInFrame >= MaxSoundPlayInOneFrame) {
+                return;
+            }
+            m_soundPlaysInFrame++;
+            m_subsystemAudio.PlayRandomSound(directory, volume, pitch, position, minDistance, autoDelay);
+        }
 
         public ReadOnlyList<Pickable> Pickables {
             get {
@@ -146,6 +163,7 @@ namespace Game {
         }
 
         public virtual void Update(float dt) {
+            m_soundPlaysInFrame = 0;
             lock (m_lock) {
                 foreach (Pickable pickable in m_pickables) {
                     if (pickable.ToRemove) {

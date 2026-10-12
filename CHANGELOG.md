@@ -26,7 +26,7 @@
 
 * 新增矢量字体相关支持，详见 FontManager、VectorFont 类
 * FontTextWidget 新增 VectorFont 以及多种文字装饰相关属性
-* ModLoader 新增钩子：DisplaySmallMessage、OnTerrainCreated、OnTerrainChunkCreated、BeforeTerrainSave、OnTerrainDraw、nBlockGeometryGeneratorCreated、FindTerrainCollisionBoxes、OnBuildingBodyFontChainEntries、OnBuildingMonoFontChainEntries、OnFontChainsRebuilt
+* ModLoader 新增钩子：DisplaySmallMessage、OnTerrainCreated、OnTerrainChunkCreated、BeforeTerrainSave、OnTerrainDraw、OnBlockGeometryGeneratorCreated、FindTerrainCollisionBoxes、OnBuildingBodyFontChainEntries、OnBuildingMonoFontChainEntries、OnFontChainsRebuilt
 
 ## API 1.9.4 (2026-10-07)
 

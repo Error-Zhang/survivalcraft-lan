@@ -573,7 +573,7 @@ namespace Game {
                             );
                         }
                     }
-                    else {
+                    else if (WaterSplashParticleSystem.TryBeginInstantiation()) {
                         SubsystemParticles.AddParticleSystem(
                             new WaterSplashParticleSystem(SubsystemTerrain, new Vector3(Position.X, surfaceHeight.Value, Position.Z), false)
                         );
