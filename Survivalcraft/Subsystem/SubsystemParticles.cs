@@ -9,8 +9,12 @@ namespace Game {
 
         public Dictionary<ParticleSystemBase, bool> m_particleSystems = [];
 
-        /// <summary>各纹理批次的容量需求账本（粒子系统增删时自报累计），绘制前据此预扩容。</summary>
-        public readonly Dictionary<Texture2D, QuadDemandByBlend> m_quadDemand = [];
+        /// <summary>各批次身份（纹理+状态组合）的容量需求账本（粒子系统增删时自报累计），绘制前据此预扩容。</summary>
+        public readonly Dictionary<TexturedBatchKey, (int VertexCount, int IndexCount)> m_batchDemand = [];
+
+        /// <summary>记账暂存列表（增删时逐系统求值自报条目，避免每次分配）。
+        /// 契约：仅在主线程增删路径使用；GetBatchDemands 实现不得重入 Add/RemoveParticleSystem。</summary>
+        private static readonly List<BatchDemandEntry> s_demandEntries = [];
 
         public PrimitivesRenderer3D PrimitivesRenderer = new();
 
@@ -33,7 +37,7 @@ namespace Game {
                 m_particleSystems.Add(particleSystem, true);
                 particleSystem.SubsystemParticles = this;
                 particleSystem.OnAdded();
-                BookQuadDemand(particleSystem, 1);
+                BookBatchDemand(particleSystem, 1);
                 return;
             }
             if (throwOnAlreadyAdded) {
@@ -46,7 +50,7 @@ namespace Game {
                 particleSystem.OnRemoved();
                 m_particleSystems.Remove(particleSystem);
                 particleSystem.SubsystemParticles = null;
-                BookQuadDemand(particleSystem, -1);
+                BookBatchDemand(particleSystem, -1);
                 return;
             }
             if (throwOnNotFound) {
@@ -54,20 +58,25 @@ namespace Game {
             }
         }
 
-        /// <summary>粒子系统增删时维护各纹理批次的容量需求账本，绘制前据此一次性精确预扩容。</summary>
-        private void BookQuadDemand(ParticleSystemBase particleSystem, int sign) {
-            Texture2D texture = particleSystem.QuadDemandTexture;
-            if (texture == null) {
-                return;
-            }
-            QuadDemandByBlend demand = m_quadDemand.TryGetValue(texture, out QuadDemandByBlend value) ? value : default;
-            demand = sign > 0 ? demand + particleSystem.MaxQuadDemand : demand - particleSystem.MaxQuadDemand;
-            if (demand.Additive <= 0
-                && demand.Alpha <= 0) {
-                m_quadDemand.Remove(texture);
-            }
-            else {
-                m_quadDemand[texture] = demand;
+        /// <summary>粒子系统增删时按其自报的批次条目维护容量需求账本，绘制前据此一次性精确预扩容。</summary>
+        private void BookBatchDemand(ParticleSystemBase particleSystem, int sign) {
+            s_demandEntries.Clear();
+            particleSystem.GetBatchDemands(s_demandEntries);
+            foreach (BatchDemandEntry entry in s_demandEntries) {
+                if (entry.Key == null || entry.VertexCount <= 0 || entry.IndexCount <= 0) {
+                    continue;
+                }
+                TexturedBatchKey key = entry.Key;
+                int vertexCount = m_batchDemand.TryGetValue(key, out (int VertexCount, int IndexCount) value) ? value.VertexCount : 0;
+                int indexCount = value.IndexCount;
+                vertexCount += sign * entry.VertexCount;
+                indexCount += sign * entry.IndexCount;
+                if (vertexCount <= 0 && indexCount <= 0) {
+                    m_batchDemand.Remove(key);
+                }
+                else {
+                    m_batchDemand[key] = (vertexCount, indexCount);
+                }
             }
         }
 
@@ -102,15 +111,16 @@ namespace Game {
             if (ParticleSystemsDraw) {
                 // 按账本（粒子系统增删时自报容量的累计）一次性精确预扩容共享批次：
                 // 消除逐 quad/逐系统扩容爬坡（DynamicArray 精确扩容下大批量入队是 O(N²) 拷贝）
-                foreach (KeyValuePair<Texture2D, QuadDemandByBlend> entry in m_quadDemand) {
-                    if (entry.Value.Additive > 0) {
-                        PrimitivesRenderer.TexturedBatch(entry.Key, true, 0, DepthStencilState.DepthRead, null, BlendState.Additive, SamplerState.PointClamp)
-                            .EnsureQuadCapacity(entry.Value.Additive);
-                    }
-                    if (entry.Value.Alpha > 0) {
-                        PrimitivesRenderer.TexturedBatch(entry.Key, true, 0, DepthStencilState.Default, null, BlendState.AlphaBlend, SamplerState.PointClamp)
-                            .EnsureQuadCapacity(entry.Value.Alpha);
-                    }
+                foreach (KeyValuePair<TexturedBatchKey, (int VertexCount, int IndexCount)> entry in m_batchDemand) {
+                    PrimitivesRenderer.TexturedBatch(
+                        entry.Key.Texture,
+                        entry.Key.UseAlphaTest,
+                        entry.Key.Layer,
+                        entry.Key.DepthStencilState,
+                        entry.Key.RasterizerState,
+                        entry.Key.BlendState,
+                        entry.Key.SamplerState
+                    ).EnsureCapacity(entry.Value.VertexCount, entry.Value.IndexCount);
                 }
                 foreach (ParticleSystemBase key in m_particleSystems.Keys) {
                     try {

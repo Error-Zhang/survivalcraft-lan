@@ -501,9 +501,9 @@ namespace Game {
         }
 
         /// <summary>
-        /// 独立即场景（掉落物/抛射物）方块绘制的批次获取单源：layer=0、
-        /// RasterizerState.CullCounterClockwiseScissor、SamplerState.PointClamp 三项恒定，
-        /// 可变三元组由 TexturedBatchKey 表达（键内 depth/blend 已在构造器归一化为引擎缺省：
+        /// 独立即场景（掉落物/抛射物）方块绘制的批次获取单源：layer/光栅/采样三项
+        /// 由 batchKey 键内承载（方块域恒为 0/CullCounterClockwiseScissor/PointClamp，见 TexturedBatchKey 静态单例），
+        /// 可变三元组（alphaTest/depth/blend）同样在键内（depth/blend 已在构造器归一化为引擎缺省：
         /// 深度=Default、混合=AlphaBlend）。
         /// 所有 Draw*Block 路径与预扩容循环都必须经此处取批次，防止参数漂移出孤儿批次。
         /// </summary>
@@ -511,11 +511,11 @@ namespace Game {
             primitivesRenderer.TexturedBatch(
                 texture,
                 batchKey.UseAlphaTest,
-                0,
+                batchKey.Layer,
                 batchKey.DepthStencilState,
-                RasterizerState.CullCounterClockwiseScissor,
+                batchKey.RasterizerState,
                 batchKey.BlendState,
-                SamplerState.PointClamp
+                batchKey.SamplerState
             );
 
         static readonly Dictionary<int, BlockDrawDemand> m_blockDrawDemandCache = [];

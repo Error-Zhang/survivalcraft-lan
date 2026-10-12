@@ -146,18 +146,19 @@ namespace Game {
         }
 
         public virtual void Draw(Camera camera, int drawOrder) {
-            // 按账本对方块批次一次性精确预扩容：消除逐块扩容爬坡（DynamicArray 精确扩容下大批量入队是 O(N²) 拷贝）
-            if (m_blockDemandLedger.Demand.Count > 0) {
-                Texture2D blocksTexture = m_subsystemTerrain.SubsystemAnimatedTextures.AnimatedBlocksTexture;
-                foreach (KeyValuePair<TexturedBatchKey, (int Verts, int Idxs)> entry in m_blockDemandLedger.Demand) {
-                    BlocksManager.GetTexturedBatch(m_primitivesRenderer, blocksTexture, entry.Key)
-                        .EnsureCapacity(entry.Value.Verts, entry.Value.Idxs);
-                }
-            }
             double totalElapsedGameTime = m_subsystemGameInfo.TotalElapsedGameTime;
             m_drawBlockEnvironmentData.SubsystemTerrain = m_subsystemTerrain;
             Matrix matrix = Matrix.CreateRotationY((float)MathUtils.Remainder(totalElapsedGameTime, 6.2831854820251465));
             lock (m_lock) {
+                // 按账本对方块批次一次性精确预扩容：消除逐块扩容爬坡（DynamicArray 精确扩容下大批量入队是 O(N²) 拷贝）；
+                // 与记账同锁（lock 为模组多线程防御，原版无锁），避免读到记账中途的账本
+                if (m_blockDemandLedger.Demand.Count > 0) {
+                    Texture2D blocksTexture = m_subsystemTerrain.SubsystemAnimatedTextures.AnimatedBlocksTexture;
+                    foreach (KeyValuePair<TexturedBatchKey, (int Verts, int Idxs)> entry in m_blockDemandLedger.Demand) {
+                        BlocksManager.GetTexturedBatch(m_primitivesRenderer, blocksTexture, entry.Key)
+                            .EnsureCapacity(entry.Value.Verts, entry.Value.Idxs);
+                    }
+                }
                 foreach (Pickable pickable in m_pickables) {
                     try {
                         pickable.Project = Project;
