@@ -24,8 +24,12 @@ namespace Engine.Graphics {
         /// <summary>当前绘制的文本空间→世界基向量：原点（字形行左上锚点）与 X/Y 方向基向量</summary>
         public Vector3 Origin, Right = Vector3.UnitX, Down = Vector3.UnitY;
 
+        /// <param name="renderer">批的宿主 3D 渲染器（经 VectorFontBatch 创建分批）</param>
+        /// <param name="samplerState">批采样态（null=LinearClamp；文本图集用线性采样）</param>
         /// <param name="layer">矢量批的 Layer（m_allBatches 排序层，相对其他 3D 批的绘制序）</param>
         /// <param name="depthStencilState">批深度模板态（null=Default；视空间 billboard 文本常传 DepthRead 免写深度）</param>
+        /// <param name="rasterizerState">批光栅化态（null=CullNoneScissor）</param>
+        /// <param name="blendState">批混合态（null=AlphaBlend）</param>
         public VectorFontSink3D(PrimitivesRenderer3D renderer,
             SamplerState samplerState = null,
             int layer = 0,

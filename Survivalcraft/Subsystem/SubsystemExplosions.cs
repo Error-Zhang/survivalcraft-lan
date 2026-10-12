@@ -176,6 +176,11 @@ namespace Game {
             public bool Equals(SurroundingPressurePoint other) =>
                 Pressure == other.Pressure && IsIncendiary == other.IsIncendiary;
 
+            public override bool Equals(object obj) =>
+                obj is SurroundingPressurePoint other && Equals(other);
+
+            public override int GetHashCode() => HashCode.Combine(Pressure, IsIncendiary);
+
             public static bool operator ==(SurroundingPressurePoint left, SurroundingPressurePoint right) => left.Equals(right);
 
             public static bool operator !=(SurroundingPressurePoint left, SurroundingPressurePoint right) => !left.Equals(right);
