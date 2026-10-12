@@ -70,11 +70,13 @@ namespace Game {
                     return false;
                 }
                 string lang = LanguageControl.CurrentLanguageName.ToLowerInvariant();
+                // 文件字节跨 4 次 match 调用共享读盘（CJK ttc/otc 可到几十 MB）
+                Dictionary<string, byte[]> fileCache = [];
                 bool any = false;
-                any |= MatchFace(result, config, "sans-serif", lang, NativeFont.FcWeightRegular, mono: false, "System Sans-Serif");
-                any |= MatchFace(result, config, "sans-serif", lang, NativeFont.FcWeightBold, mono: false, "System Sans-Serif");
-                any |= MatchFace(result, config, "monospace", null, NativeFont.FcWeightRegular, mono: true, "System Mono");
-                any |= MatchFace(result, config, "monospace", null, NativeFont.FcWeightBold, mono: true, "System Mono");
+                any |= MatchFace(result, config, "sans-serif", lang, NativeFont.FcWeightRegular, mono: false, "System Sans-Serif", fileCache);
+                any |= MatchFace(result, config, "sans-serif", lang, NativeFont.FcWeightBold, mono: false, "System Sans-Serif", fileCache);
+                any |= MatchFace(result, config, "monospace", null, NativeFont.FcWeightRegular, mono: true, "System Mono", fileCache);
+                any |= MatchFace(result, config, "monospace", null, NativeFont.FcWeightBold, mono: true, "System Mono", fileCache);
                 return any;
             }
             catch (Exception ex) {
@@ -84,7 +86,7 @@ namespace Game {
             }
         }
 
-        static bool MatchFace(List<SystemFontFace> result, IntPtr config, string familyName, string lang, int weight, bool mono, string displayFamily) {
+        static bool MatchFace(List<SystemFontFace> result, IntPtr config, string familyName, string lang, int weight, bool mono, string displayFamily, Dictionary<string, byte[]> fileCache) {
             IntPtr pattern = NativeFont.FcPatternCreate();
             if (pattern == IntPtr.Zero) {
                 return false;
@@ -140,6 +142,10 @@ namespace Game {
                     // SharpAstro 只吃裸面序 → 掩低 16 位（本路线候选域全为静态面，实例位不出现；
                     // 真出实例面时掩掉=回落默认实例，无害降级）
                     int faceIndex = GetInteger(match, "index", 0) & 0xFFFF;
+                    // 轮廓探针：CFF2 变量面（部分发行版 Noto CJK VF）SharpAstro 渲染必炸，匹配期拒收
+                    if (!FontLocator.ProbeFaceOutlines(path, faceIndex, fileCache)) {
+                        return false;
+                    }
                     Log.Information($"[FontLocator] fontconfig [{familyName}] lang={lang ?? "-"} weight={matchedWeight} file={path} face={faceIndex} -> {style}");
                     result.Add(new SystemFontFace {
                         FilePath = path,

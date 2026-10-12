@@ -54,8 +54,38 @@ namespace Game {
                 : VectorFontStyle.Regular;
         }
 
+        /// <summary>面轮廓可渲染性：SharpAstro 不实现 CFF2（CFF 变量字体，Android 16 起
+        /// NotoSansCJK-Regular.ttc 即此格式），Cff/Glyf 双 null 的面构造成功但渲染必炸，
+        /// 发现期一律拒收（候选表/匹配面跳过，落下一候选或位图兜底）。与引擎侧
+        /// EngineSharpAstroSource 构造器的内联末道防线探针同判，SharpAstro 支持 CFF2 时两处同撤。</summary>
+        internal static bool HasRenderableOutlines(OpenTypeFont font)
+            => font.Glyf != null || font.HasCffOutlines;
+
+        /// <summary>匹配面轮廓探针（发现路线共用）：读盘 → Load(faceIndex) → HasRenderableOutlines。
+        /// cache 传则跨调用共享读盘字节（同一 ttc 常被多个匹配请求命中）。拒收/读盘/解析异常一律
+        /// Warning+false（调用方跳过该面），防坏面进链在 BuildChain 整链退位图。</summary>
+        internal static bool ProbeFaceOutlines(string path, int faceIndex, Dictionary<string, byte[]> cache = null) {
+            try {
+                if (cache == null
+                    || !cache.TryGetValue(path, out byte[] data)) {
+                    data = File.ReadAllBytes(path);
+                    cache?.Add(path, data);
+                }
+                OpenTypeFont font = OpenTypeFont.Load(data, faceIndex);
+                if (HasRenderableOutlines(font)) {
+                    return true;
+                }
+                Log.Warning($"[FontLocator] matched face rejected: no renderable outlines (CFF2-only variable font?) file={path} face={faceIndex}.");
+                return false;
+            }
+            catch (Exception ex) {
+                Log.Warning($"[FontLocator] matched face probe failed: file={path} face={faceIndex}: {ex.Message}");
+                return false;
+            }
+        }
+
         /// <summary>
-        /// 候选文件探测：读盘 → SharpAstro LoadAll → 取第一个样式匹配的面（面序=ttc 容器序）。<br/>
+        /// 候选文件探测：读盘 → SharpAstro LoadAll → 取第一个样式匹配且轮廓可渲染的面（面序=ttc 容器序）。<br/>
         /// IO/解析失败或无样式匹配面均返回 null（候选缺席，调用方继续下一候选），失败记 Warning。
         /// </summary>
         internal static SystemFontFace ProbeFontFile(string filePath, string family, VectorFontStyle style, bool isMono) {
@@ -64,6 +94,10 @@ namespace Game {
                 OpenTypeFont[] faces = OpenTypeFont.LoadAll(data);
                 for (int i = 0; i < faces.Length; i++) {
                     if (MapFaceStyle(faces[i]) == style) {
+                        if (!HasRenderableOutlines(faces[i])) {
+                            Log.Warning($"[FontLocator] probe \"{filePath}\" face {i}: no renderable outlines (CFF2-only variable font?), candidate skipped.");
+                            return null;
+                        }
                         return new SystemFontFace {
                             FilePath = filePath,
                             Family = family,
@@ -902,6 +936,14 @@ namespace Game {
                 if (faces.Length == 0) {
                     error = "Font file contains no faces.";
                     return false;
+                }
+                // 轮廓可渲染性（CFF2 变量字体 SharpAstro 不支持，解析能过渲染必炸）：全面逐面拒收
+                // （BuildEntries 全面注册进 StyleFaces，混格式 ttc 只探面 0 会让坏面进链炸整链）
+                for (int i = 0; i < faces.Length; i++) {
+                    if (!FontLocator.HasRenderableOutlines(faces[i])) {
+                        error = $"Face {i} outlines are not supported (CFF2-only variable fonts cannot be rendered).";
+                        return false;
+                    }
                 }
                 // Latin 覆盖探测（面 0）：必备字符缺失即拒，防止纯 CJK/纯符号字体把拉丁段拉回位图
                 List<char> missing = [];

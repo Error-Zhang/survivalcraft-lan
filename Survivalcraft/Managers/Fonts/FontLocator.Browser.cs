@@ -187,6 +187,12 @@ namespace Game {
                     if (index < 0) {
                         index = 0;
                     }
+                    // 轮廓探针：CFF2 变量面（如 Linux 发行版 Noto CJK VF）SharpAstro 渲染必炸，
+                    // 发现期拒收，免得坏面进链在 BuildChain 整链退位图
+                    if (!FontLocator.HasRenderableOutlines(parsed[index])) {
+                        Log.Warning($"[FontLocator] local font \"{meta.Ps}\" rejected: no renderable outlines (CFF2-only variable font?).");
+                        continue;
+                    }
                     faces.Add(new SystemFontFace {
                         FilePath = $"localfont://{meta.Ps}", // 展示/日志用；读盘路径不存在，字节由 Data 供给
                         Family = family,

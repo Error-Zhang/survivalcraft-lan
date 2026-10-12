@@ -47,6 +47,15 @@ namespace Engine.Media {
         public EngineSharpAstroSource(byte[] data, FontSourceSpec spec) {
             ArgumentNullException.ThrowIfNull(data);
             _font = OpenTypeFont.Load(data, spec.FaceIndex);
+            // CFF2 轮廓（CFF 变量字体，Android 16 起 NotoSansCJK-Regular.ttc 即此格式）
+            // SharpAstro 不实现：Cff/Glyf 双 null，构造成功但首个字形渲染即 NotSupportedException
+            // 直穿 widget 量测炸掉整屏。此为末道防线：坏面到达建链时整链降级（BuildChain
+            // catch→位图 / CreateFont→null），各发现路线应在匹配期拒收（FontLocator.ProbeFaceOutlines /
+            // ProbeFontFile），不让坏面走到这里
+            if (_font.Glyf == null
+                && !_font.HasCffOutlines) {
+                throw new NotSupportedException("font face has no renderable outlines (CFF2-only variable fonts not supported).");
+            }
             if (spec.Variation != null) {
                 _font = _font.WithVariation(spec.Variation);
             }

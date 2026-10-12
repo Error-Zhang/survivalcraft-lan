@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Android.OS;
 using Engine;
 using Engine.Media;
+using SharpAstro.Fonts;
 
 namespace Game {
     static partial class FontLocator {
@@ -33,6 +34,20 @@ namespace Game {
             // （OEM 覆写自动生效），NotoSansCJK ttc 的 JP/KR/SC/TC 面序由系统按 locale 选对，
             // 免解析 XML 的 schema 漂移。API<29 或匹配失败落兜底打表
             if (TryDiscoverViaMatcher(result)) {
+                // 匹配面探针可能拒收 body Regular（Android 16 起 AOSP NotoSansCJK-Regular.ttc
+                // 改 CFF2 变量字体，SharpAstro 不支持该轮廓），缺口从候选表补位——OEM glyf 面
+                // （MiSans 等）顶上，纯 AOSP 无候选则该角色落位图兜底。bold/mono 缺口维持既有
+                // 语义不动（bold 缺真面=Stroked 兜底，mono 拉丁由链头供给）
+                if (!result.Any(face => !face.IsMono && face.Style == VectorFontStyle.Regular)) {
+                    Log.Information("[FontLocator] no usable body Regular face from matcher, supplementing from candidate table.");
+                    try {
+                        Dictionary<string, string> files = EnumerateFontFiles();
+                        MatchAndAdd(result, files, BodyCandidates, mono: false);
+                    }
+                    catch (Exception ex) {
+                        Log.Warning($"[FontLocator] Android body supplement failed: {ex.Message}");
+                    }
+                }
                 return result;
             }
             Log.Information("[FontLocator] matcher unavailable/empty, falling back to candidate table.");
@@ -56,13 +71,17 @@ namespace Game {
         // 面（getWeight<600）→ 丢弃，由 Stroked1 兜底；OEM 有 bold（MiSans 等）则自动命中。
         // 部分成功也算成功（如仅 body regular+mono regular 三件，bold 缺席=降级语义正确）
         static bool TryDiscoverViaMatcher(List<SystemFontFace> result) {
+#pragma warning disable CA1416
             if (Build.VERSION.SdkInt < BuildVersionCodes.Q) {
+#pragma warning restore CA1416
                 return false;
             }
             IntPtr matcher = NativeFont.AFontMatcher_create();
             if (matcher == IntPtr.Zero) {
                 return false;
             }
+            // 文件字节跨 4 次 match 调用共享读盘（NotoSansCJK ttc ~19MB）
+            Dictionary<string, byte[]> fileCache = [];
             try {
                 // matcher locale=游戏内语言设置（LanguageControl），进程 CultureInfo.CurrentUICulture
                 // 只作垫后——.NET Android 进程区域文化默认不随系统/游戏语言同步（恒 en-US），
@@ -70,10 +89,10 @@ namespace Game {
                 // locale 列表按优先序排列，首标签即游戏渲染目标语言
                 string locales = $"{LanguageControl.CurrentLanguageName},{CultureInfo.CurrentUICulture.Name}";
                 bool any = false;
-                any |= TryMatchFace(result, matcher, locales, "sans-serif", "生存", 400, false, false, "System Sans-Serif");
-                any |= TryMatchFace(result, matcher, locales, "sans-serif", "生存", 700, false, false, "System Sans-Serif Bold");
-                any |= TryMatchFace(result, matcher, locales, "monospace", "A0", 400, false, true, "System Mono");
-                any |= TryMatchFace(result, matcher, locales, "monospace", "A0", 700, false, true, "System Mono Bold");
+                any |= TryMatchFace(result, matcher, locales, "sans-serif", "生存", 400, false, false, "System Sans-Serif", fileCache);
+                any |= TryMatchFace(result, matcher, locales, "sans-serif", "生存", 700, false, false, "System Sans-Serif Bold", fileCache);
+                any |= TryMatchFace(result, matcher, locales, "monospace", "A0", 400, false, true, "System Mono", fileCache);
+                any |= TryMatchFace(result, matcher, locales, "monospace", "A0", 700, false, true, "System Mono Bold", fileCache);
                 return any;
             }
             catch (Exception ex) {
@@ -86,7 +105,7 @@ namespace Game {
             }
         }
 
-        static bool TryMatchFace(List<SystemFontFace> result, IntPtr matcher, string locales, string familyName, string probeText, int weight, bool italic, bool mono, string displayFamily) {
+        static bool TryMatchFace(List<SystemFontFace> result, IntPtr matcher, string locales, string familyName, string probeText, int weight, bool italic, bool mono, string displayFamily, Dictionary<string, byte[]> fileCache) {
             NativeFont.AFontMatcher_setLocales(matcher, locales);
             NativeFont.AFontMatcher_setStyle(matcher, (ushort)weight, italic);
             ushort[] text = probeText.Select(c => (ushort)c).ToArray();
@@ -105,6 +124,10 @@ namespace Game {
                 // bold 请求落到低字重面（系统无真 bold 文件）→ 不入链，Stroked1 兜底接管
                 if (weight >= 600
                     && matchedWeight < 600) {
+                    return false;
+                }
+                // 轮廓探针：CFF2 变量字体（Android 16 起 AOSP CJK）SharpAstro 渲染必炸，匹配期拒收
+                if (!FontLocator.ProbeFaceOutlines(path, collectionIndex, fileCache)) {
                     return false;
                 }
                 VectorFontStyle style = matchedWeight >= 600
