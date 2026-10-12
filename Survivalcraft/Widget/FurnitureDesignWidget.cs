@@ -1,5 +1,6 @@
 using Engine;
 using Engine.Graphics;
+using Engine.Media;
 
 namespace Game {
     public class FurnitureDesignWidget : Widget {
@@ -67,14 +68,17 @@ namespace Game {
                     flatBatch3D.QueueLine(new Vector3(num, 0f, 1f), new Vector3(num, 1f, 1f), color);
                 }
                 Color color2 = new Color(64, 64, 64, 255) * GlobalColorTransform;
+                // 位图基准字体统一取口（getter 已兜 FallbackBitmapFont，仅字体环境全坏时为 null），
+                // 分流判据只看矢量链——两分支守卫粒度对称，null 时两分支等价崩溃（启动期字体事故）
+                BitmapFont bitmapFont = LabelWidget.BitmapFont;
                 if (FontManager.DefaultChain != null) {
                     // 矢量分流：轴标签走 3D 矢量链（基向量 0.004/px 与位图路径同口径），
                     // 字号按位图行盒折算（牌子先例公式：位图行盒↔矢量 DefaultSize 标定，Pericles 下=21）；
                     // FontBatch3D 位图路径留给重写的模组
                     m_vectorFontSink3d ??= new VectorFontSink3D(m_primitivesRenderer3d, SamplerState.LinearClamp, 1);
                     float vectorSize = FontManager.DefaultChain.DefaultSize
-                        * (LabelWidget.BitmapFont.GlyphHeight + LabelWidget.BitmapFont.Spacing.Y)
-                        * LabelWidget.BitmapFont.Scale
+                        * (bitmapFont.GlyphHeight + bitmapFont.Spacing.Y)
+                        * bitmapFont.Scale
                         / FontManager.DefaultChain.LineHeight;
                     m_vectorFontSink3d.QueueText(
                         FontManager.DefaultChain,
@@ -98,7 +102,7 @@ namespace Game {
                     );
                 }
                 else {
-                    FontBatch3D fontBatch3D = m_primitivesRenderer3d.FontBatch(LabelWidget.BitmapFont, 1);
+                    FontBatch3D fontBatch3D = m_primitivesRenderer3d.FontBatch(bitmapFont, 1);
                     fontBatch3D.QueueText(
                         LanguageControl.Get(fName, 0),
                         new Vector3(0.5f, 0f, 0f),
