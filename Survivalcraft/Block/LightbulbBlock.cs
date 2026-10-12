@@ -213,6 +213,12 @@ namespace Game {
             }
         }
 
+        public override BlockDrawDemand GetDrawDemand(int value, SubsystemTerrain subsystemTerrain) =>
+            BlockDrawDemand.Sum(
+                BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, m_standaloneSidesBlockMesh),
+                BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, m_standaloneBulbBlockMesh)
+            );
+
         public override void DrawBlock(PrimitivesRenderer3D primitivesRenderer,
             int value,
             Color color,

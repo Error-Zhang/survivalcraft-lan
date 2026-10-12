@@ -101,6 +101,15 @@ namespace Game {
 
         public override void GenerateTerrainVertices(BlockGeometryGenerator generator, TerrainGeometry geometry, int value, int x, int y, int z) { }
 
+        public override BlockDrawDemand GetDrawDemand(int value, SubsystemTerrain subsystemTerrain) {
+            int data = Terrain.ExtractData(value);
+            return BlockDrawDemand.Sum(
+                BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, m_headBlockMeshes[(int)GetShape(data) * 8 + GetColor(data)]),
+                BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, m_bodyBlockMeshes[GetAltitude(data)]),
+                BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, m_finsBlockMeshes[GetFlickering(data) ? 1 : 0])
+            );
+        }
+
         public override void DrawBlock(PrimitivesRenderer3D primitivesRenderer,
             int value,
             Color color,

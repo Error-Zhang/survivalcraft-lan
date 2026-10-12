@@ -335,6 +335,9 @@ namespace Game {
             return m_collisionBoxes[GetVariant(data)];
         }
 
+        public override BlockDrawDemand GetDrawDemand(int value, SubsystemTerrain subsystemTerrain) =>
+            BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, GetColor(Terrain.ExtractData(value)).HasValue ? m_standaloneColoredBlockMesh : m_standaloneUncoloredBlockMesh);
+
         public override void DrawBlock(PrimitivesRenderer3D primitivesRenderer,
             int value,
             Color color,

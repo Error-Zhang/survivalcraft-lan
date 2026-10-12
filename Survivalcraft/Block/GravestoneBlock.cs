@@ -109,6 +109,14 @@ namespace Game {
             }
         }
 
+        public override BlockDrawDemand GetDrawDemand(int value, SubsystemTerrain subsystemTerrain) {
+            int num = Terrain.ExtractData(value);
+            if (num >= m_standaloneBlockMeshes.Length) {
+                return null;
+            }
+            return BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, m_standaloneBlockMeshes[num]);
+        }
+
         public override void DrawBlock(PrimitivesRenderer3D primitivesRenderer,
             int value,
             Color color,

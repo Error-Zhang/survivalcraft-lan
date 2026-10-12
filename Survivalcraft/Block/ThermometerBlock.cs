@@ -145,6 +145,11 @@ namespace Game {
             }
         }
 
+        // 流体柱仅在 EnvironmentTemperature.HasValue（UI 手持上下文）时绘制，掉落物/抛射物的
+        // DrawBlockEnvironmentData 不设该值，故需求只记表壳。
+        public override BlockDrawDemand GetDrawDemand(int value, SubsystemTerrain subsystemTerrain) =>
+            BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, m_caseMesh);
+
         public override void DrawBlock(PrimitivesRenderer3D primitivesRenderer,
             int value,
             Color color,
