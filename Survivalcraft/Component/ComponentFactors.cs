@@ -31,6 +31,18 @@ namespace Game {
 
         public static string fName = "ComponentFactors";
 
+        private readonly Func<ModLoader, bool> m_onFactorsUpdateAction;
+        private float m_hookDt;
+
+        public ComponentFactors() {
+            m_onFactorsUpdateAction = Loader => {
+#pragma warning disable CS0618
+                Loader.OnFactorsUpdate(this, m_hookDt);
+#pragma warning restore CS0618
+                return false;
+            };
+        }
+
         public virtual float GetOtherFactorResult(string factorName, bool recalculate = false, bool throwIfNotFound = false) {
             if (!recalculate
                 && OtherFactorsResults.TryGetValue(factorName, out float result)) {
@@ -197,15 +209,8 @@ namespace Game {
             GenerateSpeedFactors();
             GenerateHungerFactors();
             GenerateOtherFactors();
-            ModsManager.HookAction(
-                "OnFactorsUpdate",
-                Loader => {
-#pragma warning disable CS0618
-                    Loader.OnFactorsUpdate(this, dt);
-#pragma warning restore CS0618
-                    return false;
-                }
-            );
+            m_hookDt = dt;
+            ModsManager.HookAction("OnFactorsUpdate", m_onFactorsUpdateAction);
         }
     }
 }

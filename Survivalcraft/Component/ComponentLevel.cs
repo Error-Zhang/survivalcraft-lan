@@ -42,6 +42,23 @@ namespace Game {
         public string m_cachedPlayerClassName;
         public string m_cachedGameModeString;
 
+        private readonly Func<ModLoader, bool> m_onLevelUpdateAction;
+        private float m_cachedLevelDescriptionFloor = float.NaN;
+        private string m_cachedLevelDescription = string.Empty;
+        private int m_cachedStaminaPercent = int.MinValue;
+        private string m_cachedStaminaDescription = string.Empty;
+        private string m_cachedPlayerClassEnumName = string.Empty;
+        private static readonly Dictionary<int, string> s_clothingFactorNames = [];
+
+        public ComponentLevel() {
+            m_onLevelUpdateAction = modLoader => {
+#pragma warning disable CS0618
+                modLoader.OnLevelUpdate(this);
+#pragma warning restore CS0618
+                return false;
+            };
+        }
+
         public static float FemaleStrengthFactor = 0.8f;
         public static float FemaleResilienceFactor = 0.8f;
         public static float FemaleSpeedFactor = 1.03f;
@@ -105,13 +122,13 @@ namespace Game {
                 new Factor {
                     Name = "Level",
                     Value = num3,
-                    Description = string.Format(LanguageControl.Get(fName, 2), MathF.Floor(level).ToString(CultureInfo.InvariantCulture))
+                    Description = GetLevelDescription()
                 }
             );
             float stamina = m_componentPlayer.ComponentVitalStats.Stamina;
             float num5 = MathUtils.Lerp(0.5f, 1f, MathUtils.Saturate(4f * stamina)) * MathUtils.Lerp(0.9f, 1f, MathUtils.Saturate(stamina));
             m_strengthFactors.Add(
-                new Factor { Name = "Stamina", Value = num5, Description = string.Format(LanguageControl.Get(fName, 3), $"{stamina * 100f:0}") }
+                new Factor { Name = "Stamina", Value = num5, Description = GetStaminaDescription(stamina) }
             );
             m_strengthFactors.Add(
                 new Factor {
@@ -169,7 +186,7 @@ namespace Game {
                 new Factor {
                     Name = "Level",
                     Value = num3,
-                    Description = string.Format(LanguageControl.Get(fName, 2), MathF.Floor(level).ToString(CultureInfo.InvariantCulture))
+                    Description = GetLevelDescription()
                 }
             );
             m_resilienceFactors.Add(
@@ -223,7 +240,7 @@ namespace Game {
                 new Factor {
                     Name = "Level",
                     Value = num3,
-                    Description = string.Format(LanguageControl.Get(fName, 2), MathF.Floor(level).ToString(CultureInfo.InvariantCulture))
+                    Description = GetLevelDescription()
                 }
             );
             foreach (ClothingSlot clothingSlot in ClothingSlot.ClothingSlots.Values) {
@@ -234,7 +251,7 @@ namespace Game {
             float stamina = m_componentPlayer.ComponentVitalStats.Stamina;
             float num4 = MathUtils.Lerp(0.5f, 1f, MathUtils.Saturate(4f * stamina)) * MathUtils.Lerp(0.9f, 1f, MathUtils.Saturate(stamina));
             m_speedFactors.Add(
-                new Factor { Name = "Stamina", Value = num4, Description = string.Format(LanguageControl.Get(fName, 3), $"{stamina * 100f:0}") }
+                new Factor { Name = "Stamina", Value = num4, Description = GetStaminaDescription(stamina) }
             );
             m_speedFactors.Add(
                 new Factor {
@@ -275,7 +292,7 @@ namespace Game {
                 new Factor {
                     Name = "PlayerClass",
                     Value = m_componentPlayer.PlayerData.PlayerClass == PlayerClass.Female ? FemaleHungerFactor : 1f,
-                    Description = m_componentPlayer.PlayerData.PlayerClass.ToString()
+                    Description = m_cachedPlayerClassEnumName
                 }
             );
             float level = m_componentPlayer.PlayerData.Level;
@@ -284,7 +301,7 @@ namespace Game {
                 new Factor {
                     Name = "Level",
                     Value = num3,
-                    Description = string.Format(LanguageControl.Get(fName, 2), MathF.Floor(level).ToString(CultureInfo.InvariantCulture))
+                    Description = GetLevelDescription()
                 }
             );
             float num5 = 1f;
@@ -351,6 +368,32 @@ namespace Game {
             wetness.Add(new Factor { Name = "Temperature", FactorAdditionType = FactorAdditionType.Add, Value = -1f / num3 });
         }
 
+        /// <summary>
+        ///     等级描述按整数等级缓存，避免 Update 每帧分配字符串。
+        ///     键用 float 而非 int：Level 为 NaN 时 float 键恒不等，保持与未缓存时相同的输出。
+        /// </summary>
+        private string GetLevelDescription() {
+            float floorLevel = MathF.Floor(m_componentPlayer.PlayerData.Level);
+            if (m_cachedLevelDescriptionFloor != floorLevel) {
+                m_cachedLevelDescriptionFloor = floorLevel;
+                m_cachedLevelDescription = string.Format(LanguageControl.Get(fName, 2), floorLevel.ToString(CultureInfo.InvariantCulture));
+            }
+            return m_cachedLevelDescription;
+        }
+
+        /// <summary>
+        ///     体力描述按百分比整数缓存。键必须与 "{stamina * 100f:0}" 的取整口径一致：
+        ///     自定义数字格式 "0" 对中点值按远离零取整，故用 MidpointRounding.AwayFromZero 生成键。
+        /// </summary>
+        private string GetStaminaDescription(float stamina) {
+            int percent = (int)MathF.Round(stamina * 100f, MidpointRounding.AwayFromZero);
+            if (m_cachedStaminaPercent != percent) {
+                m_cachedStaminaPercent = percent;
+                m_cachedStaminaDescription = string.Format(LanguageControl.Get(fName, 3), $"{stamina * 100f:0}");
+            }
+            return m_cachedStaminaDescription;
+        }
+
         public override void Update(float dt) {
             if (m_subsystemTime.PeriodicGameTimeEvent(180.0, 179.0)) {
                 AddExperience(1, false);
@@ -369,15 +412,7 @@ namespace Game {
             );
             base.Update(dt);
             GenerateWetnessFactors();
-            ModsManager.HookAction(
-                "OnLevelUpdate",
-                modLoader => {
-#pragma warning disable CS0618
-                    modLoader.OnLevelUpdate(this);
-#pragma warning restore CS0618
-                    return false;
-                }
-            );
+            ModsManager.HookAction("OnLevelUpdate", m_onLevelUpdateAction);
         }
 
         public override void Load(ValuesDictionary valuesDictionary, IdToEntityMap idToEntityMap) {
@@ -385,7 +420,8 @@ namespace Game {
             m_componentPlayer = Entity.FindComponent<ComponentPlayer>(true);
             m_componentVitalStats = Entity.FindComponent<ComponentVitalStats>(true);
             OtherFactors["Wetness"] = new List<Factor>();
-            m_cachedPlayerClassName = LanguageControl.Get("PlayerClass", m_componentPlayer.PlayerData.PlayerClass.ToString());
+            m_cachedPlayerClassEnumName = m_componentPlayer.PlayerData.PlayerClass.ToString();
+            m_cachedPlayerClassName = LanguageControl.Get("PlayerClass", m_cachedPlayerClassEnumName);
             m_cachedGameModeString = string.Format(
                 LanguageControl.Get(fName, 12),
                 LanguageControl.Get("GameMode", m_subsystemGameInfo.WorldSettings.GameMode.ToString())
@@ -399,10 +435,21 @@ namespace Game {
                 && clothingData.MovementSpeedFactor != 1f) {
                 m_speedFactors.Add(
                     new Factor {
-                        Name = $"Clothing {clothingValue}", Value = clothingData.MovementSpeedFactor, Description = clothingData.DisplayName
+                        Name = GetClothingFactorName(clothingValue), Value = clothingData.MovementSpeedFactor, Description = clothingData.DisplayName
                     }
                 );
             }
+        }
+
+        /// <summary>
+        ///     衣物 Factor 的 Name 按 clothingValue 缓存，避免每帧插值分配。
+        /// </summary>
+        private static string GetClothingFactorName(int clothingValue) {
+            if (!s_clothingFactorNames.TryGetValue(clothingValue, out string name)) {
+                name = $"Clothing {clothingValue}";
+                s_clothingFactorNames[clothingValue] = name;
+            }
+            return name;
         }
 
         [Obsolete("Use GenerateClothingSpeedFactors.")]
