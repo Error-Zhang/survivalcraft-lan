@@ -8,6 +8,10 @@ using ImeSharp;
 
 namespace Game {
     public class SurvivalCraftModLoader : ModLoader {
+        VectorFontSink3D m_vectorFontSink3d;
+
+        PrimitivesRenderer3D m_vectorFontSink3dRenderer;
+
         public override void __ModInitialize() {
             ModsManager.RegisterHook("InitKeyCompatibleGroups", this);
             ModsManager.RegisterHook("OnCameraListInit", this);
@@ -145,24 +149,56 @@ namespace Game {
                                 camera.ViewMatrix
                             );
                             Vector3 down = Vector3.TransformNormal(-0.005f * Vector3.UnitY, camera.ViewMatrix);
-                            BitmapFont font = LabelWidget.BitmapFont;
-                            modelsRenderer.PrimitivesRenderer
-                                .FontBatch(
-                                    font,
-                                    1,
-                                    DepthStencilState.DepthRead,
-                                    RasterizerState.CullNoneScissor,
-                                    BlendState.AlphaBlend,
-                                    SamplerState.LinearClamp
-                                )
-                                .QueueText(
+                            BitmapFont bitmapFont = LabelWidget.BitmapFont;
+                            if (FontManager.DefaultChain != null
+                                && bitmapFont != null) {
+                                // 矢量分流：玩家名牌走 3D 矢量链（视空间 billboard 基向量 0.005/px 与位图路径同口径，
+                                // 字号按位图行盒折算——牌子先例公式：位图行盒↔矢量 DefaultSize 标定，Pericles 下=21）；
+                                // FontBatch3D 位图路径留给重写的模组。
+                                // sink 绑定传入的 PrimitivesRenderer 实例（跨项目子系统重建时按身份重建）
+                                if (m_vectorFontSink3d == null
+                                    || m_vectorFontSink3dRenderer != modelsRenderer.PrimitivesRenderer) {
+                                    m_vectorFontSink3d = new VectorFontSink3D(
+                                        modelsRenderer.PrimitivesRenderer,
+                                        SamplerState.LinearClamp,
+                                        1,
+                                        DepthStencilState.DepthRead
+                                    );
+                                    m_vectorFontSink3dRenderer = modelsRenderer.PrimitivesRenderer;
+                                }
+                                m_vectorFontSink3d.QueueText(
+                                    FontManager.DefaultChain,
                                     m_componentPlayer.PlayerData.Name,
                                     position,
                                     right,
                                     down,
                                     color,
+                                    FontManager.DefaultChain.DefaultSize
+                                        * (bitmapFont.GlyphHeight + bitmapFont.Spacing.Y)
+                                        * bitmapFont.Scale
+                                        / FontManager.DefaultChain.LineHeight,
                                     TextAnchor.HorizontalCenter | TextAnchor.Bottom
                                 );
+                            }
+                            else {
+                                modelsRenderer.PrimitivesRenderer
+                                    .FontBatch(
+                                        bitmapFont,
+                                        1,
+                                        DepthStencilState.DepthRead,
+                                        RasterizerState.CullNoneScissor,
+                                        BlendState.AlphaBlend,
+                                        SamplerState.LinearClamp
+                                    )
+                                    .QueueText(
+                                        m_componentPlayer.PlayerData.Name,
+                                        position,
+                                        right,
+                                        down,
+                                        color,
+                                        TextAnchor.HorizontalCenter | TextAnchor.Bottom
+                                    );
+                            }
                         }
                     }
                 }

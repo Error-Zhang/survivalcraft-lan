@@ -16,6 +16,8 @@ namespace Game {
 
         public PrimitivesRenderer3D m_primitivesRenderer3d = new();
 
+        public VectorFontSink3D m_vectorFontSink3d;
+
         public Vector2? m_dragStartPoint;
 
         public Vector3 m_direction;
@@ -65,23 +67,55 @@ namespace Game {
                     flatBatch3D.QueueLine(new Vector3(num, 0f, 1f), new Vector3(num, 1f, 1f), color);
                 }
                 Color color2 = new Color(64, 64, 64, 255) * GlobalColorTransform;
-                FontBatch3D fontBatch3D = m_primitivesRenderer3d.FontBatch(LabelWidget.BitmapFont, 1);
-                fontBatch3D.QueueText(
-                    LanguageControl.Get(fName, 0),
-                    new Vector3(0.5f, 0f, 0f),
-                    0.004f * new Vector3(-1f, 0f, 0f),
-                    0.004f * new Vector3(0f, 0f, -1f),
-                    color2,
-                    TextAnchor.HorizontalCenter
-                );
-                fontBatch3D.QueueText(
-                    LanguageControl.Get(fName, 1),
-                    new Vector3(1f, 0f, 0.5f),
-                    0.004f * new Vector3(0f, 0f, -1f),
-                    0.004f * new Vector3(1f, 0f, 0f),
-                    color2,
-                    TextAnchor.HorizontalCenter
-                );
+                if (FontManager.DefaultChain != null) {
+                    // 矢量分流：轴标签走 3D 矢量链（基向量 0.004/px 与位图路径同口径），
+                    // 字号按位图行盒折算（牌子先例公式：位图行盒↔矢量 DefaultSize 标定，Pericles 下=21）；
+                    // FontBatch3D 位图路径留给重写的模组
+                    m_vectorFontSink3d ??= new VectorFontSink3D(m_primitivesRenderer3d, SamplerState.LinearClamp, 1);
+                    float vectorSize = FontManager.DefaultChain.DefaultSize
+                        * (LabelWidget.BitmapFont.GlyphHeight + LabelWidget.BitmapFont.Spacing.Y)
+                        * LabelWidget.BitmapFont.Scale
+                        / FontManager.DefaultChain.LineHeight;
+                    m_vectorFontSink3d.QueueText(
+                        FontManager.DefaultChain,
+                        LanguageControl.Get(fName, 0),
+                        new Vector3(0.5f, 0f, 0f),
+                        0.004f * new Vector3(-1f, 0f, 0f),
+                        0.004f * new Vector3(0f, 0f, -1f),
+                        color2,
+                        vectorSize,
+                        TextAnchor.HorizontalCenter
+                    );
+                    m_vectorFontSink3d.QueueText(
+                        FontManager.DefaultChain,
+                        LanguageControl.Get(fName, 1),
+                        new Vector3(1f, 0f, 0.5f),
+                        0.004f * new Vector3(0f, 0f, -1f),
+                        0.004f * new Vector3(1f, 0f, 0f),
+                        color2,
+                        vectorSize,
+                        TextAnchor.HorizontalCenter
+                    );
+                }
+                else {
+                    FontBatch3D fontBatch3D = m_primitivesRenderer3d.FontBatch(LabelWidget.BitmapFont, 1);
+                    fontBatch3D.QueueText(
+                        LanguageControl.Get(fName, 0),
+                        new Vector3(0.5f, 0f, 0f),
+                        0.004f * new Vector3(-1f, 0f, 0f),
+                        0.004f * new Vector3(0f, 0f, -1f),
+                        color2,
+                        TextAnchor.HorizontalCenter
+                    );
+                    fontBatch3D.QueueText(
+                        LanguageControl.Get(fName, 1),
+                        new Vector3(1f, 0f, 0.5f),
+                        0.004f * new Vector3(0f, 0f, -1f),
+                        0.004f * new Vector3(1f, 0f, 0f),
+                        color2,
+                        TextAnchor.HorizontalCenter
+                    );
+                }
                 if (DrawDebugFurniture) {
                     DebugDraw();
                 }
