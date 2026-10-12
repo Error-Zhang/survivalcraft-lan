@@ -121,6 +121,7 @@ namespace Game {
 
         public static void Initialize() {
             GameManager.ProjectDisposed += delegate { m_imageExtrusionsCache.Clear(); };
+            GameManager.ProjectDisposed += delegate { m_blockDrawDemandCache.Clear(); };
             InitializeCategories();
             CalculateSlotTexCoordTables();
             InitializeBlocks(null);
@@ -499,6 +500,39 @@ namespace Game {
             );
         }
 
+        /// <summary>
+        /// 独立即场景（掉落物/抛射物）方块绘制的批次获取单源：layer=0、
+        /// RasterizerState.CullCounterClockwiseScissor、SamplerState.PointClamp 三项恒定，
+        /// 可变三元组由 TexturedBatchKey 表达（键内 depth/blend 已在构造器归一化为引擎缺省：
+        /// 深度=Default、混合=AlphaBlend）。
+        /// 所有 Draw*Block 路径与预扩容循环都必须经此处取批次，防止参数漂移出孤儿批次。
+        /// </summary>
+        public static TexturedBatch3D GetTexturedBatch(PrimitivesRenderer3D primitivesRenderer, Texture2D texture, TexturedBatchKey batchKey) =>
+            primitivesRenderer.TexturedBatch(
+                texture,
+                batchKey.UseAlphaTest,
+                0,
+                batchKey.DepthStencilState,
+                RasterizerState.CullCounterClockwiseScissor,
+                batchKey.BlendState,
+                SamplerState.PointClamp
+            );
+
+        static readonly Dictionary<int, BlockDrawDemand> m_blockDrawDemandCache = [];
+
+        /// <summary>
+        /// 按方块值查询独立即场景容量需求（结果缓存；需求由各 Block 经
+        /// GetDrawDemand 自报，依赖世界数据的需求如家具自行取用 subsystemTerrain）。
+        /// </summary>
+        public static BlockDrawDemand GetBlockDrawDemand(int value, SubsystemTerrain subsystemTerrain) {
+            if (!m_blockDrawDemandCache.TryGetValue(value, out BlockDrawDemand demand)) {
+                Block block = Blocks[Terrain.ExtractContents(value)];
+                demand = block?.GetDrawDemand(value, subsystemTerrain);
+                m_blockDrawDemandCache[value] = demand;
+            }
+            return demand;
+        }
+
         public static void DrawCubeBlock(PrimitivesRenderer3D primitivesRenderer,
             int value,
             Vector3 size,
@@ -509,15 +543,7 @@ namespace Game {
             DrawBlockEnvironmentData environmentData,
             Texture2D texture) {
             environmentData = environmentData ?? m_defaultEnvironmentData;
-            TexturedBatch3D texturedBatch3D = primitivesRenderer.TexturedBatch(
-                texture,
-                true,
-                0,
-                null,
-                RasterizerState.CullCounterClockwiseScissor,
-                null,
-                SamplerState.PointClamp
-            );
+            TexturedBatch3D texturedBatch3D = GetTexturedBatch(primitivesRenderer, texture, TexturedBatchKey.Cube);
             float s = LightingManager.LightIntensityByLightValue[environmentData.Light];
             color = Color.MultiplyColorOnlyNotSaturated(color, s);
             topColor = Color.MultiplyColorOnlyNotSaturated(topColor, s);
@@ -751,15 +777,7 @@ namespace Game {
                 Vector3.Transform(ref v3, ref m, out v3);
                 Vector3.Transform(ref v4, ref m, out v4);
             }
-            TexturedBatch3D texturedBatch3D = primitivesRenderer.TexturedBatch(
-                texture,
-                true,
-                0,
-                null,
-                RasterizerState.CullCounterClockwiseScissor,
-                BlendState.AlphaBlend,
-                SamplerState.PointClamp
-            );
+            TexturedBatch3D texturedBatch3D = GetTexturedBatch(primitivesRenderer, texture, TexturedBatchKey.Flat);
             texturedBatch3D.QueueQuad(
                 v,
                 v3,
@@ -926,20 +944,13 @@ namespace Game {
             Vector4 vector = new(color);
             Vector4 vector2 = new(new Vector3(vector.X, vector.Y, vector.Z) * num, vector.W);
             // AlphaTest：cutout 着色器，写深度（镂空边缘硬边）。Transparent：关闭 alpha-test 走 blend，
-            // 且不写深度（DepthRead），避免半透明体素互相 z-reject 导致后绘背面不混合。Opaque：普通不透明。
-            bool useAlphaTest = subsetType == GeometrySubsetType.AlphaTest;
-            DepthStencilState depthStencilState = subsetType == GeometrySubsetType.Transparent
-                ? DepthStencilState.DepthRead
-                : DepthStencilState.Default;
-            TexturedBatch3D texturedBatch3D = primitivesRenderer.TexturedBatch(
-                texture,
-                useAlphaTest,
-                0,
-                depthStencilState,
-                RasterizerState.CullCounterClockwiseScissor,
-                null,
-                SamplerState.PointClamp
-            );
+            // 且不写深度（DepthRead），避免半透明体素互相 z-reject 导致后绘背面不混合。
+            // Opaque 子集与 AlphaTest 共用 MeshAlphaTest 键（原 Opaque 走 alphaTest=false 的独立批次，
+            // 现调用点已无显式 Opaque 传参；如需区分再补键）。
+            TexturedBatchKey batchKey = subsetType == GeometrySubsetType.Transparent
+                ? TexturedBatchKey.MeshTransparent
+                : TexturedBatchKey.MeshAlphaTest;
+            TexturedBatch3D texturedBatch3D = GetTexturedBatch(primitivesRenderer, texture, batchKey);
             bool flag = false;
             Matrix m = !environmentData.ViewProjectionMatrix.HasValue ? matrix : matrix * environmentData.ViewProjectionMatrix.Value;
             if (size != 1f) {

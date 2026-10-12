@@ -26,13 +26,19 @@ namespace Engine.Graphics {
         /// 大批量 QueueQuad 前调用可避免逐 quad 超容量触发 O(N²) 整段拷贝。
         /// </summary>
         public void EnsureQuadCapacity(int quadCount) {
-            int vertexCapacity = quadCount * 4;
-            if (vertexCapacity > TriangleVertices.Capacity) {
-                TriangleVertices.Capacity = vertexCapacity;
+            EnsureCapacity(quadCount * 4, quadCount * 6);
+        }
+
+        /// <summary>
+        /// 按顶点/索引数一次性把容量顶到位（不限定四边形拓扑，供 DrawMeshBlock 等直接整块
+        /// 拷贝顶点的路径使用；与 DynamicArray 的精确扩容配合，不超额分配）。
+        /// </summary>
+        public void EnsureCapacity(int vertexCount, int indexCount) {
+            if (vertexCount > TriangleVertices.Capacity) {
+                TriangleVertices.Capacity = vertexCount;
             }
-            int indexCapacity = quadCount * 6;
-            if (indexCapacity > TriangleIndices.Capacity) {
-                TriangleIndices.Capacity = indexCapacity;
+            if (indexCount > TriangleIndices.Capacity) {
+                TriangleIndices.Capacity = indexCount;
             }
         }
 

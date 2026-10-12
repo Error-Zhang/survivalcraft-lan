@@ -140,6 +140,54 @@ namespace Game {
             }
         }
 
+        /// <summary>
+        ///     家具需求按设计几何缓存汇总：主几何与子纹理几何的三类子集合计。
+        ///     子纹理几何实际按纹理分键入批次，此处统一记到变体键（atlas 批次多备、
+        ///     子纹理批次走原生扩容）。
+        /// </summary>
+        public override BlockDrawDemand GetDrawDemand(int value, SubsystemTerrain subsystemTerrain) {
+            // SubsystemFurnitureBlockBehavior 在 Terrain.Load 内才挂到 subsystemTerrain 上，
+            // 而 Pickables/Projectiles 的 Load 记账先于此发生：behavior 为 null 时自报 null
+            // （Book 跳过，与移除侧对称，仅损失该值的预扩容收益，无正确性问题）。
+            SubsystemFurnitureBlockBehavior behavior = subsystemTerrain?.SubsystemFurnitureBlockBehavior;
+            if (behavior == null) {
+                return null;
+            }
+            int designIndex = GetDesignIndex(Terrain.ExtractData(value));
+            FurnitureDesign design = behavior.GetDesign(designIndex);
+            if (design == null) {
+                return null;
+            }
+            return SumGeometryDemand(design.Geometry);
+        }
+
+        static BlockDrawDemand SumGeometryDemand(FurnitureGeometry geometry) {
+            List<BlockDrawDemand> parts = [];
+            for (int i = 0; i < 6; i++) {
+                BlockDrawDemand opaque = BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, geometry.SubsetOpaqueByFace[i]);
+                BlockDrawDemand alphaTest = BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, geometry.SubsetAlphaTestByFace[i]);
+                BlockDrawDemand transparent = BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshTransparent, geometry.SubsetTransparentByFace[i]);
+                if (opaque != null) {
+                    parts.Add(opaque);
+                }
+                if (alphaTest != null) {
+                    parts.Add(alphaTest);
+                }
+                if (transparent != null) {
+                    parts.Add(transparent);
+                }
+            }
+            if (geometry.Draws != null) {
+                foreach (FurnitureGeometry subGeometry in geometry.Draws.Values) {
+                    BlockDrawDemand subDemand = SumGeometryDemand(subGeometry);
+                    if (subDemand != null) {
+                        parts.Add(subDemand);
+                    }
+                }
+            }
+            return parts.Count == 0 ? null : BlockDrawDemand.Sum(parts.ToArray());
+        }
+
         public override void DrawBlock(PrimitivesRenderer3D primitivesRenderer,
             int value,
             Color color,

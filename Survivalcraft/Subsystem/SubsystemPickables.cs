@@ -35,6 +35,9 @@ namespace Game {
 
         public List<Pickable> m_pickablesToRemove = [];
 
+        /// <summary>掉落物方块绘制容量需求账本（增删自报，绘制前据此预扩容共享批次）。</summary>
+        readonly BlockDrawDemandLedger m_blockDemandLedger = new();
+
         public PrimitivesRenderer3D m_primitivesRenderer = new();
 
         public Random m_random = new();
@@ -92,6 +95,7 @@ namespace Game {
                 }
             );
             lock (m_lock) {
+                m_blockDemandLedger.Book(BlocksManager.GetBlockDrawDemand(pickable.Value, m_subsystemTerrain), 1);
                 m_pickables.Add(pickable);
             }
             PickableAdded?.Invoke(pickable);
@@ -142,6 +146,14 @@ namespace Game {
         }
 
         public virtual void Draw(Camera camera, int drawOrder) {
+            // 按账本对方块批次一次性精确预扩容：消除逐块扩容爬坡（DynamicArray 精确扩容下大批量入队是 O(N²) 拷贝）
+            if (m_blockDemandLedger.Demand.Count > 0) {
+                Texture2D blocksTexture = m_subsystemTerrain.SubsystemAnimatedTextures.AnimatedBlocksTexture;
+                foreach (KeyValuePair<TexturedBatchKey, (int Verts, int Idxs)> entry in m_blockDemandLedger.Demand) {
+                    BlocksManager.GetTexturedBatch(m_primitivesRenderer, blocksTexture, entry.Key)
+                        .EnsureCapacity(entry.Value.Verts, entry.Value.Idxs);
+                }
+            }
             double totalElapsedGameTime = m_subsystemGameInfo.TotalElapsedGameTime;
             m_drawBlockEnvironmentData.SubsystemTerrain = m_subsystemTerrain;
             Matrix matrix = Matrix.CreateRotationY((float)MathUtils.Remainder(totalElapsedGameTime, 6.2831854820251465));
@@ -181,6 +193,7 @@ namespace Game {
                     }
                 }
                 foreach (Pickable item in m_pickablesToRemove) {
+                    m_blockDemandLedger.Book(BlocksManager.GetBlockDrawDemand(item.Value, m_subsystemTerrain), -1);
                     m_pickables.Remove(item);
                     PickableRemoved?.Invoke(item);
                 }
@@ -224,6 +237,9 @@ namespace Game {
                             }
                         );
                         lock (m_pickables) {
+                            // 存档恢复的实体也要入账：否则其移除时 Book(-1) 会抵掉同键已记账实体的容量。
+                            // 家具设计若此时未加载会自报 null（Book 跳过），与其后续移除侧的 null 跳过对称，无漂移。
+                            m_blockDemandLedger.Book(BlocksManager.GetBlockDrawDemand(pickable.Value, m_subsystemTerrain), 1);
                             m_pickables.Add(pickable);
                         }
                     }
