@@ -32,6 +32,72 @@ namespace Engine.Media {
         readonly VectorFontRenderer _renderer = new();
         BitmapFont _fallbackBitmapFont;
 
+        /// <summary>
+        /// Stroked 白预乘渲染器：FSS Default 的膨胀区像素写 RGB=0/A=coverage（预乘黑），顶点色乘 RGB
+        /// 恒黑——描边色无法染色（StrokeColor 白边仍渲染黑边）、fakeBold 在白字上是黑轮廓非加粗。
+        /// 此处膨胀形（字芯∪描边）统一 alpha=max(coverage, dilation)、RGB=alpha 白预乘，
+        /// 顶点色即可染任意色；膨胀掩码计算与 Default 逐位同源（over 复合公式）。非 Stroked 效果直通 Default
+        /// </summary>
+        static readonly GlyphRenderer WhitePremultipliedStrokedRenderer = (byte[] input, byte[] output, GlyphRenderOptions options) => {
+            if (options.Effect != FontSystemEffect.Stroked
+                || options.EffectAmount <= 0
+                || options.RasterizationMode != FontRasterizationMode.Standard) {
+                GlyphRenderers.Default(input, output, options);
+                return;
+            }
+            int width = options.Size.X;
+            int amount = options.EffectAmount;
+            int top = width * amount;
+            int size = width * options.Size.Y;
+            int bottom = size - top;
+            int right = width - amount;
+            int left = amount;
+            for (int i = 0; i < size; i++) {
+                int ci = i * 4;
+                int col = input[i];
+                if (col == 255) {
+                    output[ci] = output[ci + 1] = output[ci + 2] = output[ci + 3] = 255;
+                    continue;
+                }
+                int black = 0;
+                if (i >= top) {
+                    black = input[i - top];
+                }
+                if (i < bottom) {
+                    int d = input[i + top];
+                    black = ((255 - d) * black + 255 * d) / 255;
+                }
+                if (i % width >= left) {
+                    int d = input[i - amount];
+                    black = ((255 - d) * black + 255 * d) / 255;
+                }
+                if (i % width < right) {
+                    int d = input[i + amount];
+                    black = ((255 - d) * black + 255 * d) / 255;
+                }
+                int alpha = Math.Max(col, black);
+                if (alpha == 0) {
+                    output[ci] = output[ci + 1] = output[ci + 2] = output[ci + 3] = 0;
+                    continue;
+                }
+                switch (options.GlyphRenderResult) {
+                    case GlyphRenderResult.Premultiplied:
+                        output[ci] = output[ci + 1] = output[ci + 2] = (byte)alpha;
+                        output[ci + 3] = (byte)alpha;
+                        break;
+                    case GlyphRenderResult.NonPremultiplied:
+                        output[ci] = output[ci + 1] = output[ci + 2] = 255;
+                        output[ci + 3] = (byte)alpha;
+                        break;
+                    case GlyphRenderResult.NoAntialiasing: {
+                        int v = alpha >= 128 ? 255 : 0;
+                        output[ci] = output[ci + 1] = output[ci + 2] = output[ci + 3] = (byte)v;
+                        break;
+                    }
+                }
+            }
+        };
+
         public bool IsBoldAvailable => _systems[(int)VectorFontStyle.Bold] != null;
         public bool IsItalicAvailable => _systems[(int)VectorFontStyle.Italic] != null;
         public bool IsBoldItalicAvailable => _systems[(int)VectorFontStyle.BoldItalic] != null;
@@ -85,7 +151,8 @@ namespace Engine.Media {
                     // 引擎 BlendState.AlphaBlend = (One, InverseSourceAlpha) 预乘混合，
                     // 图集必须预乘（背景 RGB=0 才不会整块叠加顶点色）；NonPremultiplied 是 straight 语义
                     GlyphRenderResult = GlyphRenderResult.Premultiplied,
-                    FontLoader = loader
+                    FontLoader = loader,
+                    GlyphRenderer = WhitePremultipliedStrokedRenderer
                 };
                 var system = new FontSystem(settings);
                 foreach (var data in datas) {
@@ -209,8 +276,12 @@ namespace Engine.Media {
         /// 位图回退段恒正排 Regular（无描边/切变）。返回绘制高度（各段行高最大值）。
         /// characterSpacing：pos 空间的字符间距 px（FSS 段按其原值并入字符间推进、位图段每字符后直加），
         /// 与同空间位移同标度；尾字符后补齐一个间距（FSS 计字符间 n−1，补 1 使段宽=布局逐字符 n 的口径）。
+        /// strokeAmount&gt;0：矢量段以 Stroked(strokeAmount) 绘制（alpha 形态膨胀，advance/度量不变；
+        /// 膨胀量钳制 0..8 防图集溢出），并补偿 FSS 上游 Stroked 字形 (N,N) 笔位偏移使环均匀外露，
+        /// 优先级高于 fakeBold 的 Stroked1——独立描边色双遍绘制方案的描边遍用此参，字芯遍再调本方法恢复字重；
+        /// 位图回退段无描边能力，该段忽略此参
         /// </summary>
-        public float DrawText(IFontBatchSink sink, string text, Vector2 pos, Color color, float size, bool bold = false, bool italic = false, float characterSpacing = 0f) {
+        public float DrawText(IFontBatchSink sink, string text, Vector2 pos, Color color, float size, bool bold = false, bool italic = false, float characterSpacing = 0f, int strokeAmount = 0) {
             ArgumentNullException.ThrowIfNull(sink);
             ArgumentNullException.ThrowIfNull(text);
             if (text.Length == 0) {
@@ -227,13 +298,23 @@ namespace Engine.Media {
             // bold+italic 仅 Regular 可用时两者叠加（spec 裁定 combined）
             bool fakeBold = bold && ReferenceEquals(system, _systems[(int)VectorFontStyle.Regular]);
             bool fakeItalic = italic && style != VectorFontStyle.Italic && style != VectorFontStyle.BoldItalic;
+            // 描边覆盖（strokeAmount>0）优先于 fakeBold 的 Stroked1：双遍绘制的描边遍整链（含真 Bold 面）
+            // 按膨胀量描边，字芯遍以 strokeAmount=0 再调恢复字重消歧
+            bool strokeOverride = strokeAmount > 0;
+            var effect = strokeOverride || fakeBold ? FontSystemEffect.Stroked : FontSystemEffect.None;
+            // 膨胀上限钳制：FSS 按 (size+2N)² 尺寸往 1024² 图集塞字形，N 过大直接 throw 炸 UI；
+            // 缓存键 (int)effect<<16|amount 在 N≥65536 时串位。UI 描边 8px 远超语义所需
+            int effectAmount = Math.Clamp(strokeOverride ? strokeAmount : fakeBold ? 1 : 0, 0, 8);
             var spriteFont = system.GetFont(size);
+            // FSS 上游怪癖补偿：Stroked 字形的光栅芯被画进膨胀缓冲 (N,N) 偏移处
+            //（FontAtlas.RasterizeGlyphBitmap startIndex=N+N*width），quad 又按芯度量 RenderOffset 摆位
+            // ——芯整体落在笔位 +(N,N)，可见环只剩右/下两条带（硬阴影观感）。笔位回移 (-N,-N)
+            // 使环均匀外露、芯回到真实笔位（advance 记账与 effect 无关，不动）
+            float strokeShift = effect == FontSystemEffect.Stroked ? effectAmount : 0f;
             // 切变只作用于矢量段（经 _renderer 的 quad），位图段直连原始 sink 正排
             IFontBatchSink vectorSink = fakeItalic
-                ? new ShearedFontBatchSink(sink, pos.Y + spriteFont.LineHeight) // baselineY≈行底沿，切变不动轴
+                ? new ShearedFontBatchSink(sink, pos.Y - strokeShift + spriteFont.LineHeight) // baselineY≈行底沿，切变不动轴（随位移同步）
                 : sink;
-            var effect = fakeBold ? FontSystemEffect.Stroked : FontSystemEffect.None;
-            int effectAmount = fakeBold ? 1 : 0;
             var fsColor = new FSColor(color.R, color.G, color.B, color.A);
             _renderer.Begin(vectorSink, 0f, color);
             // 简单状态机：连续同态（矢量/位图）字符合成一段，遇态变或串尾 flush
@@ -259,7 +340,7 @@ namespace Engine.Media {
                 }
                 else {
                     spriteFont.DrawText(_renderer, run,
-                        new System.Numerics.Vector2(pos.X + xAdvance, pos.Y), fsColor,
+                        new System.Numerics.Vector2(pos.X + xAdvance - strokeShift, pos.Y - strokeShift), fsColor,
                         characterSpacing: characterSpacing,
                         effect: effect, effectAmount: effectAmount);
                     runHeight = spriteFont.LineHeight;

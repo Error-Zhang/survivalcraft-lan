@@ -173,6 +173,16 @@ namespace Game {
 
         public float BaselineShift { get; set; }
 
+        // 描边（仅矢量路径，位图路径无此装饰）：FSS Stroked=alpha 形态膨胀，无独立描边色参数——
+        // 双遍伪造：描边遍 DrawText(strokeAmount) 以 StrokeColor 撑开轮廓、字芯遍正排以文字色盖芯。
+        // 膨胀区可染色依赖 VectorFont 注入的白预乘 Stroked 渲染器（Default 的膨胀区预乘黑无法染白）。
+        // StrokeWidth=膨胀 px（FSS effectAmount 语义，整数），0=关；描边不改 advance/度量
+        //（FSS XAdvance 取 Regular），墨迹可溢出行盒；A 通道随文字 A 衰减（DropShadowColor 同款）；
+        // 位图回退段无描边能力该段忽略
+        public int StrokeWidth { get; set; }
+
+        public Color StrokeColor { get; set; }
+
         // 整件字重/字形（单样式件用；富文本按 span 走 RichTextWidget）：矢量路径直出（真面或
         // Stroked1/15° 切变降级在 VectorFont.DrawText 内解析），位图路径伪粗双绘 + 切变
         // （RichTextWidget 位图分支同构）。两路径 advance 均不加宽（Stroked 不改 XAdvance、
@@ -208,6 +218,7 @@ namespace Game {
             FontScale = 1f;
             Color = Color.White;
             DropShadowColor = Color.Black;
+            StrokeColor = Color.Black;
             TextureLinearFilter = true;
             Size = new Vector2(-1f);
             // P4：默认启用矢量链（回滚点=本行）；链未构建/构建失败时为 null → 位图路径零改动
@@ -500,6 +511,22 @@ namespace Game {
         // MeasureString+len×FontSpacing.X 同 n 口径）。整串一次调用保留字符间 kerning——
         // 旧逐字绕路（历史因 FSS 无字距参数，每字符独立 DrawText 手补间距）丢 kerning，作废
         void DrawVectorLine(VectorGlyphSink sink, string line, Color color, float size, float gtScale) {
+            // 门控 width>0 且 StrokeColor.A>0：A=0 描边遍不可见，免排空跑（quad+图集 Stroked 版双浪费）
+            if (StrokeWidth > 0
+                && StrokeColor.A > 0) {
+                // 描边遍：Stroked(StrokeWidth)+描边色（A 随文字 A 衰减，ShadowColor 同款）；
+                // 字芯遍随后正排盖芯——两遍同 advance 同基线，描边均匀外露
+                //（VectorFont.DrawText 内补偿 FSS 上游 Stroked 字形 (N,N) 笔位偏移）。
+                // 位图回退段无描边仍双绘（描边色垫底+文字色覆盖，几何同位）——AA 边缘漏
+                // a(1−a)≤25% 描边色，描边色与文字色反差大时该段有轻微晕边
+                Color strokeColor = new(
+                    StrokeColor.R,
+                    StrokeColor.G,
+                    StrokeColor.B,
+                    (byte)(StrokeColor.A * color.A / 255)
+                );
+                VectorFont.DrawText(sink, line, Vector2.Zero, strokeColor, size, Bold, Italic, FontSpacing.X * gtScale, StrokeWidth);
+            }
             VectorFont.DrawText(sink, line, Vector2.Zero, color, size, Bold, Italic, FontSpacing.X * gtScale);
         }
 

@@ -16,16 +16,28 @@ namespace Engine.Graphics {
         readonly PrimitivesRenderer3D _renderer;
         readonly SamplerState _samplerState;
         readonly int _layer;
+        readonly DepthStencilState _depthStencilState;
+        readonly RasterizerState _rasterizerState;
+        readonly BlendState _blendState;
         readonly Dictionary<Texture2D, VectorFontBatch3D> _batches = [];
 
         /// <summary>当前绘制的文本空间→世界基向量：原点（字形行左上锚点）与 X/Y 方向基向量</summary>
         public Vector3 Origin, Right = Vector3.UnitX, Down = Vector3.UnitY;
 
         /// <param name="layer">矢量批的 Layer（m_allBatches 排序层，相对其他 3D 批的绘制序）</param>
-        public VectorFontSink3D(PrimitivesRenderer3D renderer, SamplerState samplerState = null, int layer = 0) {
+        /// <param name="depthStencilState">批深度模板态（null=Default；视空间 billboard 文本常传 DepthRead 免写深度）</param>
+        public VectorFontSink3D(PrimitivesRenderer3D renderer,
+            SamplerState samplerState = null,
+            int layer = 0,
+            DepthStencilState depthStencilState = null,
+            RasterizerState rasterizerState = null,
+            BlendState blendState = null) {
             _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
             _samplerState = samplerState ?? SamplerState.LinearClamp;
             _layer = layer;
+            _depthStencilState = depthStencilState ?? DepthStencilState.Default;
+            _rasterizerState = rasterizerState ?? RasterizerState.CullNoneScissor;
+            _blendState = blendState ?? BlendState.AlphaBlend;
         }
 
         /// <summary>设定本次绘制的世界基向量（每次 QueueText 前调用；quad 排入时即时变换，串中不重设即可）</summary>
@@ -45,7 +57,7 @@ namespace Engine.Graphics {
 
         VectorFontBatch3D GetBatch(Texture2D texture) {
             if (!_batches.TryGetValue(texture, out VectorFontBatch3D batch)) {
-                batch = _renderer.VectorFontBatch(texture, _layer, DepthStencilState.Default, null, null, _samplerState);
+                batch = _renderer.VectorFontBatch(texture, _layer, _depthStencilState, _rasterizerState, _blendState, _samplerState);
                 _batches.Add(texture, batch);
             }
             return batch;
