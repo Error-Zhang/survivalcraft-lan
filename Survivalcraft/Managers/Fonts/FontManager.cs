@@ -248,8 +248,10 @@ namespace Game {
                 FallbackBitmapFont = ContentManager.Get<BitmapFont>("Fonts/Pericles");
             }
             catch (Exception ex) {
-                FallbackBitmapFont = null;
-                Log.Error($"[FontManager] fallback bitmap font load failed: {ex}");
+                // 进一步回退引擎内嵌 DebugFont：位图回退字体是海量消费点的度量基准与兜底字形源，
+                // null 会让字体环境坏成启动期事故——DebugFont（内嵌资源，拉丁全覆盖）保底不空
+                FallbackBitmapFont = BitmapFont.DebugFont;
+                Log.Error($"[FontManager] fallback bitmap font load failed, falling back to DebugFont: {ex}");
             }
             try {
                 lock (m_rebuildLock) {

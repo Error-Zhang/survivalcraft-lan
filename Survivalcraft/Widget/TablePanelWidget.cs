@@ -141,9 +141,9 @@ namespace Game {
                 }
             }
             // floor：每列 min = Max(min, 2 汉字宽)（照 MD 表口径）。TablePanelWidget 无字体属性，
-            // 照 MD 表 Relayout 现状用 LabelWidget.BitmapFont 兜底；margin 已由量测侧并入
+            // 照 MD 表 Relayout 现状用 FontManager.FallbackBitmapFont 兜底；margin 已由量测侧并入
             // （MeasureCellExtents），CellPadding 由高度轮扣净宽/摆位内缩消费
-            BitmapFont font = LabelWidget.BitmapFont ?? BitmapFont.DebugFont;
+            BitmapFont font = FontManager.FallbackBitmapFont;
             float floorW = 2f * font.MeasureText("字", new Vector2(1f), Vector2.Zero).X;
             for (int c = 0; c < m_columnMin.Length; c++) {
                 m_columnMin[c] = MathUtils.Max(m_columnMin[c], floorW);

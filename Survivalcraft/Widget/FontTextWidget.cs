@@ -70,7 +70,7 @@ namespace Game {
         }
 
         public BitmapFont Font {
-            get => m_font ?? (LabelWidget.BitmapFont ?? BitmapFont.DebugFont);
+            get => m_font ?? FontManager.FallbackBitmapFont;
             set {
                 if (value != m_font) {
                     m_font = value;
@@ -537,6 +537,7 @@ namespace Game {
         internal sealed class VectorGlyphSink : IFontBatchSink {
             readonly PrimitivesRenderer2D _renderer;
             readonly SamplerState _samplerState;
+            readonly int _layer;
             readonly Dictionary<Texture2D, VectorFontBatch2D> _batches = [];
             readonly Dictionary<Texture2D, int> _batchStarts = [];
 
@@ -547,14 +548,16 @@ namespace Game {
             // FSS quad → widget 空间的收缩系数（GT 全局缩放的栅格补偿，见 DrawVectorText）
             internal float Scale = 1f;
 
-            internal VectorGlyphSink(PrimitivesRenderer2D renderer, SamplerState samplerState) {
+            // layer 默认 1=文字批（与位图路径 FontBatch(font,1) 同层）；屏幕叠加层直绘等场景可另指
+            internal VectorGlyphSink(PrimitivesRenderer2D renderer, SamplerState samplerState, int layer = 1) {
                 _renderer = renderer;
                 _samplerState = samplerState;
+                _layer = layer;
             }
 
             public void QueueGlyphQuad(Texture2D texture, Vector2 destination, Vector2 size, Vector2 uv1, Vector2 uv2, float depth, Color color) {
                 if (!_batches.TryGetValue(texture, out VectorFontBatch2D batch)) {
-                    batch = _renderer.VectorFontBatch(texture, 1, DepthStencilState.None, null, null, _samplerState);
+                    batch = _renderer.VectorFontBatch(texture, _layer, DepthStencilState.None, null, null, _samplerState);
                     _batches.Add(texture, batch);
                     _batchStarts.Add(texture, batch.TriangleVertices.Count);
                 }
@@ -584,6 +587,15 @@ namespace Game {
             internal void TransformTriangles(Matrix matrix) {
                 foreach (KeyValuePair<Texture2D, VectorFontBatch2D> pair in _batches) {
                     pair.Value.TransformTriangles(matrix, _batchStarts[pair.Key]);
+                }
+            }
+
+            // 独立 renderer 的直绘场景（屏幕叠加层等）需显式排空——widget 树路径由全局 flush 覆盖不需要；
+            // 矩阵口径镜像 FontBatch2D.Flush()（ViewportMatrix），叠加层随后自施 ViewportMatrix 故恒等栅下正确
+            internal void Flush() {
+                Matrix matrix = PrimitivesRenderer2D.ViewportMatrix();
+                foreach (KeyValuePair<Texture2D, VectorFontBatch2D> pair in _batches) {
+                    pair.Value.Flush(matrix, Vector4.One);
                 }
             }
         }

@@ -155,7 +155,6 @@ namespace Game {
                 );
                 return new FontTextWidget {
                     Text = text,
-                    Font = LabelWidget.BitmapFont,
                     HorizontalAlignment = WidgetAlignment.Near,
                     VerticalAlignment = WidgetAlignment.Center,
                     FontScale = 0.6f,

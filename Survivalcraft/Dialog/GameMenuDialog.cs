@@ -1,7 +1,6 @@
 using System.Xml.Linq;
 using Engine;
 using Engine.Graphics;
-using Engine.Media;
 using GameEntitySystem;
 
 namespace Game {
@@ -53,15 +52,12 @@ namespace Game {
             SubsystemFurnitureBlockBehavior subsystemFurnitureBlockBehavior = project.FindSubsystem<SubsystemFurnitureBlockBehavior>(true);
             Terrain terrain = project.FindSubsystem<SubsystemTerrain>(true).Terrain;
             SubsystemMetersBlockBehavior subsystemMetersBlockBehavior = project.FindSubsystem<SubsystemMetersBlockBehavior>(true);
-            BitmapFont font = LabelWidget.BitmapFont;
-            BitmapFont font2 = LabelWidget.BitmapFont;
             Color white = Color.White;
             StackPanelWidget stackPanelWidget = new() { Direction = LayoutDirection.Vertical, HorizontalAlignment = WidgetAlignment.Center };
             m_statsPanel.Children.Add(stackPanelWidget);
             stackPanelWidget.Children.Add(
                 new FontTextWidget {
                     Text = LanguageControl.Get(fName, 5),
-                    Font = font,
                     HorizontalAlignment = WidgetAlignment.Center,
                     Margin = new Vector2(0f, 10f),
                     Color = white
@@ -127,7 +123,6 @@ namespace Game {
             stackPanelWidget.Children.Add(
                 new FontTextWidget {
                     Text = LanguageControl.Get(fName, 17),
-                    Font = font,
                     HorizontalAlignment = WidgetAlignment.Center,
                     Margin = new Vector2(0f, 10f),
                     Color = white
@@ -228,7 +223,6 @@ namespace Game {
                 stackPanelWidget.Children.Add(
                     new FontTextWidget {
                         Text = LanguageControl.Get(fName, 33),
-                        Font = font,
                         HorizontalAlignment = WidgetAlignment.Center,
                         Margin = new Vector2(0f, 10f),
                         Color = white
@@ -256,7 +250,6 @@ namespace Game {
                 stackPanelWidget.Children.Add(
                     new FontTextWidget {
                         Text = LanguageControl.Get(fName, 43),
-                        Font = font,
                         HorizontalAlignment = WidgetAlignment.Center,
                         Margin = new Vector2(0f, 10f),
                         Color = white
@@ -270,7 +263,6 @@ namespace Game {
                 stackPanelWidget.Children.Add(
                     new FontTextWidget {
                         Text = LanguageControl.Get(fName, 49),
-                        Font = font,
                         HorizontalAlignment = WidgetAlignment.Center,
                         Margin = new Vector2(0f, 10f),
                         Color = white
@@ -320,7 +312,6 @@ namespace Game {
                 stackPanelWidget.Children.Add(
                     new FontTextWidget {
                         Text = LanguageControl.Get(fName, 61),
-                        Font = font,
                         HorizontalAlignment = WidgetAlignment.Center,
                         Margin = new Vector2(0f, 10f),
                         Color = white
@@ -344,7 +335,6 @@ namespace Game {
                 stackPanelWidget.Children.Add(
                     new FontTextWidget {
                         Text = LanguageControl.Get(fName, 72),
-                        Font = font,
                         HorizontalAlignment = WidgetAlignment.Center,
                         Margin = new Vector2(0f, 10f),
                         Color = white
@@ -362,7 +352,6 @@ namespace Game {
                     stackPanelWidget.Children.Add(
                         new FontTextWidget {
                             Text = LanguageControl.Get(fName, 75),
-                            Font = font,
                             HorizontalAlignment = WidgetAlignment.Center,
                             Margin = new Vector2(0f, 10f),
                             Color = white
@@ -378,7 +367,6 @@ namespace Game {
                     new FontTextWidget {
                         Text = LanguageControl.Get(fName, 81),
                         WordWrap = true,
-                        Font = font2,
                         HorizontalAlignment = WidgetAlignment.Center,
                         TextAnchor = TextAnchor.HorizontalCenter,
                         Margin = new Vector2(20f, 10f),
@@ -530,7 +518,6 @@ namespace Game {
         }
 
         public void AddStat(ContainerWidget containerWidget, string title, string value1, string value2, Color color) {
-            BitmapFont font = LabelWidget.BitmapFont;
             Color gray = Color.Gray;
             containerWidget.Children.Add(
                 new UniformSpacingPanelWidget {
@@ -538,14 +525,14 @@ namespace Game {
                     HorizontalAlignment = WidgetAlignment.Center,
                     Children = {
                         new FontTextWidget {
-                            Text = $"{title}:", HorizontalAlignment = WidgetAlignment.Far, Font = font, Color = gray, Margin = new Vector2(5f, 1f)
+                            Text = $"{title}:", HorizontalAlignment = WidgetAlignment.Far, Color = gray, Margin = new Vector2(5f, 1f)
                         },
                         new StackPanelWidget {
                             Direction = LayoutDirection.Horizontal,
                             HorizontalAlignment = WidgetAlignment.Near,
                             Children = {
-                                new FontTextWidget { Text = value1, Font = font, Color = color, Margin = new Vector2(5f, 1f) },
-                                new FontTextWidget { Text = value2, Font = font, Color = gray, Margin = new Vector2(5f, 1f) }
+                                new FontTextWidget { Text = value1, Color = color, Margin = new Vector2(5f, 1f) },
+                                new FontTextWidget { Text = value2, Color = gray, Margin = new Vector2(5f, 1f) }
                             }
                         }
                     }

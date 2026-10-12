@@ -68,9 +68,9 @@ namespace Game {
                     flatBatch3D.QueueLine(new Vector3(num, 0f, 1f), new Vector3(num, 1f, 1f), color);
                 }
                 Color color2 = new Color(64, 64, 64, 255) * GlobalColorTransform;
-                // 位图基准字体统一取口（getter 已兜 FallbackBitmapFont，仅字体环境全坏时为 null），
-                // 分流判据只看矢量链——两分支守卫粒度对称，null 时两分支等价崩溃（启动期字体事故）
-                BitmapFont bitmapFont = LabelWidget.BitmapFont;
+                // 位图基准字体直接取 FontManager.FallbackBitmapFont（初始化失败已自动回退
+                // DebugFont，恒非 null），分流判据只看矢量链——两分支同一折算基准
+                BitmapFont bitmapFont = FontManager.FallbackBitmapFont;
                 if (FontManager.DefaultChain != null) {
                     // 矢量分流：轴标签走 3D 矢量链（基向量 0.004/px 与位图路径同口径），
                     // 字号按位图行盒折算（牌子先例公式：位图行盒↔矢量 DefaultSize 标定，Pericles 下=21）；

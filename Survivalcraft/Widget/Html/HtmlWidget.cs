@@ -22,7 +22,7 @@ namespace Game {
             }
         }
 
-        // 字体；null 回退 LabelWidget 静态字体 / DebugFont
+        // 字体；null 回退 FontManager.FallbackBitmapFont（初始化失败已自动回退 DebugFont）
         public BitmapFont Font { get; set; }
 
         // 基础字号（标题阶梯与行内 FontScale 均以此为基准）
@@ -144,7 +144,7 @@ namespace Game {
             m_builder.CodeBlocks.Clear();
             m_builder.ImageBlocks.Clear();
             m_builder.Anchors.Clear();
-            m_builder.Font = Font ?? LabelWidget.BitmapFont ?? BitmapFont.DebugFont;
+            m_builder.Font = Font ?? FontManager.FallbackBitmapFont;
             m_builder.FontScale = FontScale;
             m_builder.DefaultColor = DefaultColor;
             m_builder.ContentWidth = ContentWidth;

@@ -58,7 +58,7 @@ namespace Game {
 
         public List<TextData> m_nearTexts = [];
 
-        public BitmapFont m_font = LabelWidget.BitmapFont;
+        public BitmapFont m_font = FontManager.FallbackBitmapFont;
 
         // 矢量字体链（P4）：非 null 时牌告文本走矢量渲染（RenderText 分流），null 退位图路径零改动；
         // 链内缺字由 DrawText 的位图回退段兜底

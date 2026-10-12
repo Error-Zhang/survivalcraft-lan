@@ -60,7 +60,7 @@ namespace Game {
         public TextAnchor TextAnchor { get; set; }
 
         public BitmapFont Font {
-            get => m_font ?? LabelWidget.BitmapFont ?? BitmapFont.DebugFont;
+            get => m_font ?? FontManager.FallbackBitmapFont;
             set {
                 if (value != m_font) {
                     m_font = value;

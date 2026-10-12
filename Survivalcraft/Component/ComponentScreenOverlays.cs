@@ -343,10 +343,16 @@ namespace Game {
         }
 
         public virtual void DrawFloatingMessage(Camera camera, string message, float factor) {
-            BitmapFont font = LabelWidget.BitmapFont;
             Vector2 position = camera.ViewportSize / 2f;
             position.X += 0.07f * camera.ViewportSize.X * (float)Math.Sin(1.7300000190734863 * Time.FrameStartTime);
-            position.Y += 0.07f * camera.ViewportSize.Y * (float)Math.Cos(1.1200000047683716 * Time.FrameStartTime);
+            position.Y += 0.07f * camera.ViewportSize.Y * (float)Math.Cos(1.1200000190734863 * Time.FrameStartTime);
+            VectorFont chain = FontManager.DefaultChain;
+            if (chain != null) {
+                DrawOverlayTextVector(chain, message, position, Color.White * factor, camera, 1,
+                    TextAnchor.HorizontalCenter | TextAnchor.VerticalCenter);
+                return;
+            }
+            BitmapFont font = FontManager.FallbackBitmapFont;
             FontBatch2D fontBatch2D = m_primitivesRenderer2D.FontBatch(font, 1, DepthStencilState.None, null, BlendState.AlphaBlend);
             int count = fontBatch2D.TriangleVertices.Count;
             fontBatch2D.QueueText(
@@ -363,8 +369,14 @@ namespace Game {
         }
 
         public virtual void DrawMessage(Camera camera, string message, float factor) {
-            BitmapFont font = LabelWidget.BitmapFont;
             Vector2 position = new(camera.ViewportSize.X / 2f, camera.ViewportSize.Y - 25f);
+            VectorFont chain = FontManager.DefaultChain;
+            if (chain != null) {
+                DrawOverlayTextVector(chain, message, position, Color.Gray * factor, camera, 0,
+                    TextAnchor.HorizontalCenter | TextAnchor.Bottom);
+                return;
+            }
+            BitmapFont font = FontManager.FallbackBitmapFont;
             FontBatch2D fontBatch2D = m_primitivesRenderer2D.FontBatch(font, 0, DepthStencilState.None, null, BlendState.AlphaBlend);
             int count = fontBatch2D.TriangleVertices.Count;
             fontBatch2D.QueueText(
@@ -378,6 +390,37 @@ namespace Game {
             );
             fontBatch2D.TransformTriangles(camera.ViewportMatrix, count);
             fontBatch2D.Flush();
+        }
+
+        // 屏幕叠加层矢量直绘（浮空消息/底部消息）：镜像位图 QueueText 语义——GT（GameWidget.GlobalScale）
+        // 补偿同 FontTextWidget.DrawVectorText（栅格字号×GT、sink.Scale 除回）；锚点偏移按绘制同字号
+        // 量测÷GT 回视口空间（bbe06328 口径），行盒=统一纵向框架 size×LineHeight/DefaultSize；
+        // ViewportMatrix 收尾变换与位图路径同栅，独占 renderer 故 Transform 后显式 Flush
+        void DrawOverlayTextVector(VectorFont chain, string text, Vector2 position, Color color, Camera camera, int layer, TextAnchor anchor) {
+            float gtScale = MathF.Max(camera.GameWidget.GlobalScale, 0.0001f);
+            float size = chain.DefaultSize * gtScale;
+            float lineWidth = chain.MeasureString(text, size, false, false).X / gtScale;
+            float lineHeight = size * chain.LineHeight / chain.DefaultSize / gtScale;
+            Vector2 offset = Vector2.Zero;
+            if ((anchor & TextAnchor.HorizontalCenter) != 0) {
+                offset.X = -lineWidth / 2f;
+            }
+            else if ((anchor & TextAnchor.Right) != 0) {
+                offset.X = -lineWidth;
+            }
+            if ((anchor & TextAnchor.VerticalCenter) != 0) {
+                offset.Y = -lineHeight / 2f;
+            }
+            else if ((anchor & TextAnchor.Bottom) != 0) {
+                offset.Y = -lineHeight;
+            }
+            FontTextWidget.VectorGlyphSink sink = new(m_primitivesRenderer2D, SamplerState.LinearClamp, layer) {
+                Scale = 1f / gtScale,
+                Pivot = position + offset
+            };
+            chain.DrawText(sink, text, Vector2.Zero, color, size);
+            sink.TransformTriangles(camera.ViewportMatrix);
+            sink.Flush();
         }
     }
 }

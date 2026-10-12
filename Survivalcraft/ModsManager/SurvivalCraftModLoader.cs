@@ -149,10 +149,9 @@ namespace Game {
                                 camera.ViewMatrix
                             );
                             Vector3 down = Vector3.TransformNormal(-0.005f * Vector3.UnitY, camera.ViewMatrix);
-                            // 守卫统一只看矢量链：bitmapFont 经 getter 已兜 FallbackBitmapFont，
-                            // 字体环境全坏为 null 时两分支等价崩溃（FontBatch(null) ANE / 字号折算 NRE），
-                            // 启动期字体事故非本处分流职责
-                            BitmapFont bitmapFont = LabelWidget.BitmapFont;
+                            // 守卫统一只看矢量链：位图基准直接取 FontManager.FallbackBitmapFont（初始化
+                            // 失败已自动回退 DebugFont，恒非 null），折算公式两分支同基准
+                            BitmapFont bitmapFont = FontManager.FallbackBitmapFont;
                             if (FontManager.DefaultChain != null) {
                                 // 矢量分流：玩家名牌走 3D 矢量链（视空间 billboard 基向量 0.005/px 与位图路径同口径，
                                 // 字号按位图行盒折算——牌子先例公式：位图行盒↔矢量 DefaultSize 标定，Pericles 下=21）；
