@@ -28,6 +28,18 @@ namespace Game {
         }
 
         public virtual void Draw(Camera camera, int drawOrder) {
+            // 按现有点数对四批次一次性精确预扩容（每点 1 quad = 4 顶点/6 索引）：
+            // 消除逐点扩容爬坡（DynamicArray 精确扩容下大批量入队是 O(N²) 拷贝）。
+            // Count 是 O(1) 现成上界，无需增删记账；GlowPoint.Type 运行中可变，
+            // 故每批次按全量点数预留最坏分布（EnsureCapacity 只增不减，稳态零成本）
+            int glowPointCount = m_glowPoints.Count;
+            if (glowPointCount > 0) {
+                int vertexCount = glowPointCount * 4;
+                int indexCount = glowPointCount * 6;
+                for (int i = 0; i < m_batchesByType.Length; i++) {
+                    m_batchesByType[i].EnsureCapacity(vertexCount, indexCount);
+                }
+            }
             foreach (GlowPoint key in m_glowPoints.Keys) {
                 if (key.Color.A > 0) {
                     Vector3 vector = key.Position - camera.ViewPosition;
