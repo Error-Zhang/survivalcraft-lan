@@ -2,6 +2,23 @@
 
 > 说明：此更新日志和发布页的更新日志略有不同
 
+## API 1.9.5.1 (2026-10-13)
+
+### 调整
+
+* 大幅提升出现大量掉落物、抛射物、粒子时的性能，从而将超大爆炸卡顿时间降低至原来的千分之一以下
+
+### 修复
+
+* 系统默认字体为 CFF2 格式时无法进入游戏主界面的问题，以及字体相关的各种小问题
+
+### 面向开发者
+
+* BaseTexturedBatch 新增 EnsureCapacity 方法，通过提前准确扩容来极大提高性能；使用自定义模型的方块，建议 override Block 类的新虚方法 GetDrawDemand，这样就会自动在 SubsystemPickables 等子系统准确扩容
+* 新增 VectorFontBatch3D、VectorFontSink3D 类，可在 3D 空间中绘制矢量字体
+* FontTextWidget 新增 StrokeWidth、StrokeColor 属性（描边）
+* 修复了实体模型动画驱动器蒙皮枢轴丢失问题
+
 ## API 1.9.5 (2026-10-11)
 
 ### 新增
