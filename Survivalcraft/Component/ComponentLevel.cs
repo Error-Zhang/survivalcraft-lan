@@ -45,7 +45,7 @@ namespace Game {
         private readonly Func<ModLoader, bool> m_onLevelUpdateAction;
         private float m_cachedLevelDescriptionFloor = float.NaN;
         private string m_cachedLevelDescription = string.Empty;
-        private int m_cachedStaminaPercent = int.MinValue;
+        private float m_cachedStaminaPercent = float.NaN;
         private string m_cachedStaminaDescription = string.Empty;
         private string m_cachedPlayerClassEnumName = string.Empty;
         private static readonly Dictionary<int, string> s_clothingFactorNames = [];
@@ -301,11 +301,12 @@ namespace Game {
         }
 
         /// <summary>
-        ///     体力描述按百分比整数缓存。键必须与 "{stamina * 100f:0}" 的取整口径一致：
-        ///     自定义数字格式 "0" 对中点值按远离零取整，故用 MidpointRounding.AwayFromZero 生成键。
+        ///     体力描述按取整后的百分比值（float）缓存，键即格式化器的精确输入，无碰撞域问题。
+        ///     取整口径必须与 "{stamina * 100f:0}" 一致：自定义数字格式 "0" 对中点值按远离零取整，
+        ///     故用 MidpointRounding.AwayFromZero 生成键。NaN 不等于自身，恒重算，与未缓存时输出行为一致。
         /// </summary>
         private string GetStaminaDescription(float stamina) {
-            int percent = (int)MathF.Round(stamina * 100f, MidpointRounding.AwayFromZero);
+            float percent = MathF.Round(stamina * 100f, MidpointRounding.AwayFromZero);
             if (m_cachedStaminaPercent != percent) {
                 m_cachedStaminaPercent = percent;
                 m_cachedStaminaDescription = string.Format(LanguageControl.Get(fName, 3), $"{stamina * 100f:0}");
