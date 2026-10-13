@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Engine.Graphics;
 
 namespace Engine.Animation {
     /// <summary>
@@ -107,5 +108,41 @@ namespace Engine.Animation {
         /// 获取所有已注册的驱动器名称
         /// </summary>
         public static IEnumerable<string> GetRegisteredNames() => s_drivers.Keys;
+
+        // 蒙皮枢轴补偿的采样前快照（动画采样只在主线程，静态暂存免每帧分配）
+        static Matrix?[] s_pivotSnapshot;
+
+        /// <summary>
+        /// 采样驱动器并对蒙皮模型补回枢轴平移。
+        /// 驱动器契约是输出旋转 delta（非蒙皮模型由 ProcessBoneHierarchy 叠加 rest 平移）；
+        /// 蒙皮模型走整份替换路径，rest 枢轴会丢，需在此补 value * T(rest)。
+        /// 通过采样前后快照只补偿本次实际写入的骨骼：层缓冲不保证干净
+        /// （BlendSpace 等路径同一缓冲可能先被其他源写过，TargetBones 也可能为空，如 DeathDriver 作用于根骨）。
+        /// 仅主线程（动画采样）调用。
+        /// </summary>
+        public static void SampleWithPivot(IAnimationDriver driver, Matrix?[] boneTransforms, Model model) {
+            if (driver == null) {
+                return;
+            }
+            if (model == null || !model.HasSkin) {
+                driver.SampleTransforms(boneTransforms, model);
+                return;
+            }
+            int boneCount = Math.Min(boneTransforms.Length, model.Bones.Count);
+            if (s_pivotSnapshot == null || s_pivotSnapshot.Length < boneCount) {
+                s_pivotSnapshot = new Matrix?[boneCount];
+            }
+            for (int i = 0; i < boneCount; i++) {
+                s_pivotSnapshot[i] = boneTransforms[i];
+            }
+            driver.SampleTransforms(boneTransforms, model);
+            for (int i = 0; i < boneCount; i++) {
+                if (!boneTransforms[i].HasValue || boneTransforms[i].Value == s_pivotSnapshot[i]) {
+                    continue;
+                }
+                boneTransforms[i] = boneTransforms[i].Value
+                    * Matrix.CreateTranslation(model.Bones[i].Transform.Translation);
+            }
+        }
     }
 }

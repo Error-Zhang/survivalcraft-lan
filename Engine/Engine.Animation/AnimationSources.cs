@@ -355,7 +355,9 @@ namespace Engine.Animation {
         }
 
         public void SampleTransforms(Matrix?[] boneTransforms, Model model) {
-            _driver?.SampleTransforms(boneTransforms, model);
+            if (_driver != null) {
+                AnimationDriverManager.SampleWithPivot(_driver, boneTransforms, model);
+            }
         }
     }
 }

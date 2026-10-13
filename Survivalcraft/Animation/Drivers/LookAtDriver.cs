@@ -72,6 +72,7 @@ namespace Game.Animation.Drivers {
             Matrix yawRotation = CreateRotationForAxis(YawAxis, yaw);
 
             // 先应用 yaw 再应用 pitch（和原始代码顺序一致）
+            // 蒙皮模型的 rest 枢轴平移由 AnimationDriverManager.SampleWithPivot 统一补回，此处保持纯旋转 delta 契约
             boneTransforms[targetBone.Index] = pitchRotation * yawRotation;
         }
 

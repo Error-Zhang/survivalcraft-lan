@@ -613,6 +613,8 @@ C# 侧 `p.SetString("RandomIdleEvent", "Dance_Loop")` 即让该规则播放 `Dan
 > - LookAt 驱动器：需要头部/骨骼实时跟踪目标方向
 > - Death 驱动器：需要统一的死亡物理效果
 
+> **蒙皮（glTF）模型上的枢轴补偿**：驱动器输出的是旋转 delta，引擎在蒙皮模型上会自动为驱动器实际写入的骨骼补回 rest 枢轴平移（`AnimationDriverManager.SampleWithPivot`），非蒙皮模型行为不变。因此 `Identity` 写入（如死亡驱动器的头/颈重置）在蒙皮模型上会落在 rest 位而非模型原点。注意：生物系列驱动器（Bird*/Human*/FourLegged*/Fish*）的 Body 写入携带经典管线的实体位置与量纲（如蹲下平移），这些语义仅对经典模型成立，蒙皮模型请只用旋转/重置类驱动器（LookAt、Death、Expression 或关键帧）。
+
 ### 在层级中配置驱动器
 
 在 `layers` 中为层级指定驱动器：
