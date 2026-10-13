@@ -680,7 +680,7 @@ namespace Engine.Animation {
             }
             // 最后尝试驱动器
             else if (m_driver != null) {
-                AnimationDriverManager.SampleWithPivot(m_driver, boneTransforms, model);
+                AnimationDriverManager.SampleWithPivot(m_driver, boneTransforms, model, BlendMode);
             }
         }
 

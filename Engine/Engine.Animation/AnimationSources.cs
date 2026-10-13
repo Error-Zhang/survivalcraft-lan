@@ -342,6 +342,11 @@ namespace Engine.Animation {
     /// <summary>
     /// 驱动器动画来源 - 包装 IAnimationDriver
     /// </summary>
+    /// <remarks>
+    /// 蒙皮枢轴补偿按 <see cref="_driver"/> 声明的 <see cref="IAnimationDriver.BlendMode"/> 决定是否补回
+    /// （Override 补，Additive 直通，见 <see cref="AnimationDriverManager.SampleWithPivot"/>）。
+    /// 经此来源采样后自行把输出乘进底层姿态的，请声明 Additive——Override 驱动器的输出已被补过 rest 枢轴，再叠加会双加平移。
+    /// </remarks>
     public class DriverAnimationSource : IAnimationSource {
         public readonly IAnimationDriver _driver;
 
@@ -356,7 +361,7 @@ namespace Engine.Animation {
 
         public void SampleTransforms(Matrix?[] boneTransforms, Model model) {
             if (_driver != null) {
-                AnimationDriverManager.SampleWithPivot(_driver, boneTransforms, model);
+                AnimationDriverManager.SampleWithPivot(_driver, boneTransforms, model, _driver.BlendMode);
             }
         }
     }
