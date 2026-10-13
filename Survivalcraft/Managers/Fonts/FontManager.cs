@@ -215,8 +215,8 @@ namespace Game {
         static bool? m_browserSystemFontsSupported;
 #endif
 
-        /// <summary>接受的字体文件后缀（导入过滤 + 用户字体列表过滤）。SharpAstro 亦支持 WOFF/WOFF2。</summary>
-        static readonly string[] FontFileSuffixes = [".ttf", ".otf", ".ttc", ".woff", ".woff2"];
+        /// <summary>接受的字体文件后缀（导入过滤 + 用户字体列表过滤 + 外部内容 Font 类型扩展名表单一来源）。SharpAstro 亦支持 WOFF/WOFF2。</summary>
+        public static readonly string[] FontFileSuffixes = [".ttf", ".otf", ".ttc", ".woff", ".woff2"];
 
         static readonly object m_rebuildLock = new();
 
@@ -992,6 +992,131 @@ namespace Game {
                 Log.Warning($"[FontManager] list user fonts failed: {ex.Message}");
                 return [];
             }
+        }
+
+        /// <summary>用户字体文件完整路径（FontsPath 下，fileName 含扩展名）。</summary>
+        public static string GetUserFontPath(string fileName) {
+            return Storage.CombinePaths(ModsManager.FontsPath, fileName);
+        }
+
+        /// <summary>
+        /// 删除用户字体：删文件 + 失效样式探测缓存（键 "user:&lt;file&gt;"，同 ValidateAndImportFont 失效先例）。
+        /// 文件不存在静默返；IO 异常记日志不抛（列表删除路径不应炸 UI）。
+        /// </summary>
+        public static void DeleteUserFont(string fileName) {
+            try {
+                string path = GetUserFontPath(fileName);
+                if (Storage.FileExists(path)) {
+                    Storage.DeleteFile(path);
+                    Log.Information($"[FontManager] user font deleted: {fileName}");
+                }
+                lock (m_probeLock) {
+                    _ = m_sourceStylesCache.Remove($"user:{fileName}");
+                }
+            }
+            catch (Exception ex) {
+                Log.Warning($"[FontManager] delete user font failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>用户字体最后写入时间（导入日期口径，同 CharacterSkinsManager.GetCreationDate）；缺失返回 MinValue。</summary>
+        public static DateTime GetFontCreationDate(string fileName) {
+            try {
+                string path = GetUserFontPath(fileName);
+                if (Storage.FileExists(path)) {
+                    return Storage.GetFileLastWriteTime(path);
+                }
+            }
+            catch {
+                // ignored
+            }
+            return DateTime.MinValue;
+        }
+
+        /// <summary>统计字体槽位设置值命中 "user:&lt;fileName&gt;" 的槽位数（基础两槽+六样式槽）。</summary>
+        public static int GetSlotReferenceCount(string fileName) {
+            if (string.IsNullOrEmpty(fileName)) {
+                return 0;
+            }
+            int count = 0;
+            foreach (string value in new[] {
+                SettingsManager.FontBody,
+                SettingsManager.FontBodyBold,
+                SettingsManager.FontBodyItalic,
+                SettingsManager.FontBodyBoldItalic,
+                SettingsManager.FontMono,
+                SettingsManager.FontMonoBold,
+                SettingsManager.FontMonoItalic,
+                SettingsManager.FontMonoBoldItalic
+            }) {
+                FontSlotSetting slot = FontSlotSetting.Parse(value);
+                if (slot.Kind == FontSlotKind.UserFile
+                    && string.Equals(slot.FileName, fileName, StringComparison.Ordinal)) {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// 用户字体导入（同名覆盖）或删除后的链刷新：仅当有槽位引用该文件才动作（未引用不动链，
+        /// 避加载期重建坑）。删除留下的死槽位（"user:&lt;已删文件&gt;"）先回退内置并落盘（同
+        /// RevertSystemSlotsIfUnavailable 先例；同名覆盖导入时文件仍在，此步 no-op），再按设置屏
+        /// 热切换同款重建：一次链重建 + onCompleted 全屏重建。屏不重建则现存 widget 永久持 retired
+        /// 链（Dispose 置空源后度量=Zero、DrawText 静默退位图：右列标签零宽居中错位+"显示内置字体"
+        /// 观感的共同根因）。GameScreen 世界绑定不可重建原样保留（SettingsFontScreen.RebuildScreens
+        /// 同口径），其界面字体维持旧链直到重进世界。
+        /// </summary>
+        public static void NotifyUserFontChanged(string fileName) {
+            fileName = Storage.SanitizeFileNameSegment(Storage.GetFileName(fileName ?? string.Empty));
+            if (GetSlotReferenceCount(fileName) == 0) {
+                return;
+            }
+            RevertDeadUserSlots(fileName);
+            RebuildChains(static () => ScreensManager.RebuildAllScreens(static s => s is GameScreen, "MainMenu"));
+        }
+
+        static void RevertDeadUserSlots(string fileName) {
+            if (Storage.FileExists(GetUserFontPath(fileName))) {
+                return;
+            }
+            // 回退目标（用户裁定）：样式槽→各自族基准槽（ref:body/ref:mono，其解析走基准槽自身取值，
+            // 无可用性问题）；基准槽→系统默认（可用时）→内置。系统可用判据同 RevertSystemSlotsIfUnavailable
+            // （平台支持+本会话发起过扫描+发现列表含对应族），不可用即回内置
+            bool systemBody = IsSystemDefaultUsable(mono: false);
+            bool systemMono = IsSystemDefaultUsable(mono: true);
+            string baseBody = systemBody ? "system" : BuiltinSlotValue;
+            string baseMono = systemMono ? "system" : BuiltinSlotValue;
+            bool reverted = false;
+            reverted |= RevertUserSlotIfDead(SettingsManager.FontBody, value => SettingsManager.FontBody = value, fileName, baseBody);
+            reverted |= RevertUserSlotIfDead(SettingsManager.FontBodyBold, value => SettingsManager.FontBodyBold = value, fileName, "ref:body");
+            reverted |= RevertUserSlotIfDead(SettingsManager.FontBodyItalic, value => SettingsManager.FontBodyItalic = value, fileName, "ref:body");
+            reverted |= RevertUserSlotIfDead(SettingsManager.FontBodyBoldItalic, value => SettingsManager.FontBodyBoldItalic = value, fileName, "ref:body");
+            reverted |= RevertUserSlotIfDead(SettingsManager.FontMono, value => SettingsManager.FontMono = value, fileName, baseMono);
+            reverted |= RevertUserSlotIfDead(SettingsManager.FontMonoBold, value => SettingsManager.FontMonoBold = value, fileName, "ref:mono");
+            reverted |= RevertUserSlotIfDead(SettingsManager.FontMonoItalic, value => SettingsManager.FontMonoItalic = value, fileName, "ref:mono");
+            reverted |= RevertUserSlotIfDead(SettingsManager.FontMonoBoldItalic, value => SettingsManager.FontMonoBoldItalic = value, fileName, "ref:mono");
+            if (reverted) {
+                // 落盘编组回主线程（本方法可在删除流程的调用线程上跑）
+                Dispatcher.Dispatch(SettingsManager.SaveSettings);
+            }
+        }
+
+        static bool IsSystemDefaultUsable(bool mono) {
+            return SystemFontsSupported
+                && FontLocator.SystemFontsScanAttempted
+                && m_lastSystemFaces?.Any(face => face.IsMono == mono) == true;
+        }
+
+        static bool RevertUserSlotIfDead(string value, Action<string> assign, string fileName, string revertValue) {
+            FontSlotSetting slot = FontSlotSetting.Parse(value);
+            if (slot.Kind != FontSlotKind.UserFile
+                || slot.FileName != fileName) {
+                return false;
+            }
+            assign(revertValue);
+            Log.Information($"[FontManager] slot referencing deleted font \"{fileName}\" reverted to \"{revertValue}\".");
+            return true;
         }
 
         static byte[] CopyToBytes(Stream stream) {

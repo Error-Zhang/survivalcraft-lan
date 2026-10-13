@@ -160,7 +160,10 @@
     "8": "Todos os Itens",
     "9": "Tem certeza?",
     "10": "Item inválido.",
-    "11": "A configuração foi alterada. Você deseja recarregá-la?"
+    "11": "A configuração foi alterada. Você deseja recarregá-la?",
+    "12": " | em {0} slot(s) de fonte",
+    "13": "Fonte | {0}",
+    "14": "[{0}] será excluída irrecuperavelmente.\n(usada por {1} slot(s) de fonte, eles voltarão à fonte padrão)"
   },
   "MainMenuScreen": {
     "1": "Falha ao obter o anúncio",
@@ -211,6 +214,7 @@
     "20": "Concluído",
     "21": "Caminho: ",
     "Directory": "Diretório",
+    "Font": "Fonte",
     "World": "Mundo",
     "Blocks Texture": "Textura de Blocos",
     "Character Skin": "Pele de Personagem",

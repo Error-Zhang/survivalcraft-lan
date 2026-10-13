@@ -14,6 +14,8 @@ namespace Game {
         Modpack = 8,
         NetMod = 9,
         Image = 10,
-        Other = 11
+        Other = 11,
+        // 字体（用户导入 + 内容体系管理）：文件名即引用键（字体槽 "user:<file>"）；勿重排 0–11（多处按 int 持久化）
+        Font = 12
     }
 }

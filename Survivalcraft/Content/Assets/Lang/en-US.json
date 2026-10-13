@@ -249,7 +249,10 @@
     "8": "All Items",
     "9": "Are you sure?",
     "10": "Invalid item type.",
-    "11": "The configuration has been changed. Do you want to reload it?"
+    "11": "The configuration has been changed. Do you want to reload it?",
+    "12": " | in {0} font slot(s)",
+    "13": "Font | {0}",
+    "14": "[{0}] will be irrecoverably deleted.\n(used by {1} font slot(s), they will revert to the default)"
   },
   "MainMenuScreen": {
     "1": "Failed to Get Announcement",
@@ -300,6 +303,7 @@
     "20": "Completed",
     "21": "Path: ",
     "Directory": "Directory",
+    "Font": "Font",
     "World": "World",
     "Blocks Texture": "Blocks Texture",
     "Character Skin": "Character Skin",
@@ -821,8 +825,7 @@
     "15": "Not Found / Not Enabled",
     "16": "Found Version: ",
     "17": " (Latest: {0})",
-    "18": "Played for: "
-,
+    "18": "Played for: ",
     "StateMissing": "Missing",
     "StateDisabled": "Disabled",
     "StatePendingRestart": "Pending Restart",
@@ -4953,6 +4956,7 @@
       "BlocksTexture": "Texture",
       "CharacterSkin": "Skin",
       "Mod": "Mod",
+      "Font": "Font",
       "Modpack": "Modpack",
       "NetMod": "Net Mod",
       "Image": "Image",

@@ -249,7 +249,10 @@
     "8": "Tất cả mục",
     "9": "Bạn có chắc không?",
     "10": "Loại mục không hợp lệ.",
-    "11": "Cấu hình đã thay đổi. Bạn có muốn tải lại không?"
+    "11": "Cấu hình đã thay đổi. Bạn có muốn tải lại không?",
+    "12": " | đang dùng trong {0} ô phông chữ",
+    "13": "Phông chữ | {0}",
+    "14": "[{0}] sẽ bị xóa vĩnh viễn.\n(được dùng bởi {1} ô phông chữ, chúng sẽ trở về phông chữ mặc định)"
   },
   "MainMenuScreen": {
     "1": "Không thể lấy thông báo",
@@ -300,6 +303,7 @@
     "20": "Hoàn tất",
     "21": "Đường dẫn: ",
     "Directory": "Thư mục",
+    "Font": "Phông chữ",
     "World": "Thế giới",
     "Blocks Texture": "Texture khối",
     "Character Skin": "Skin nhân vật",
@@ -4927,6 +4931,7 @@
       "BlocksTexture": "Kết cấu",
       "CharacterSkin": "Giao diện nhân vật",
       "Mod": "Mod",
+      "Font": "Phông chữ",
       "Modpack": "Modpack",
       "NetMod": "Mod mạng",
       "Image": "Hình ảnh",

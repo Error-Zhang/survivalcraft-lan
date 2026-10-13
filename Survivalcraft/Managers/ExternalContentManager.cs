@@ -52,6 +52,12 @@ namespace Game {
                 // 社区联机模组与 Mod 同为 scmod 包；声明序 Mod 在前，ExtensionToType 对 .scmod 仍归 Mod。
                 case ExternalContentType.NetMod: yield return ".scmod"; break;
                 //case ExternalContentType.ModList: yield return ".scmodList"; break;
+                // 字体扩展名表与 FontManager 导入过滤同源（单一来源防两表漂移）
+                case ExternalContentType.Font:
+                    foreach (string suffix in FontManager.FontFileSuffixes) {
+                        yield return suffix;
+                    }
+                    break;
             }
         }
 
@@ -63,6 +69,7 @@ namespace Game {
                 ExternalContentType.CharacterSkin => ContentManager.Get<Subtexture>("Textures/Atlas/CharacterSkinIcon"),
                 ExternalContentType.FurniturePack => ContentManager.Get<Subtexture>("Textures/Atlas/FurnitureIcon"),
                 ExternalContentType.Mod => ContentManager.Get<Subtexture>("Textures/Gui/DefaultModIcon"),
+                ExternalContentType.Font => ContentManager.Get<Subtexture>("Textures/Gui/FontIcon"),
                 _ => ContentManager.Get<Subtexture>("Textures/Atlas/QuestionMarkIcon")
             };
         }
@@ -75,6 +82,7 @@ namespace Game {
                 ExternalContentType.CharacterSkin => LanguageControl.Get(fName, "Character Skin"),
                 ExternalContentType.FurniturePack => LanguageControl.Get(fName, "Furniture Pack"),
                 ExternalContentType.Mod => LanguageControl.Get(fName, "Mod"),
+                ExternalContentType.Font => LanguageControl.Get(fName, "Font"),
                 _ => string.Empty
             };
         }
@@ -86,6 +94,7 @@ namespace Game {
                 ExternalContentType.CharacterSkin => true,
                 ExternalContentType.FurniturePack => true,
                 ExternalContentType.Mod => true,
+                ExternalContentType.Font => true,
                 _ => false
             };
         }
@@ -119,6 +128,10 @@ namespace Game {
                 case ExternalContentType.BlocksTexture: BlocksTexturesManager.DeleteBlocksTexture(name); break;
                 case ExternalContentType.CharacterSkin: CharacterSkinsManager.DeleteCharacterSkin(name); break;
                 case ExternalContentType.FurniturePack: FurniturePacksManager.DeleteFurniturePack(name); break;
+                case ExternalContentType.Font:
+                    FontManager.DeleteUserFont(name);
+                    FontManager.NotifyUserFontChanged(name);
+                    break;
                 default: throw new InvalidOperationException(LanguageControl.Get(fName, 4));
             }
         }
@@ -146,6 +159,14 @@ namespace Game {
                 case ExternalContentType.BlocksTexture: return BlocksTexturesManager.ImportBlocksTexture(name, stream);
                 case ExternalContentType.CharacterSkin: return CharacterSkinsManager.ImportCharacterSkin(name, stream);
                 case ExternalContentType.FurniturePack: return FurniturePacksManager.ImportFurniturePack(name, stream);
+                case ExternalContentType.Font: {
+                    if (!FontManager.ValidateAndImportFont(stream, name, out string error)) {
+                        throw new InvalidOperationException(error);
+                    }
+                    // 同名覆盖且被槽位引用时刷新链；失败已 throw，批量导入结果对话框统一展示
+                    FontManager.NotifyUserFontChanged(name);
+                    return Storage.GetFileName(name);
+                }
                 // NetMod（社区联机模组）同为 scmod 包，导入链与 Mod 一致。
                 case ExternalContentType.Mod or ExternalContentType.NetMod: return ModsManager.ImportMod(name, stream);
                 default: throw new InvalidOperationException(LanguageControl.Get(fName, 4));
@@ -330,6 +351,14 @@ namespace Game {
                                                     else if (type == ExternalContentType.FurniturePack) {
                                                         sourcePath = FurniturePacksManager.GetFileName(name);
                                                         if (sourcePath == null) {
+                                                            throw new InvalidOperationException(LanguageControl.Get(fName, 11));
+                                                        }
+                                                        path = Storage.GetFileName(sourcePath);
+                                                    }
+                                                    else if (type == ExternalContentType.Font) {
+                                                        sourcePath = FontManager.GetUserFontPath(name);
+                                                        if (sourcePath == null
+                                                            || !Storage.FileExists(sourcePath)) {
                                                             throw new InvalidOperationException(LanguageControl.Get(fName, 11));
                                                         }
                                                         path = Storage.GetFileName(sourcePath);
