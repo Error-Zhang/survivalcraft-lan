@@ -75,6 +75,9 @@ namespace Game {
 
         public override int GetFace(int value) => (Terrain.ExtractData(value) >> 2) & 7;
 
+        public override BlockDrawDemand GetDrawDemand(int value, SubsystemTerrain subsystemTerrain) =>
+            BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, m_standaloneBlockMesh);
+
         public override void DrawBlock(PrimitivesRenderer3D primitivesRenderer,
             int value,
             Color color,

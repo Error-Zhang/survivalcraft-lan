@@ -160,7 +160,10 @@
     "8": "Tüm Öğeler",
     "9": "Emin misin?",
     "10": "Geçersiz öğe türü.",
-    "11": "Yapılandırma değiştirildi. Yeniden yüklemek istiyor musunuz?"
+    "11": "Yapılandırma değiştirildi. Yeniden yüklemek istiyor musunuz?",
+    "12": " | {0} yazı tipi yuvasında kullanılıyor",
+    "13": "Yazı Tipi | {0}",
+    "14": "[{0}] kalıcı olarak silinecek.\n({1} yazı tipi yuvası tarafından kullanılıyor, bunlar varsayılan yazı tipine dönecek)"
   },
   "MainMenuScreen": {
     "1": "Failed to Get Announcement",
@@ -211,6 +214,7 @@
     "20": "Tamamlandı",
     "21": "Yol: ",
     "Directory": "Directory",
+    "Font": "Yazı Tipi",
     "World": "Dünya",
     "Blocks Texture": "Blok Dokusu",
     "Character Skin": "Oyuncu Dokusu",
@@ -2990,7 +2994,7 @@
       "Title": "Seviyeler ve Deneyim"
     },
     "17": {
-      "value": "\\n At veya deve gibi belirli hayvanlara binebilirsiniz.\\n Bir hayvana binmek, daha hızlı hareket etmenizi ve dünyayı daha yüksek bir noktadan görmenizi sağlar.\\n \\n\\n\\n Bir hayvana binmek için ona yaklaşın ve durmasını bekleyin.\\n Eğilme düğmesi, binek düğmesine dönüşecek.\\n Binmek\/İnmek için basın.\\n Teknelere de tıpkı hayvanlara bindiğiniz gibi binebilirsiniz.\\n \\n\\n\\n Bir hayvana başarıyla binebilmek için, deri ve tahta çubuklardan üretilebilen bir eyere ihtiyacınız vardır.\\n Hayvana eyer vurulduğunda davranışları değişir ve size karşı daha dostça bir tutum sergiler.\\n Eyersiz bir hayvana binmeyin; bundan hoşlanmayacak ve hatta size zarar verebilecektir.\\n \\n\\n\\n Bir ıslık, yakındaki eyerlenmiş hayvanları yanınıza çağırır.\\n Sürüş yaparken yanınızda bir düdük taşımanız iyi bir fikirdir.\\n ",
+      "value": "\\n At veya deve gibi belirli hayvanlara binebilirsiniz.\\n Bir hayvana binmek, daha hızlı hareket etmenizi ve dünyayı daha yüksek bir noktadan görmenizi sağlar.\\n \\n\\n\\n Bir hayvana binmek için ona yaklaşın ve durmasını bekleyin.\\n Eğilme düğmesi, binek düğmesine dönüşecek.\\n Binmek/İnmek için basın.\\n Teknelere de tıpkı hayvanlara bindiğiniz gibi binebilirsiniz.\\n \\n\\n\\n Bir hayvana başarıyla binebilmek için, deri ve tahta çubuklardan üretilebilen bir eyere ihtiyacınız vardır.\\n Hayvana eyer vurulduğunda davranışları değişir ve size karşı daha dostça bir tutum sergiler.\\n Eyersiz bir hayvana binmeyin; bundan hoşlanmayacak ve hatta size zarar verebilecektir.\\n \\n\\n\\n Bir ıslık, yakındaki eyerlenmiş hayvanları yanınıza çağırır.\\n Sürüş yaparken yanınızda bir düdük taşımanız iyi bir fikirdir.\\n ",
       "Name": "Binme",
       "Title": "Binilen Hayvanlar"
     },
@@ -3060,7 +3064,7 @@
       "Title": "Boyama ve Renklendirme"
     },
     "31": {
-      "value": "\\n Elektrik, oyunda belirli blokların davranışını kontrol etmek için kullanılabilen güçlü bir mekanizmadır.\\n Örneğin, bir ampul bir elektrik kaynağına bağlandığında ışık verir, kapılar elektrik sinyaliyle tetiklendiğinde açılır veya kapanır ve daha pek çok örnek verilebilir.\\n \\n\\n\\n Gerçek dünyadaki elektronikler hakkında biraz bilginiz varsa, Survivalcraft'ta kendinizi evinizde hissedeceksiniz.\\n Mantık kapıları (VE, VEYA, DEĞİL vb.) gibi bilindik tüm bileşenler mevcuttur ve sinyaller gerilim ile tanımlanır.\\n Karmaşık devreler, hatta bilgisayarlar veya video oyunları oluşturmak için mantık kapılarını birleştirebilirsiniz (usta elektrikçilerin hazırladığı harika çalışmaları görmek için Topluluk İçeriği bölümüne göz atın).\\n Ayrıca, çevrelerindeki koşullara bağlı olarak değişken sinyaller üreten basınç plakaları, fotodiyotlar vb. gibi sensörler de mevcuttur.\\n \\n\\n\\n Mevcut tüm elektrikli cihazların açıklamaları için TARİFLER'e bakınız.\\n \\n\\n\\n Oyundaki elektrik sinyalleri bakır teller aracılığıyla iletilir ve 0,1 V'luk artışlarla 0 V ile 1,5 V arasında değişen bir gerilime sahiptir.\\n Bu, 16 farklı gerilim değeri sağlar.\\n \\n\\n\\n Düğmeler, anahtarlar veya kapılar gibi dijital cihazlar, yalnızca iki olası değere sahip dijital sinyallerle çalışır: düşük (0, yanlış, kapalı, hayır) ve yüksek (1, doğru, açık, evet).\\n Bu durumda, 0,8 V'un altındaki bir gerilim düşük, 0,8 V ve üzeri ise yüksek seviyeyi gösterir.\\n Dijital sinyallerde genellikle düşük seviye için 0 V, yüksek seviye için ise 1,5 V gerilim değerleri kullanılır; ancak 0,8 V'un altındaki herhangi bir değer düşük olarak algılanır.\\n \\n\\n\\n Basınç plakaları, hareket dedektörleri veya ampuller gibi analog cihazlar, analog sinyallerle çalışır.\\n Sadece düşük ve yüksek durumlarına değil, 0 ila 1,5 V arasındaki her bir farklı voltaj değerine tepki vereceklerdir.\\n Örneğin, ses üretecinin ses düzeyi ve perde girişleri analog gerilimlerle kontrol edilir.\\n Voltajlar yükseldikçe ses seviyesi ve perde kademeli olarak artacaktır.\\n \\n\\n\\n Hem analog hem de dijital sinyallerin, bir kablo üzerinden iletildiklerinde aslında aynı şey olduklarını —yani 0V ile 1,5V arasında bir gerilim olduklarını— hatırlamakta fayda var.\\n Bir cihazın sinyal voltajını yorumlama biçimi, onun dijital mi yoksa analog mu olduğunu belirler.\\n \\n\\n\\n Voltaj, 0V'un 0'ı ve 1,5V'un 15'i temsil ettiği bir sayı olarak da yorumlanabilir.\\n Ekranlar, DAC\/ADC dönüştürücüler veya sayaçlar gibi bazı cihazlar bu yorumu kullanır.\\n \\n\\n\\n Tüm elektrikli cihazların yan taraflarında ve bazen de arka kısımlarında (duvara bakan yüzeyde) bağlantı noktaları (girişler ve çıkışlar) bulunur.\\n Karmaşık cihazlarda bunlar, elemanların kenarlarındaki mavi ve kırmızı noktalarla belirtilir.\\n Mavi giriş, kırmızı çıkış anlamına gelir.\\n Nokta sayısı, bağlantı sayısını ifade eder.\\n Düğme, anahtar veya ampul gibi basit cihazlarda bu noktalar bulunmaz; çünkü bunlar yalnızca tek bir giriş\/çıkış kullanır ve herhangi bir taraftan bağlanabilirler.\\n \\n\\n\\n Elektrikli cihazlar duvarlara ve zemine\/tavana yerleştirilebilir (bazı istisnalar haricinde).\\n Yerleştirildikten sonra, uygun giriş ve çıkışların kablolarla birbirine kolayca bağlanabilmesi için döndürülebilirler.\\n \\n\\n\\n Yerleştirildikten sonra, uygun giriş ve çıkışların kablolarla birbirine kolayca bağlanabilmesi için döndürülebilirler.\\n Kabloları gözden uzak tutmaya, duvarın içinden geçirmeye veya diğer kablolarla temas etmelerini önlemeye çalışırken oldukça yararlıdır.\\n Ayrıca bu, söz konusu bağlantıya sahip cihazların \"arka\" bağlantı noktasına erişmenin tek yoludur.\\n \\n\\n\\n Survivalcraft'ta elektrik, 100 Hz frekansında işlenir.\\n Bu, kablo uzunluğuna bakılmaksızın voltajın bir elemandan diğerine 0,01 saniyede geçtiği anlamına gelir.\\n Sinyali geciktirmeniz gerekirse, sinyal yoluna bazı nötr elemanlar (örneğin bir OR kapısı veya bir çift NOT kapısı) yerleştirebilirsiniz.\\n Sinyalin yolundaki her bir ilave unsur, sinyali 0,01 saniye geciktirecektir.\\n Daha uzun gecikmeler için, 2,55 saniyeye kadar gecikme sağlayabilen Ayarlanabilir Gecikme Kapısı'nı (Adjustable Delay Gate) kullanın.\\n \\n\\n\\n Elektrik karmaşık bir konudur; büyük ve işlevsel makineler yapmak belli bir öğrenme süreci gerektirse de son derece tatmin edicidir.\\n Bununla birlikte, basit cihazlar herkes tarafından yapılabilir.\\n Örneğin, bir kapının menteşelerinin yanına bir düğme yerleştirmeyi deneyin.\\n Bir kablonun belirdiğini fark edeceksiniz; artık düğmeye basmak kapıyı çalıştıracak!\\n Voltajlar, sinyaller, dijital ve analog üzerine yapılan tüm o korkutucu konuşmalar... Oysa gerçekte işin aslı bu kadar basit.\\n \\n\\n\\n Yapımı kolay bir başka şey de bir ışık anahtarı olabilir.\\n Tavana bir ampul, duvara ise bir anahtar (buton değil) yerleştirin.\\n Ardından onları bir telle birbirine bağlayın.\\n Anahtar artık tıpkı gerçek bir odadaki gibi ışığı çalıştırıyor!\\n \\n\\n\\n Survivalcraft, bu türdeki diğer oyunlara kıyasla gerçekçiliğe daha fazla önem verir; elektrik sistemi de buna bir istisna değildir.\\n Burada öğrendikleriniz, okulda bunları gördüğünüzde ya da hayatınızı sürdürürken kullanmanız gerektiğinde paha biçilmez bir değer kazanabilir.\\n \\n\\n\\n Keşfet ve eğlen!\\n ",
+      "value": "\\n Elektrik, oyunda belirli blokların davranışını kontrol etmek için kullanılabilen güçlü bir mekanizmadır.\\n Örneğin, bir ampul bir elektrik kaynağına bağlandığında ışık verir, kapılar elektrik sinyaliyle tetiklendiğinde açılır veya kapanır ve daha pek çok örnek verilebilir.\\n \\n\\n\\n Gerçek dünyadaki elektronikler hakkında biraz bilginiz varsa, Survivalcraft'ta kendinizi evinizde hissedeceksiniz.\\n Mantık kapıları (VE, VEYA, DEĞİL vb.) gibi bilindik tüm bileşenler mevcuttur ve sinyaller gerilim ile tanımlanır.\\n Karmaşık devreler, hatta bilgisayarlar veya video oyunları oluşturmak için mantık kapılarını birleştirebilirsiniz (usta elektrikçilerin hazırladığı harika çalışmaları görmek için Topluluk İçeriği bölümüne göz atın).\\n Ayrıca, çevrelerindeki koşullara bağlı olarak değişken sinyaller üreten basınç plakaları, fotodiyotlar vb. gibi sensörler de mevcuttur.\\n \\n\\n\\n Mevcut tüm elektrikli cihazların açıklamaları için TARİFLER'e bakınız.\\n \\n\\n\\n Oyundaki elektrik sinyalleri bakır teller aracılığıyla iletilir ve 0,1 V'luk artışlarla 0 V ile 1,5 V arasında değişen bir gerilime sahiptir.\\n Bu, 16 farklı gerilim değeri sağlar.\\n \\n\\n\\n Düğmeler, anahtarlar veya kapılar gibi dijital cihazlar, yalnızca iki olası değere sahip dijital sinyallerle çalışır: düşük (0, yanlış, kapalı, hayır) ve yüksek (1, doğru, açık, evet).\\n Bu durumda, 0,8 V'un altındaki bir gerilim düşük, 0,8 V ve üzeri ise yüksek seviyeyi gösterir.\\n Dijital sinyallerde genellikle düşük seviye için 0 V, yüksek seviye için ise 1,5 V gerilim değerleri kullanılır; ancak 0,8 V'un altındaki herhangi bir değer düşük olarak algılanır.\\n \\n\\n\\n Basınç plakaları, hareket dedektörleri veya ampuller gibi analog cihazlar, analog sinyallerle çalışır.\\n Sadece düşük ve yüksek durumlarına değil, 0 ila 1,5 V arasındaki her bir farklı voltaj değerine tepki vereceklerdir.\\n Örneğin, ses üretecinin ses düzeyi ve perde girişleri analog gerilimlerle kontrol edilir.\\n Voltajlar yükseldikçe ses seviyesi ve perde kademeli olarak artacaktır.\\n \\n\\n\\n Hem analog hem de dijital sinyallerin, bir kablo üzerinden iletildiklerinde aslında aynı şey olduklarını —yani 0V ile 1,5V arasında bir gerilim olduklarını— hatırlamakta fayda var.\\n Bir cihazın sinyal voltajını yorumlama biçimi, onun dijital mi yoksa analog mu olduğunu belirler.\\n \\n\\n\\n Voltaj, 0V'un 0'ı ve 1,5V'un 15'i temsil ettiği bir sayı olarak da yorumlanabilir.\\n Ekranlar, DAC/ADC dönüştürücüler veya sayaçlar gibi bazı cihazlar bu yorumu kullanır.\\n \\n\\n\\n Tüm elektrikli cihazların yan taraflarında ve bazen de arka kısımlarında (duvara bakan yüzeyde) bağlantı noktaları (girişler ve çıkışlar) bulunur.\\n Karmaşık cihazlarda bunlar, elemanların kenarlarındaki mavi ve kırmızı noktalarla belirtilir.\\n Mavi giriş, kırmızı çıkış anlamına gelir.\\n Nokta sayısı, bağlantı sayısını ifade eder.\\n Düğme, anahtar veya ampul gibi basit cihazlarda bu noktalar bulunmaz; çünkü bunlar yalnızca tek bir giriş/çıkış kullanır ve herhangi bir taraftan bağlanabilirler.\\n \\n\\n\\n Elektrikli cihazlar duvarlara ve zemine/tavana yerleştirilebilir (bazı istisnalar haricinde).\\n Yerleştirildikten sonra, uygun giriş ve çıkışların kablolarla birbirine kolayca bağlanabilmesi için döndürülebilirler.\\n \\n\\n\\n Yerleştirildikten sonra, uygun giriş ve çıkışların kablolarla birbirine kolayca bağlanabilmesi için döndürülebilirler.\\n Kabloları gözden uzak tutmaya, duvarın içinden geçirmeye veya diğer kablolarla temas etmelerini önlemeye çalışırken oldukça yararlıdır.\\n Ayrıca bu, söz konusu bağlantıya sahip cihazların \"arka\" bağlantı noktasına erişmenin tek yoludur.\\n \\n\\n\\n Survivalcraft'ta elektrik, 100 Hz frekansında işlenir.\\n Bu, kablo uzunluğuna bakılmaksızın voltajın bir elemandan diğerine 0,01 saniyede geçtiği anlamına gelir.\\n Sinyali geciktirmeniz gerekirse, sinyal yoluna bazı nötr elemanlar (örneğin bir OR kapısı veya bir çift NOT kapısı) yerleştirebilirsiniz.\\n Sinyalin yolundaki her bir ilave unsur, sinyali 0,01 saniye geciktirecektir.\\n Daha uzun gecikmeler için, 2,55 saniyeye kadar gecikme sağlayabilen Ayarlanabilir Gecikme Kapısı'nı (Adjustable Delay Gate) kullanın.\\n \\n\\n\\n Elektrik karmaşık bir konudur; büyük ve işlevsel makineler yapmak belli bir öğrenme süreci gerektirse de son derece tatmin edicidir.\\n Bununla birlikte, basit cihazlar herkes tarafından yapılabilir.\\n Örneğin, bir kapının menteşelerinin yanına bir düğme yerleştirmeyi deneyin.\\n Bir kablonun belirdiğini fark edeceksiniz; artık düğmeye basmak kapıyı çalıştıracak!\\n Voltajlar, sinyaller, dijital ve analog üzerine yapılan tüm o korkutucu konuşmalar... Oysa gerçekte işin aslı bu kadar basit.\\n \\n\\n\\n Yapımı kolay bir başka şey de bir ışık anahtarı olabilir.\\n Tavana bir ampul, duvara ise bir anahtar (buton değil) yerleştirin.\\n Ardından onları bir telle birbirine bağlayın.\\n Anahtar artık tıpkı gerçek bir odadaki gibi ışığı çalıştırıyor!\\n \\n\\n\\n Survivalcraft, bu türdeki diğer oyunlara kıyasla gerçekçiliğe daha fazla önem verir; elektrik sistemi de buna bir istisna değildir.\\n Burada öğrendikleriniz, okulda bunları gördüğünüzde ya da hayatınızı sürdürürken kullanmanız gerektiğinde paha biçilmez bir değer kazanabilir.\\n \\n\\n\\n Keşfet ve eğlen!\\n ",
       "Name": "Elektrik",
       "Title": "Elektrik"
     },
@@ -3095,12 +3099,12 @@
       "Title": "Zorunlu Yeniden Doğma"
     },
     "38": {
-      "value": "\\n Oyun, cihazınıza veri indirmenizi ve cihazınızdan veri yüklemenizi sağlamak için Dropbox hizmetini kullanır.\\n \\n\\n\\n Dropbox aracılığıyla dünyaları yedekleyebilir ve başkalarıyla paylaşabilirsiniz.\\n Ayrıca özel blok kaplamaları, karakter görünümleri ve mobilya paketleri de indirebilirsiniz.\\n \\n\\n\\n Dropbox'a giriş yapmak için Dropbox ekranındaki giriş düğmesine tıklayın.\\n Henüz bir Dropbox hesabınız yoksa, giriş yaparken bir hesap oluşturabilirsiniz.\\n \\n\\n\\n Oturum açtığınızda, Dropbox ekranı size çevrimiçi Dropbox klasörlerinizin içeriğini gösterecek ve dosyaları cihazınıza indirmenize olanak tanıyacaktır.\\n \\n\\n\\n Daha fazla bilgi için https:\/\/dropbox.com web sitesine bakın.\\n ",
+      "value": "\\n Oyun, cihazınıza veri indirmenizi ve cihazınızdan veri yüklemenizi sağlamak için Dropbox hizmetini kullanır.\\n \\n\\n\\n Dropbox aracılığıyla dünyaları yedekleyebilir ve başkalarıyla paylaşabilirsiniz.\\n Ayrıca özel blok kaplamaları, karakter görünümleri ve mobilya paketleri de indirebilirsiniz.\\n \\n\\n\\n Dropbox'a giriş yapmak için Dropbox ekranındaki giriş düğmesine tıklayın.\\n Henüz bir Dropbox hesabınız yoksa, giriş yaparken bir hesap oluşturabilirsiniz.\\n \\n\\n\\n Oturum açtığınızda, Dropbox ekranı size çevrimiçi Dropbox klasörlerinizin içeriğini gösterecek ve dosyaları cihazınıza indirmenize olanak tanıyacaktır.\\n \\n\\n\\n Daha fazla bilgi için https://dropbox.com web sitesine bakın.\\n ",
       "Name": "Dropbox",
       "Title": "Dropbox"
     },
     "39": {
-      "value": "\\n Oyun, paylaşım ve yedekleme amacıyla dünyaları SD karta aktarmanıza ve SD karttan geri yüklemenize olanak tanır.\\n \\n\\n\\n Cihazınızda SD kart bulunmuyorsa, genel harici depolama klasörü kullanılacaktır.\\n Cihazdaki verilerin konumu normalde \/sdcard\/Survivalcraft2.4_API1.9'dur.\\n ",
+      "value": "\\n Oyun, paylaşım ve yedekleme amacıyla dünyaları SD karta aktarmanıza ve SD karttan geri yüklemenize olanak tanır.\\n \\n\\n\\n Cihazınızda SD kart bulunmuyorsa, genel harici depolama klasörü kullanılacaktır.\\n Cihazdaki verilerin konumu normalde /sdcard/Survivalcraft2.4_API1.9'dur.\\n ",
       "Name": "SDCard",
       "Title": "SD Card",
       "DisabledPlatforms": "Ios, Windows81, WindowsPhone81, Desktop"
@@ -3164,7 +3168,7 @@
     "BlocksTexture.Description": "Choose blocks texture to use when drawing the world. You can completely change appearance of the world by using a different blocks texture.",
     "Settings.Compatibility.SinglethreadedTerrainUpdate.Description": "Enable this to force the game to use a single thread only when updating the terrain. It will make the game run slower on multicore devices, but might make it slightly faster on single core ones.",
     "Settings.Compatibility.UseAudioTrackCaching.Description": "Enable this if you experience issues with audio and have Android 4.3 or earlier. This setting reduces the number of AudioTrack objects created.",
-    "Settings.Compatibility.UseReducedZRange.Description": "Enable this if you experience issues with graphics like invisible parts of the world near the player or garbled textures. It reduces the clip-space Z range from -1\/1 to 0\/1, as some Android devices have depth buffering and clipping issues with the full range.",
+    "Settings.Compatibility.UseReducedZRange.Description": "Enable this if you experience issues with graphics like invisible parts of the world near the player or garbled textures. It reduces the clip-space Z range from -1/1 to 0/1, as some Android devices have depth buffering and clipping issues with the full range.",
     "ScreenLayout.Single.Name": "Single",
     "ScreenLayout.Single.Description": "Single player full screen",
     "ScreenLayout.DoubleVertical.Name": "Double Vertical",
@@ -3224,7 +3228,7 @@
       "3": "Kişisel",
       "4": "Diğer topluluk üyeleri tarafından oluşturulan ve herkese açık erişime sunulan içeriklere erişin.",
       "5": "Topluluk",
-      "6": "Biliyorsanız, bir dosyayı doğrudan web bağlantısından indirin (bağlantıları girerken kopyala\/yapıştır yöntemini kullanmak en iyisidir).",
+      "6": "Biliyorsanız, bir dosyayı doğrudan web bağlantısından indirin (bağlantıları girerken kopyala/yapıştır yöntemini kullanmak en iyisidir).",
       "7": "Bağlantı gir",
       "8": "İndirilen içeriği yönet",
       "9": "İçeriği Yönet",
@@ -3388,6 +3392,25 @@
       "17": "Mod Uyumluluğu:",
       "18": "Sınıf Değişimini Yönet"
     },
+    "SettingsFontScreen": {
+      "1": "Yazı Tipi Ayarlarını Düzenle",
+      "2": "Gövde Yazı Tipi:",
+      "3": "Gövde Yazı Tipi Kalın:",
+      "4": "Gövde Yazı Tipi Eğik:",
+      "5": "Gövde Yazı Tipi Kalın Eğik:",
+      "6": "Eş Aralıklı Yazı Tipi:",
+      "7": "Eş Aralıklı Yazı Tipi Kalın:",
+      "8": "Eş Aralıklı Yazı Tipi Eğik:",
+      "9": "Eş Aralıklı Yazı Tipi Kalın Eğik:",
+      "10": "Orijinal İngilizce Karakterler:",
+      "11": "Sistem Varsayılanı",
+      "12": "Gövde Yazı Tipine Göre",
+      "13": "Eş Aralıklı Yazı Tipine Göre",
+      "14": "Dosya Seç...",
+      "15": "Dosya Listesi...",
+      "16": "Henüz hiçbir yazı tipi içe aktarılmadı.",
+      "17": "Yerleşik Yazı Tipi"
+    },
     "SettingsControlsScreen": [
       "Kontrol Ayarlarını Düzenle",
       "Dokunmatik Ekran Hareket Kontrolü:",
@@ -3470,7 +3493,8 @@
       "5": "Ses",
       "6": "Kontroller",
       "7": "Uyumluluk",
-      "8": "Mod Ayarları"
+      "8": "Mod Ayarları",
+      "9": "Yazı Tipleri"
     },
     "SettingsUiScreen": [
       "Kullanıcı Arayüzü Ayarlarını Düzenle",
@@ -3478,7 +3502,7 @@
       "Pencere Modu:",
       "Arayüz Boyutu:",
       "Arayüz Dikey Çevirme:",
-      "Hareket\/Bakış Pedlerini Gizle:",
+      "Hareket/Bakış Pedlerini Gizle:",
       "Fotoğrafta Arayüzü Göster:",
       "Fotoğrafta logoyu göster:",
       "Fotoğraf Çözünürlüğü:",
@@ -3508,8 +3532,8 @@
       "1": "Dünya Seçeneklerini Değiştir",
       "2": "Arazi Türü:",
       "3": "",
-      "4": "Ada Boyutu Doğu\/Batı:",
-      "5": "Ada Boyutu Kuzey\/Güney:",
+      "4": "Ada Boyutu Doğu/Batı:",
+      "5": "Ada Boyutu Kuzey/Güney:",
       "6": "Düz Arazi Seviyesi:",
       "7": "Düz Arazi Kıyı Pürüzlülüğü:",
       "8": "Düz Arazi Bloğu:",
@@ -3567,7 +3591,7 @@
       "2": "Envanter"
     },
     "ClothingWidget": {
-      "1": "Vücut\/Yemek",
+      "1": "Vücut/Yemek",
       "2": "Envanter",
       "3": "",
       "4": ""
@@ -3840,12 +3864,12 @@
       "13": "Y",
       "14": "D-Pad Up",
       "15": "D-Pad Down",
-      "16": "D-Pad Left\/Right",
-      "17": "D-Pad Up\/Down",
-      "18": "Back\/Select\/Pause",
+      "16": "D-Pad Left/Right",
+      "17": "D-Pad Up/Down",
+      "18": "Back/Select/Pause",
       "19": "Left Trigger + A",
       "20": "2xA",
-      "21": "A\/Right Shoulder",
+      "21": "A/Right Shoulder",
       "22": "movement",
       "23": "looking",
       "24": "place block, use, interact",
@@ -3861,17 +3885,17 @@
       "34": "mount creature or vehicle",
       "35": "change camera mode",
       "36": "change active slot",
-      "37": "scroll, prev\/next page",
+      "37": "scroll, prev/next page",
       "38": "show game menu",
       "39": "auto move inventory item",
       "40": "toggle fly mode (creative)",
-      "41": "fly up\/down (creative)",
+      "41": "fly up/down (creative)",
       "42": "OK",
       "43": "Help"
     },
     "KeyboardHelpDialog": {
       "1": "Keyboard Controls",
-      "2": "W\/A\/S\/D",
+      "2": "W/A/S/D",
       "3": "Mouse Move",
       "4": "Space",
       "5": "Shift",
@@ -3886,7 +3910,7 @@
       "14": "L",
       "15": "0 to 9",
       "16": "2xSpace or F",
-      "17": "Space\/Shift",
+      "17": "Space/Shift",
       "18": "Left Mouse Click",
       "19": "Right Mouse Click",
       "20": "Left Mouse Drag",
@@ -3910,7 +3934,7 @@
       "38": "summon lightning (creative)",
       "39": "select inventory slot",
       "40": "toggle fly mode (creative)",
-      "41": "fly up\/down (creative)",
+      "41": "fly up/down (creative)",
       "42": "dig, attack, aim",
       "43": "place block, use, interact",
       "44": "move all items",

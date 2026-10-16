@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Engine;
 using Engine.Graphics;
 
@@ -80,6 +81,25 @@ namespace Game {
                 m_particles[i] = new Particle();
             }
             Initialize();
+        }
+
+        /// <summary>
+        /// 雨雪类型切换会重跑 Initialize 换 m_texture（违背账本生命周期恒定契约），
+        /// 故两纹理都恒报 4 粒子上界（quad 口径：雨为 4 triangle 未占满）；
+        /// 切换纹理无需重记账本，非当前类型纹理的预留容量不会入队（纯容量占用）。
+        /// 批次身份与 Draw 懒建批次实参一致（alphaTest=false + DepthRead + AlphaBlend + PointClamp）。
+        /// </summary>
+        public override void GetBatchDemands(List<BatchDemandEntry> demands) {
+            demands.Add(new BatchDemandEntry {
+                Key = new TexturedBatchKey(ContentManager.Get<Texture2D>("Textures/RainParticle"), false, 0, DepthStencilState.DepthRead, null, BlendState.AlphaBlend, SamplerState.PointClamp),
+                VertexCount = m_particlesCount * 4,
+                IndexCount = m_particlesCount * 6
+            });
+            demands.Add(new BatchDemandEntry {
+                Key = new TexturedBatchKey(ContentManager.Get<Texture2D>("Textures/SnowParticle"), false, 0, DepthStencilState.DepthRead, null, BlendState.AlphaBlend, SamplerState.PointClamp),
+                VertexCount = m_particlesCount * 4,
+                IndexCount = m_particlesCount * 6
+            });
         }
 
         public override bool Simulate(float dt) {

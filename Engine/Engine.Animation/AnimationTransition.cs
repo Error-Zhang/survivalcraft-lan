@@ -29,6 +29,7 @@ namespace Engine.Animation {
         /// 线性插值
         /// </summary>
         Linear,
+
         /// <summary>
         /// 平滑过渡（smoothstep: t*t*(3-2t)）
         /// </summary>
@@ -58,8 +59,8 @@ namespace Engine.Animation {
         // 停用过渡模式：淡出到无
         public bool m_isDeactivateTransition;
 
-        RootStripInfo m_sourceStripInfo;   // crossfade/deactivate 源快照剥离需求
-        RootStripInfo m_targetStripInfo;   // crossfade 目标 player 剥离需求（deactivate 不用）
+        RootStripInfo m_sourceStripInfo; // crossfade/deactivate 源快照剥离需求
+        RootStripInfo m_targetStripInfo; // crossfade 目标 player 剥离需求（deactivate 不用）
 
         /// <summary>
         /// 过渡时长（秒）
@@ -88,8 +89,12 @@ namespace Engine.Animation {
         /// 应用过渡曲线
         /// </summary>
         public static float ApplyCurve(float t, BlendCurve curve) {
-            if (t <= 0f) return 0f;
-            if (t >= 1f) return 1f;
+            if (t <= 0f) {
+                return 0f;
+            }
+            if (t >= 1f) {
+                return 1f;
+            }
             return curve switch {
                 BlendCurve.Smoothstep => t * t * (3f - 2f * t),
                 _ => t

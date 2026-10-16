@@ -46,12 +46,6 @@ namespace Game {
             );
         }
 
-        /*public override void Enter(object[] parameters) {
-            if (m_previousScreen == null) {
-                m_previousScreen = ScreensManager.PreviousScreen;
-            }
-        }*/
-
         public override void Update() {
             if (m_performanceButton.IsClicked) {
                 ScreensManager.SwitchScreen("SettingsPerformance");
@@ -85,8 +79,6 @@ namespace Game {
             if (Input.Back
                 || Input.Cancel
                 || Children.Find<ButtonWidget>("TopBar.Back").IsClicked) {
-                //ScreensManager.SwitchScreen(m_previousScreen);
-                //m_previousScreen = null;
                 ScreensManager.GoBack();
             }
         }

@@ -73,11 +73,10 @@ namespace Game {
             }
             // More 屏是中文社区栈的设置页：账户行与「当前服务器」行都只消费 CurrentChineseInfo，
             // 列 Original 条目选中后无任何可见反馈，故不列
-            List<CommunityServerManager.Info> infos = [];
-            if (SettingsManager.CommunityContentMode != CommunityContentMode.Disabled) {
-                infos.Add(CommunityServerManager.DefaultChineseInfo);
-            }
-            infos.AddRange(CommunityServerManager.UserInfos.Where(info => info.Type == CommunityServerManager.Type.Chinese));
+            List<CommunityServerManager.Info> infos = [
+                CommunityServerManager.DefaultChineseInfo,
+                .. CommunityServerManager.UserInfos.Where(info => info.Type == CommunityServerManager.Type.Chinese)
+            ];
             return infos;
         }
 

@@ -30,6 +30,7 @@ namespace Game {
                     new StringReader(),
                     new SubtextureReader(),
                     new Texture2DReader(),
+                    new VectorFontReader(),
                     new XmlReader(),
                     new ContentStreamReader()
                 ]

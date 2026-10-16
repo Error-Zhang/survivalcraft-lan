@@ -124,11 +124,8 @@ namespace Engine.Animation {
             Vector3 oldMidDir = Vector3.Normalize(Vector3.Transform(endPos - midPos, rootRotation));
             Vector3 newMidDir = Vector3.Normalize(targetPos - newMidWorld);
             Quaternion midRotation = IKUtils.RotationBetweenVectors(oldMidDir, newMidDir);
-
             IKUtils.ApplyModelRotation(boneTransforms, midIdx, midRotation, newMidWorld, model);
-
             ApplyJointLimits(chain, boneTransforms, model);
-
             if (target.AimDirection.HasValue && SupportsAim) {
                 ApplyAimConstraint(chain, target, boneTransforms, worldPositions, model, indices);
             }
@@ -145,7 +142,6 @@ namespace Engine.Animation {
             // 用原始中间骨骼位置推导弯曲方向
             Vector3 rootToMid = mid - root;
             Vector3 rootToTarget = target - root;
-
             Vector3 bendDir = Vector3.Cross(rootToMid, rootToTarget);
             if (bendDir.LengthSquared() < 0.0001f) {
                 bendDir = Vector3.Cross(rootToTarget, Vector3.UnitY);
@@ -206,7 +202,6 @@ namespace Engine.Animation {
             if (target.AimWeight < 1.0f) {
                 aimRotation = Quaternion.Slerp(Quaternion.Identity, aimRotation, target.AimWeight);
             }
-
             IKUtils.ApplyModelRotation(boneTransforms, endIdx, aimRotation, worldPositions[endIdx], model);
         }
     }

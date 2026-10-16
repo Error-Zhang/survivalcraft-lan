@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = "v20260801";
+﻿const CACHE_NAME = "v20261013";
 const BASE = self.registration.scope;
 const ASSETS = [
     "",

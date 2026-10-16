@@ -159,7 +159,10 @@
     "8": "Todos los Objetos",
     "9": "¿Estás seguro?",
     "10": "Tipo de objeto inválido.",
-    "11": "La configuración ha sido modificada. ¿Quieres recargarla?"
+    "11": "La configuración ha sido modificada. ¿Quieres recargarla?",
+    "12": " | en {0} ranura(s) de fuente",
+    "13": "Fuente | {0}",
+    "14": "[{0}] se eliminará irreversiblemente.\n(usada por {1} ranura(s) de fuente, volverán a la fuente predeterminada)"
   },
   "MainMenuScreen": {
     "1": "Error al Obtener el Anuncio",
@@ -210,6 +213,7 @@
     "20": "Completado",
     "21": "Ruta: ",
     "Directory": "Directorio",
+    "Font": "Fuente",
     "World": "Mundo",
     "Blocks Texture": "Textura de Bloques",
     "Character Skin": "Skin de Personaje",
@@ -875,7 +879,7 @@
     "4": "Cocina un huevo para aumentar su valor nutricional",
     "5": "Huevo Cocido de {0}",
     "6": "Huevo Puesto de {0}"
-},
+  },
   "CreativeInventoryWidget": {
     "1": "Muebles",
     "2": "Usuario"
@@ -1331,7 +1335,7 @@
     "Female": "Mujer"
   },
   "Blocks": {
-  "CommandBlock:0": {
+    "CommandBlock:0": {
       "DisplayName": "Bloque de comandos",
       "Description": "El bloque de comando le permite usar el control de circuitos, puede almacenar instrucciones y tiene varias funciones.",
       "CRDescription:0": "[COMENTARIO]Del mod ''Command block Mod''"
@@ -2440,7 +2444,7 @@
     },
     "ButtonBlock:0": {
       "DisplayName": "Botón",
-      "Description": "Un botón eléctrico. Se usa para establecer momentáneamente el estado de un circuito eléctrico a 1.5V. La duración del pulso generado por un solo clic del botón es de aproximadamente 1\/10 de segundo, después de lo cual las salidas vuelven al estado 0V. Un botón se puede activar mediante un proyectil que lo golpee. Tiene salidas en todos los lados para facilitar la conexión y se puede colocar en cualquier superficie.",
+      "Description": "Un botón eléctrico. Se usa para establecer momentáneamente el estado de un circuito eléctrico a 1.5V. La duración del pulso generado por un solo clic del botón es de aproximadamente 1/10 de segundo, después de lo cual las salidas vuelven al estado 0V. Un botón se puede activar mediante un proyectil que lo golpee. Tiene salidas en todos los lados para facilitar la conexión y se puede colocar en cualquier superficie.",
       "CRDescription:0": "Fabrica botones eléctricos con cobre y tablones"
     },
     "PressurePlateBlock:0": {
@@ -2463,27 +2467,27 @@
     },
     "WireThroughPlanksBlock:0": {
       "DisplayName": "Cable a Través de Tablones",
-      "Description": "Un bloque de tablones con un cable que atraviesa un agujero perforado en el medio. Este bloque se comporta exactamente igual que los tablones, pero puede conducir electricidad cuando ambos extremos del cable incrustado están conectados a algo. Este bloque se puede colocar con los extremos apuntando norte\/sur, este\/oeste o arriba\/abajo. Es muy útil cuando se necesita pasar electricidad a través de paredes sólidas, o para aislar el cable de conexiones no deseadas con otros cables.",
+      "Description": "Un bloque de tablones con un cable que atraviesa un agujero perforado en el medio. Este bloque se comporta exactamente igual que los tablones, pero puede conducir electricidad cuando ambos extremos del cable incrustado están conectados a algo. Este bloque se puede colocar con los extremos apuntando norte/sur, este/oeste o arriba/abajo. Es muy útil cuando se necesita pasar electricidad a través de paredes sólidas, o para aislar el cable de conexiones no deseadas con otros cables.",
       "CRDescription:0": "Perfora un agujero en el bloque de tablones y pasa un cable eléctrico a través de él"
     },
     "WireThroughStoneBlock:0": {
       "DisplayName": "Cable a Través de Piedra",
-      "Description": "Un bloque de granito con un cable que atraviesa un agujero perforado en el medio. Este bloque se comporta exactamente igual que el granito, pero puede conducir electricidad cuando ambos extremos del cable incrustado están conectados a algo. Este bloque se puede colocar con los extremos apuntando norte\/sur, este\/oeste o arriba\/abajo. Es muy útil cuando se necesita pasar electricidad a través de paredes sólidas, o para aislar el cable de conexiones no deseadas con otros cables.",
+      "Description": "Un bloque de granito con un cable que atraviesa un agujero perforado en el medio. Este bloque se comporta exactamente igual que el granito, pero puede conducir electricidad cuando ambos extremos del cable incrustado están conectados a algo. Este bloque se puede colocar con los extremos apuntando norte/sur, este/oeste o arriba/abajo. Es muy útil cuando se necesita pasar electricidad a través de paredes sólidas, o para aislar el cable de conexiones no deseadas con otros cables.",
       "CRDescription:0": "Perfora un agujero en el bloque de piedra y pasa un cable eléctrico a través de él"
     },
     "WireThroughBricksBlock:0": {
       "DisplayName": "Cable a Través de Ladrillos",
-      "Description": "Un bloque de ladrillos con un cable que atraviesa un agujero perforado en el medio. Este bloque se comporta exactamente igual que los ladrillos, pero puede conducir electricidad cuando ambos extremos del cable incrustado están conectados a algo. Este bloque se puede colocar con los extremos apuntando norte\/sur, este\/oeste o arriba\/abajo. Es muy útil cuando se necesita pasar electricidad a través de paredes sólidas, o para aislar el cable de conexiones no deseadas con otros cables.",
+      "Description": "Un bloque de ladrillos con un cable que atraviesa un agujero perforado en el medio. Este bloque se comporta exactamente igual que los ladrillos, pero puede conducir electricidad cuando ambos extremos del cable incrustado están conectados a algo. Este bloque se puede colocar con los extremos apuntando norte/sur, este/oeste o arriba/abajo. Es muy útil cuando se necesita pasar electricidad a través de paredes sólidas, o para aislar el cable de conexiones no deseadas con otros cables.",
       "CRDescription:0": "Perfora un agujero en el bloque de ladrillos y pasa un cable eléctrico a través de él"
     },
     "WireThroughSemiconductorBlock:0": {
       "DisplayName": "Cable a Través de Semiconductor",
-      "Description": "Un bloque semiconductor con un cable que atraviesa un agujero perforado en el medio. Este bloque puede conducir electricidad cuando ambos extremos del cable incrustado están conectados a algo. Se puede colocar con los extremos apuntando norte\/sur, este\/oeste o arriba\/abajo. Es muy útil cuando se necesita pasar electricidad a través de paredes sólidas, o para aislar el cable de conexiones no deseadas con otros cables.",
+      "Description": "Un bloque semiconductor con un cable que atraviesa un agujero perforado en el medio. Este bloque puede conducir electricidad cuando ambos extremos del cable incrustado están conectados a algo. Se puede colocar con los extremos apuntando norte/sur, este/oeste o arriba/abajo. Es muy útil cuando se necesita pasar electricidad a través de paredes sólidas, o para aislar el cable de conexiones no deseadas con otros cables.",
       "CRDescription:0": "Perfora un agujero en un bloque semiconductor y pasa un cable eléctrico a través de él"
     },
     "WireThroughCobblestoneBlock:0": {
       "DisplayName": "Cable a Través de Adoquín",
-      "Description": "Un bloque de adoquín con un cable que atraviesa un agujero perforado en el medio. Este bloque puede conducir electricidad cuando ambos extremos del cable incrustado están conectados a algo. Se puede colocar con los extremos apuntando norte\/sur, este\/oeste o arriba\/abajo. Es muy útil cuando se necesita pasar electricidad a través de paredes sólidas, o para aislar el cable de conexiones no deseadas con otros cables.",
+      "Description": "Un bloque de adoquín con un cable que atraviesa un agujero perforado en el medio. Este bloque puede conducir electricidad cuando ambos extremos del cable incrustado están conectados a algo. Se puede colocar con los extremos apuntando norte/sur, este/oeste o arriba/abajo. Es muy útil cuando se necesita pasar electricidad a través de paredes sólidas, o para aislar el cable de conexiones no deseadas con otros cables.",
       "CRDescription:0": "Perfora un agujero en un bloque de adoquín y pasa un cable eléctrico a través de él"
     },
     "LedBlock:0": {
@@ -2993,7 +2997,7 @@
       "Title": "Electricidad"
     },
     "32": {
-      "value": "\\n En Survivalcraft puedes diseñar y usar bloques de muebles personalizados.\\n \\n\\n\\n Los bloques de muebles se esculpen a partir de hasta 256x256x256 sub-bloques más pequeños.\\n Los sub-bloques dentro de un solo bloque de mueble pueden estar hechos de diferentes materiales y pintados de diferentes colores.\\n Mediante el crafteo, los bloques de muebles se pueden combinar, hacer interactivos o hacer que funcionen con electricidad.\\n Los diseños de muebles se pueden combinar en paquetes, compartir entre mundos y subir al Contenido de la Comunidad.\\n \\n\\n\\n Para diseñar y crear muebles usa la herramienta de martillo.\\n Necesitas construir el diseño con bloques normales en el mundo y luego usar el martillo sobre la estructura resultante para reducirla.\\n Aparecerá una ventana de diseño de muebles donde puedes ajustar el diseño moviéndolo, rotándolo y cambiando la resolución (entre 2x2x2 y 256x256x256).\\n Una vez que estés satisfecho con el diseño, puedes confirmarlo.\\n \\n\\n\\n En el modo creativo, el diseño se convertirá en un solo bloque de mueble, y los bloques fuente con los que se creó el diseño permanecerán en el mundo.\\n En los modos de supervivencia, el diseño se convertirá en varias copias del bloque de mueble (con un número que depende de la resolución) y los bloques fuente se consumirán.\\n Los bloques de muebles se pueden colocar en el mundo en 4 orientaciones, similar a, por ejemplo, un horno o una escalera.\\n \\n\\n\\n No todos los bloques se pueden usar para el diseño de muebles.\\n Por ejemplo, la tierra o el césped son ignorados por la herramienta de martillo.\\n Los materiales permitidos incluyen: tablones, granito, basalto, arena, arcilla, adoquín, ladrillos de piedra, arenisca, mármol, ladrillos, carbón, malaquita, diamante, cobre, hierro, vidrio, alfombra, antorchas, lámparas de mimbre, agua, magma.\\n Los bloques fuente del diseño se pueden pintar o teñir para hacer el diseño más colorido.\\n Los muebles terminados también se pueden pintar, esto cubrirá cualquier color de los bloques fuente.\\n \\n\\n\\n Ciertos bloques fuente tienen funciones especiales.\\n Por ejemplo, un bloque de antorcha/lámpara hará que el mueble tenga un fuego adjunto en el lugar del bloque.\\n El diseño también emitirá luz.\\n \\n\\n\\n Debes tener cuidado al construir muebles para evitar colocar el diseño sobre una base hecha de material permitido (por ejemplo, arena).\\n La herramienta de martillo no podrá distinguir entre los bloques que colocaste y la base, e intentará incorporar la base al diseño.\\n Esto probablemente causará un error de \"diseño demasiado grande\", porque el tamaño máximo de un diseño en cualquier dimensión es de 256 bloques.\\n \\n\\n\\n Una vez que se ha creado el bloque de mueble, puedes usar el banco de trabajo para combinarlo con otros bloques de varias maneras.\\n Las siguientes combinaciones son posibles:\\n \\n\\n\\n * Combina múltiples piezas de muebles en uno para crear muebles interactivos.\\n Los muebles interactivos alternan entre sus diseños constituyentes al hacer clic o mediante una señal eléctrica.\\n Puedes crear puertas que se abren, luces intercambiables, plataformas elevadoras, etc.\\n Se pueden combinar hasta 9 piezas de muebles (capacidad máxima del banco de trabajo).\\n \\n\\n\\n * Combina exactamente un diseño de mueble con un botón eléctrico para crear un botón personalizado.\\n El mueble resultante actuará como un botón.\\n \\n\\n\\n * Combina exactamente dos diseños de muebles con un interruptor eléctrico para crear un interruptor personalizado.\\n El mueble resultante actuará como un interruptor, con dos piezas de muebles actuando como dos estados del interruptor.\\n \\n\\n\\n * Combina múltiples piezas de muebles con un cable eléctrico para crear muebles interactivos conectados.\\n El mueble funcionará de la misma manera que los muebles interactivos, pero alternarlo también alternará todas las piezas vecinas de muebles interactivos conectados.\\n Puedes crear estructuras alternables de múltiples bloques, por ejemplo, puertas grandes.\\n \\n\\n\\n En el panel de muebles del inventario creativo puedes ver y organizar tus diseños de muebles.\\n Crea conjuntos de muebles con nombre para categorizar los diseños.\\n Los diseños recién creados se colocan en el conjunto \"Sin categoría\", que tiene una función especial.\\n Cualquier diseño en este conjunto que no exista de otra manera en el mundo (sin objetos o bloques colocados) se reciclará automáticamente.\\n Ten cuidado y mueve los diseños valiosos a conjuntos de muebles con nombre para evitar perderlos accidentalmente.\\n Cada conjunto de muebles con nombre se puede convertir en un paquete de muebles y exportar del mundo.\\n Más tarde puedes importarlo a otros mundos o subirlo a Dropbox\/tarjeta SD y compartirlo con otros.\\n Los paquetes de muebles también se pueden subir al contenido de la comunidad.\\n \\n\\n\\n Hay ciertas limitaciones en el sistema de muebles:\\n \\n\\n\\n * Un bloque de mueble puede estar hecho de hasta 256x256x256 sub-bloques.\\n \\n\\n\\n * La cantidad de geometría utilizada para un solo diseño no puede exceder los 65535 triángulos.\\n El juego utiliza un algoritmo de teselación inteligente que optimiza la geometría, por lo que 65535 triángulos son suficientes incluso para diseños bastante complejos, a menos que realmente te pases.\\n Para reducir el número de triángulos, puedes reducir el número de pequeños detalles, reducir el número de bloques pintados y rellenar cualquier agujero interno en el diseño.\\n \\n\\n\\n * Solo puedes tener hasta 8192 diseños de muebles únicos en el mundo.\\n Cada vez que pintas un mueble o lo combinas con otros, estás creando nuevos diseños que cuentan para el total.\\n Los diseños no utilizados (que no existen en el mundo ni como objetos ni como bloques, y están en el conjunto \"sin categoría\" en el inventario) se reciclan automáticamente.\\n ",
+      "value": "\\n En Survivalcraft puedes diseñar y usar bloques de muebles personalizados.\\n \\n\\n\\n Los bloques de muebles se esculpen a partir de hasta 256x256x256 sub-bloques más pequeños.\\n Los sub-bloques dentro de un solo bloque de mueble pueden estar hechos de diferentes materiales y pintados de diferentes colores.\\n Mediante el crafteo, los bloques de muebles se pueden combinar, hacer interactivos o hacer que funcionen con electricidad.\\n Los diseños de muebles se pueden combinar en paquetes, compartir entre mundos y subir al Contenido de la Comunidad.\\n \\n\\n\\n Para diseñar y crear muebles usa la herramienta de martillo.\\n Necesitas construir el diseño con bloques normales en el mundo y luego usar el martillo sobre la estructura resultante para reducirla.\\n Aparecerá una ventana de diseño de muebles donde puedes ajustar el diseño moviéndolo, rotándolo y cambiando la resolución (entre 2x2x2 y 256x256x256).\\n Una vez que estés satisfecho con el diseño, puedes confirmarlo.\\n \\n\\n\\n En el modo creativo, el diseño se convertirá en un solo bloque de mueble, y los bloques fuente con los que se creó el diseño permanecerán en el mundo.\\n En los modos de supervivencia, el diseño se convertirá en varias copias del bloque de mueble (con un número que depende de la resolución) y los bloques fuente se consumirán.\\n Los bloques de muebles se pueden colocar en el mundo en 4 orientaciones, similar a, por ejemplo, un horno o una escalera.\\n \\n\\n\\n No todos los bloques se pueden usar para el diseño de muebles.\\n Por ejemplo, la tierra o el césped son ignorados por la herramienta de martillo.\\n Los materiales permitidos incluyen: tablones, granito, basalto, arena, arcilla, adoquín, ladrillos de piedra, arenisca, mármol, ladrillos, carbón, malaquita, diamante, cobre, hierro, vidrio, alfombra, antorchas, lámparas de mimbre, agua, magma.\\n Los bloques fuente del diseño se pueden pintar o teñir para hacer el diseño más colorido.\\n Los muebles terminados también se pueden pintar, esto cubrirá cualquier color de los bloques fuente.\\n \\n\\n\\n Ciertos bloques fuente tienen funciones especiales.\\n Por ejemplo, un bloque de antorcha/lámpara hará que el mueble tenga un fuego adjunto en el lugar del bloque.\\n El diseño también emitirá luz.\\n \\n\\n\\n Debes tener cuidado al construir muebles para evitar colocar el diseño sobre una base hecha de material permitido (por ejemplo, arena).\\n La herramienta de martillo no podrá distinguir entre los bloques que colocaste y la base, e intentará incorporar la base al diseño.\\n Esto probablemente causará un error de \"diseño demasiado grande\", porque el tamaño máximo de un diseño en cualquier dimensión es de 256 bloques.\\n \\n\\n\\n Una vez que se ha creado el bloque de mueble, puedes usar el banco de trabajo para combinarlo con otros bloques de varias maneras.\\n Las siguientes combinaciones son posibles:\\n \\n\\n\\n * Combina múltiples piezas de muebles en uno para crear muebles interactivos.\\n Los muebles interactivos alternan entre sus diseños constituyentes al hacer clic o mediante una señal eléctrica.\\n Puedes crear puertas que se abren, luces intercambiables, plataformas elevadoras, etc.\\n Se pueden combinar hasta 9 piezas de muebles (capacidad máxima del banco de trabajo).\\n \\n\\n\\n * Combina exactamente un diseño de mueble con un botón eléctrico para crear un botón personalizado.\\n El mueble resultante actuará como un botón.\\n \\n\\n\\n * Combina exactamente dos diseños de muebles con un interruptor eléctrico para crear un interruptor personalizado.\\n El mueble resultante actuará como un interruptor, con dos piezas de muebles actuando como dos estados del interruptor.\\n \\n\\n\\n * Combina múltiples piezas de muebles con un cable eléctrico para crear muebles interactivos conectados.\\n El mueble funcionará de la misma manera que los muebles interactivos, pero alternarlo también alternará todas las piezas vecinas de muebles interactivos conectados.\\n Puedes crear estructuras alternables de múltiples bloques, por ejemplo, puertas grandes.\\n \\n\\n\\n En el panel de muebles del inventario creativo puedes ver y organizar tus diseños de muebles.\\n Crea conjuntos de muebles con nombre para categorizar los diseños.\\n Los diseños recién creados se colocan en el conjunto \"Sin categoría\", que tiene una función especial.\\n Cualquier diseño en este conjunto que no exista de otra manera en el mundo (sin objetos o bloques colocados) se reciclará automáticamente.\\n Ten cuidado y mueve los diseños valiosos a conjuntos de muebles con nombre para evitar perderlos accidentalmente.\\n Cada conjunto de muebles con nombre se puede convertir en un paquete de muebles y exportar del mundo.\\n Más tarde puedes importarlo a otros mundos o subirlo a Dropbox/tarjeta SD y compartirlo con otros.\\n Los paquetes de muebles también se pueden subir al contenido de la comunidad.\\n \\n\\n\\n Hay ciertas limitaciones en el sistema de muebles:\\n \\n\\n\\n * Un bloque de mueble puede estar hecho de hasta 256x256x256 sub-bloques.\\n \\n\\n\\n * La cantidad de geometría utilizada para un solo diseño no puede exceder los 65535 triángulos.\\n El juego utiliza un algoritmo de teselación inteligente que optimiza la geometría, por lo que 65535 triángulos son suficientes incluso para diseños bastante complejos, a menos que realmente te pases.\\n Para reducir el número de triángulos, puedes reducir el número de pequeños detalles, reducir el número de bloques pintados y rellenar cualquier agujero interno en el diseño.\\n \\n\\n\\n * Solo puedes tener hasta 8192 diseños de muebles únicos en el mundo.\\n Cada vez que pintas un mueble o lo combinas con otros, estás creando nuevos diseños que cuentan para el total.\\n Los diseños no utilizados (que no existen en el mundo ni como objetos ni como bloques, y están en el conjunto \"sin categoría\" en el inventario) se reciclan automáticamente.\\n ",
       "Name": "Furniture",
       "Title": "Muebles"
     },
@@ -3023,12 +3027,12 @@
       "Title": "Forzar regeneración"
     },
     "38": {
-      "value": "\\n El juego utiliza el servicio de Dropbox para permitirte descargar y subir datos a\/desde tu dispositivo.\\n \\n\\n\\n A través de Dropbox, puedes hacer copias de seguridad y compartir mundos con otros.\\n También puedes descargar texturas de bloques personalizadas, skins de personajes y paquetes de muebles.\\n \\n\\n\\n Para iniciar sesión en Dropbox, haz clic en el botón de inicio de sesión en la pantalla de Dropbox.\\n Si aún no tienes una cuenta de Dropbox, podrás configurar una durante el inicio de sesión.\\n \\n\\n\\n Una vez que inicies sesión, la pantalla de Dropbox te mostrará el contenido de tus carpetas de Dropbox en línea y te permitirá descargar los archivos a tu dispositivo.\\n \\n\\n\\n Visita el sitio web https:\/\/dropbox.com para más detalles.\\n ",
+      "value": "\\n El juego utiliza el servicio de Dropbox para permitirte descargar y subir datos a/desde tu dispositivo.\\n \\n\\n\\n A través de Dropbox, puedes hacer copias de seguridad y compartir mundos con otros.\\n También puedes descargar texturas de bloques personalizadas, skins de personajes y paquetes de muebles.\\n \\n\\n\\n Para iniciar sesión en Dropbox, haz clic en el botón de inicio de sesión en la pantalla de Dropbox.\\n Si aún no tienes una cuenta de Dropbox, podrás configurar una durante el inicio de sesión.\\n \\n\\n\\n Una vez que inicies sesión, la pantalla de Dropbox te mostrará el contenido de tus carpetas de Dropbox en línea y te permitirá descargar los archivos a tu dispositivo.\\n \\n\\n\\n Visita el sitio web https://dropbox.com para más detalles.\\n ",
       "Name": "Dropbox",
       "Title": "Dropbox"
     },
     "39": {
-      "value": "\\n El juego te permite importar y exportar mundos a la tarjeta SD para compartir y hacer copias de seguridad.\\n \\n\\n\\n Si tu dispositivo no tiene tarjeta SD, se usará la carpeta genérica de almacenamiento externo.\\n La ubicación de los datos en el dispositivo es normalmente \/sdcard\/Survivalcraft2.4_API1.9\\n ",
+      "value": "\\n El juego te permite importar y exportar mundos a la tarjeta SD para compartir y hacer copias de seguridad.\\n \\n\\n\\n Si tu dispositivo no tiene tarjeta SD, se usará la carpeta genérica de almacenamiento externo.\\n La ubicación de los datos en el dispositivo es normalmente /sdcard/Survivalcraft2.4_API1.9\\n ",
       "Name": "SDCard",
       "Title": "Tarjeta SD",
       "DisabledPlatforms": "Ios, Windows81, WindowsPhone81, Desktop"
@@ -3092,7 +3096,7 @@
     "BlocksTexture.Description": "Elige la textura de bloques para usar al dibujar el mundo. Puedes cambiar completamente la apariencia del mundo usando una textura de bloques diferente.",
     "Settings.Compatibility.SinglethreadedTerrainUpdate.Description": "Activa esto para forzar al juego a usar un solo hilo al actualizar el terreno. Hará que el juego funcione más lento en dispositivos multinúcleo, pero podría hacerlo un poco más rápido en dispositivos de un solo núcleo.",
     "Settings.Compatibility.UseAudioTrackCaching.Description": "Activa esto si experimentas problemas de audio y tienes Android 4.3 o anterior. Esta configuración reduce la cantidad de objetos AudioTrack creados.",
-    "Settings.Compatibility.UseReducedZRange.Description": "Activa esto si experimentas problemas gráficos como partes invisibles del mundo cerca del jugador o texturas distorsionadas. Reduce el rango Z del espacio de clip de -1\/1 a 0\/1, ya que algunos dispositivos Android tienen problemas de búfer de profundidad y recorte con el rango completo.",
+    "Settings.Compatibility.UseReducedZRange.Description": "Activa esto si experimentas problemas gráficos como partes invisibles del mundo cerca del jugador o texturas distorsionadas. Reduce el rango Z del espacio de clip de -1/1 a 0/1, ya que algunos dispositivos Android tienen problemas de búfer de profundidad y recorte con el rango completo.",
     "ScreenLayout.Single.Name": "Individual",
     "ScreenLayout.Single.Description": "Pantalla completa de un jugador",
     "ScreenLayout.DoubleVertical.Name": "Doble Vertical",
@@ -3316,6 +3320,25 @@
       "17": "Compatibilidad de Mods:",
       "18": "Reemplazo de Clases"
     },
+    "SettingsFontScreen": {
+      "1": "Ajustar Configuración de Fuentes",
+      "2": "Fuente de Texto:",
+      "3": "Fuente de Texto Negrita:",
+      "4": "Fuente de Texto Cursiva:",
+      "5": "Fuente de Texto Negrita Cursiva:",
+      "6": "Fuente Monoespaciada:",
+      "7": "Fuente Monoespaciada Negrita:",
+      "8": "Fuente Monoespaciada Cursiva:",
+      "9": "Fuente Monoespaciada Negrita Cursiva:",
+      "10": "Caracteres Ingleses Originales:",
+      "11": "Predeterminado del Sistema",
+      "12": "Basado en la Fuente de Texto",
+      "13": "Basado en la Fuente Monoespaciada",
+      "14": "Elegir Archivo...",
+      "15": "Lista de Archivos...",
+      "16": "Aún no se ha importado ninguna fuente.",
+      "17": "Fuente Integrada"
+    },
     "SettingsControlsScreen": [
       "Ajustar Configuración de Controles",
       "Control de Movimiento Táctil:",
@@ -3393,7 +3416,8 @@
       "4": "Interfaz de Usuario",
       "5": "Audio",
       "6": "Controles",
-      "7": "Compatibilidad"
+      "7": "Compatibilidad",
+      "9": "Fuentes"
     },
     "SettingsUiScreen": [
       "Ajustar Configuración de la Interfaz",
@@ -3401,7 +3425,7 @@
       "Modo de Pantalla:",
       "Tamaño de Interfaz:",
       "Volteo Vertical de Interfaz:",
-      "Ocultar Botones Mover\/Mirar:",
+      "Ocultar Botones Mover/Mirar:",
       "Mostrar IU en Capturas:",
       "Mostrar logo en Capturas:",
       "Resolución de Captura:",
@@ -3429,8 +3453,8 @@
       "1": "Cambiar Opciones del Mundo",
       "2": "Tipo de Terreno:",
       "3": "",
-      "4": "Tamaño de Isla Este\/Oeste:",
-      "5": "Tamaño de Isla Norte\/Sur:",
+      "4": "Tamaño de Isla Este/Oeste:",
+      "5": "Tamaño de Isla Norte/Sur:",
       "6": "Nivel de Terreno Plano:",
       "7": "Rugosidad de Costa en Terreno Plano:",
       "8": "Bloque de Terreno Plano:",
@@ -3488,7 +3512,7 @@
       "2": "Inventario"
     },
     "ClothingWidget": {
-      "1": "Cuerpo\/Comida",
+      "1": "Cuerpo/Comida",
       "2": "Inventario",
       "3": "",
       "4": ""
@@ -3761,12 +3785,12 @@
       "13": "Y",
       "14": "Cruceta Arriba",
       "15": "Cruceta Abajo",
-      "16": "Cruceta Izquierda\/Derecha",
-      "17": "Cruceta Arriba\/Abajo",
-      "18": "Atrás\/Seleccionar\/Pausa",
+      "16": "Cruceta Izquierda/Derecha",
+      "17": "Cruceta Arriba/Abajo",
+      "18": "Atrás/Seleccionar/Pausa",
       "19": "Gatillo Izquierdo + A",
       "20": "2xA",
-      "21": "A\/Botón Hombro Derecho",
+      "21": "A/Botón Hombro Derecho",
       "22": "movimiento",
       "23": "mirar",
       "24": "colocar bloque, usar, interactuar",
@@ -3782,17 +3806,17 @@
       "34": "montar criatura o bote",
       "35": "cambiar cámara",
       "36": "cambiar slot activo",
-      "37": "desplazarse, pág. ant.\/sig.",
+      "37": "desplazarse, pág. ant./sig.",
       "38": "mostrar menu de juego",
       "39": "mover objeto automáticamente",
       "40": "activar modo vuelo (creativo)",
-      "41": "volar arriba\/abajo (creativo)",
+      "41": "volar arriba/abajo (creativo)",
       "42": "Aceptar",
       "43": "Ayuda"
     },
     "KeyboardHelpDialog": {
       "1": "Controles de Teclado",
-      "2": "W\/A\/S\/D",
+      "2": "W/A/S/D",
       "3": "Mover Ratón",
       "4": "Espacio",
       "5": "Shift",
@@ -3807,7 +3831,7 @@
       "14": "L",
       "15": "0 a 9",
       "16": "2xEspacio o F",
-      "17": "Espacio\/Shift",
+      "17": "Espacio/Shift",
       "18": "Clic Izquierdo",
       "19": "Clic Derecho",
       "20": "Arrastrar con Clic Izquierdo",
@@ -3831,7 +3855,7 @@
       "38": "invocar rayo (creativo)",
       "39": "seleccionar slot de inventario",
       "40": "activar modo vuelo (creativo)",
-      "41": "volar arriba\/abajo (creativo)",
+      "41": "volar arriba/abajo (creativo)",
       "42": "excavar, atacar, apuntar",
       "43": "colocar bloque, usar, interactuar",
       "44": "mover todos los objetos",

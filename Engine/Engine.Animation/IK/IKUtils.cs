@@ -45,9 +45,7 @@ namespace Engine.Animation {
         /// 在模型空间中围绕骨骼当前位置施加旋转，确保关节不发生位移。
         /// 所有 IK 算法统一使用此方法应用旋转。
         /// </remarks>
-        public static void ApplyModelRotation(
-            Matrix?[] boneTransforms, int boneIndex,
-            Quaternion modelRotation, Vector3 worldPos, Model model) {
+        public static void ApplyModelRotation(Matrix?[] boneTransforms, int boneIndex, Quaternion modelRotation, Vector3 worldPos, Model model) {
             // 当前世界变换
             Matrix worldTransform = ComputeBoneWorldTransform(boneTransforms, boneIndex, model);
             worldTransform.Decompose(out Vector3 scale, out Quaternion worldRot, out _);
@@ -56,13 +54,12 @@ namespace Engine.Animation {
             Quaternion newWorldRot = modelRotation * worldRot;
 
             // 新世界变换（位置保持 worldPos）
-            Matrix newWorld = Matrix.CreateScale(scale)
-                * Matrix.CreateFromQuaternion(newWorldRot)
-                * Matrix.CreateTranslation(worldPos);
+            Matrix newWorld = Matrix.CreateScale(scale) * Matrix.CreateFromQuaternion(newWorldRot) * Matrix.CreateTranslation(worldPos);
 
             // 转回局部空间
             ModelBone bone = model.m_bones[boneIndex];
-            if (bone == null || bone.ParentBone == null) {
+            if (bone == null
+                || bone.ParentBone == null) {
                 boneTransforms[boneIndex] = newWorld;
             }
             else {
@@ -80,14 +77,13 @@ namespace Engine.Animation {
                 return Matrix.Invert(m);
             }
             Quaternion invRot = Quaternion.Inverse(rot);
-            Vector3 invScale = new Vector3(
+            Vector3 invScale = new(
                 MathF.Abs(scale.X) > 0.0001f ? 1f / scale.X : 0f,
                 MathF.Abs(scale.Y) > 0.0001f ? 1f / scale.Y : 0f,
-                MathF.Abs(scale.Z) > 0.0001f ? 1f / scale.Z : 0f);
+                MathF.Abs(scale.Z) > 0.0001f ? 1f / scale.Z : 0f
+            );
             Vector3 invTranslation = -translation;
-            return Matrix.CreateTranslation(invTranslation)
-                * Matrix.CreateFromQuaternion(invRot)
-                * Matrix.CreateScale(invScale);
+            return Matrix.CreateTranslation(invTranslation) * Matrix.CreateFromQuaternion(invRot) * Matrix.CreateScale(invScale);
         }
 
         /// <summary>
@@ -110,17 +106,16 @@ namespace Engine.Animation {
 
             // 复用栈缓冲区（绝大多数骨骼链不超过 64 层）
             int[] path = s_pathBuffer;
-            if (path == null || path.Length < depth) {
+            if (path == null
+                || path.Length < depth) {
                 path = new int[depth];
                 s_pathBuffer = path;
             }
-
             current = bone;
             for (int i = depth - 1; i >= 0; i--) {
                 path[i] = current.Index;
                 current = current.ParentBone;
             }
-
             Matrix worldTransform = Matrix.Identity;
             for (int i = 0; i < depth; i++) {
                 int idx = path[i];
@@ -131,7 +126,6 @@ namespace Engine.Animation {
         }
 
         // ComputeBoneWorldTransform 复用的路径缓冲区
-        [ThreadStatic]
-        private static int[] s_pathBuffer;
+        [ThreadStatic] static int[] s_pathBuffer;
     }
 }

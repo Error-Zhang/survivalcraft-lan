@@ -46,9 +46,11 @@ namespace Engine.Animation {
                 }
                     break;
                 case "clamp": {
-                    args.Result = Math.Clamp(Convert.ToSingle(args.Parameters.Evaluate(0)),
-                                             Convert.ToSingle(args.Parameters.Evaluate(1)),
-                                             Convert.ToSingle(args.Parameters.Evaluate(2)));
+                    args.Result = Math.Clamp(
+                        Convert.ToSingle(args.Parameters.Evaluate(0)),
+                        Convert.ToSingle(args.Parameters.Evaluate(1)),
+                        Convert.ToSingle(args.Parameters.Evaluate(2))
+                    );
                 }
                     break;
                 case "pi": args.Result = MathF.PI; break;

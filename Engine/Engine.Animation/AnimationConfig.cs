@@ -1,5 +1,5 @@
-using Engine.Animation.RootMotion;
 using System.Text.Json.Serialization;
+using Engine.Animation.RootMotion;
 
 namespace Engine.Animation {
     /// <summary>
@@ -138,7 +138,15 @@ namespace Engine.Animation {
     /// </summary>
     public class LayerConfig {
         /// <summary>
-        /// 混合模式：override 或 additive
+        /// 层混合顺序索引（小者先混合）。仅 template 未指定（内联层栈）时生效；
+        /// 省略时按 layers 声明顺序自动编号（0 起）。
+        /// 引用模板时层序由模板决定，此字段被忽略。
+        /// </summary>
+        public int? Index { get; set; }
+
+        /// <summary>
+        /// 混合模式：override 或 additive。仅 template 未指定（内联层栈）时作为该层的混合模式；
+        /// 引用模板时混合模式由模板决定，此字段被忽略。
         /// </summary>
         public string BlendMode { get; set; } = "override";
 
@@ -220,9 +228,13 @@ namespace Engine.Animation {
     /// </summary>
     public class AnimationConfig {
         /// <summary>
-        /// 模板名称
+        /// 模板名称。可选：
+        /// - 省略或空：使用本配置内联的 layers 定义层栈（见 <see cref="Layers"/>）；
+        ///   layers 也为空时退回默认 Simple 层栈（单 Base/Override 层）
+        /// - 非空：必须是已注册的模板（内置或 AnimationTemplates/*.template.json），
+        ///   此时 layers 仅作驱动器/遮罩/权重的按层覆盖
         /// </summary>
-        public string Template { get; set; } = "Simple";
+        public string Template { get; set; }
 
         /// <summary>
         /// 根骨骼旋转（度），用于修正模型朝向。
@@ -249,7 +261,8 @@ namespace Engine.Animation {
         public float ModelScale { get; set; } = 1f;
 
         /// <summary>
-        /// 层配置（在此配置驱动器及其属性）
+        /// 层配置。template 未指定时，此处的键集即层栈本体（可写 index/blendMode 定义拓扑）；
+        /// 引用模板时，此处的 bones/bonesExclude/weight/blendCurve/driver 按层名覆盖模板默认值
         /// </summary>
         public Dictionary<string, LayerConfig> Layers { get; set; } = new();
 

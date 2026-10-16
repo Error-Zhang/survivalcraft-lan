@@ -45,9 +45,16 @@ namespace Game
             // 文件型（家具包/材质/皮肤）导入会原地写目标 → 交带备份回滚的导入器，先备份再覆盖、失败还原。
             // World 不参与覆盖（见 FindExistingExternalContentName 注释）：游戏原生导入总建新目录
             // （World/World1/…自动编号），重复导入即天然副本，永远走普通导入。
-            if (overwriteExisting && !string.IsNullOrWhiteSpace(result.ExistingEntryFilePath))
+            if (overwriteExisting
+                && !string.IsNullOrWhiteSpace(result.ExistingEntryFilePath))
             {
-                return ImportExternalContentWithRollback(stream, result.Type, result.FileName, result.ExistingEntryFilePath);
+                // 字体引用键按盘上名归一：冲突检测 OrdinalIgnoreCase、槽位键 Ordinal——"Foo.TTF" 覆盖
+                // 已被引用的 "foo.ttf" 时若按新名落盘，槽位键变死引用且引用门=0 不刷新链
+                string importName = result.Type == ExternalContentType.Font
+                    && !string.IsNullOrWhiteSpace(result.ExistingEntryName)
+                        ? result.ExistingEntryName
+                        : result.FileName;
+                return ImportExternalContentWithRollback(stream, result.Type, importName, result.ExistingEntryFilePath);
             }
 
             // 原始字节透传：密文落盘、密文安装，引擎加载期自解密（ModsManager.GetScmods）。

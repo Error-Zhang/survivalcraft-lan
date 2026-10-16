@@ -384,6 +384,14 @@ namespace Game {
             float size,
             ref Matrix matrix,
             DrawBlockEnvironmentData environmentData);
+        /// <summary>
+        ///     独立即场景（掉落物/抛射物）绘制的容量需求自报：本方块一次绘制最多向哪些批次入队多少顶点/索引。
+        ///     SubsystemPickables/SubsystemProjectiles 增删实体时据此记账，绘制前对共享批次一次性预扩容
+        ///     （避免大批量入队在 DynamicArray 精确扩容策略下触发逐块 O(N²) 整段拷贝）。
+        ///     返回 null 表示不参与预扩容（走原生逐块扩容行为）；需求必须与 DrawBlock 实际路径一致，
+        ///     未自报的类保持默认（按六面体计，实际走 mesh 时仅多备容量无正确性问题）。
+        /// </summary>
+        public virtual BlockDrawDemand GetDrawDemand(int value, SubsystemTerrain subsystemTerrain) => BlockDrawDemand.Cube;
 
         /// <summary>
         ///     方块放置方向

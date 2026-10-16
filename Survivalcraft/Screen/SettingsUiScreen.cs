@@ -9,6 +9,7 @@ namespace Game {
         public ButtonWidget m_windowModeButton;
 
         public ButtonWidget m_languageButton;
+        public ButtonWidget m_fontButton;
 
         public ButtonWidget m_displayLogButton;
 
@@ -52,6 +53,7 @@ namespace Game {
             LoadContents(this, node);
             m_windowModeContainer = Children.Find<ContainerWidget>("WindowModeContainer");
             m_languageButton = Children.Find<ButtonWidget>("LanguageButton");
+            m_fontButton = Children.Find<ButtonWidget>("FontButton");
             m_displayLogButton = Children.Find<ButtonWidget>("DisplayLogButton");
             m_windowModeButton = Children.Find<ButtonWidget>("WindowModeButton");
             m_uiScaleSlider = Children.Find<SliderWidget>("UIScaleSlider");
@@ -71,7 +73,6 @@ namespace Game {
             m_screenshotSizeCustomWidthSlider = Children.Find<SliderWidget>("ScreenshotSizeCustomWidthSlider");
             m_screenshotSizeCustomAspectRatioSliderContainer = Children.Find<ContainerWidget>("ScreenshotSizeCustomAspectRatioSliderContainer");
             m_screenshotSizeCustomAspectRatioSlider = Children.Find<SliderWidget>("ScreenshotSizeCustomAspectRatioSlider");
-            m_communityContentModeButton = Children.Find<ButtonWidget>("CommunityContentModeButton");
             m_originalCommunityContentModeButton = Children.Find<ButtonWidget>("OriginalCommunityContentModeButton");
             m_deleteWorldNeedToTextButton = Children.Find<ButtonWidget>("DeleteWorldNeedToTextButton");
             int maxWidth = Math.Min(Display.MaxTextureSize, 16320);
@@ -106,6 +107,9 @@ namespace Game {
             }
             if (m_languageButton.IsClicked) {
                 LanguageControl.CreateLanguageSelectionDialog(null);
+            }
+            if (m_fontButton.IsClicked) {
+                ScreensManager.SwitchScreen("SettingsFont");
             }
             if (m_displayLogButton.IsClicked) {
                 SettingsManager.DisplayLog = !SettingsManager.DisplayLog;
@@ -169,10 +173,6 @@ namespace Game {
             if (m_deleteWorldNeedToTextButton.IsClicked) {
                 SettingsManager.DeleteWorldNeedToText = !SettingsManager.DeleteWorldNeedToText;
             }
-            if (m_communityContentModeButton.IsClicked) {
-                SettingsManager.CommunityContentMode = (CommunityContentMode)((int)(SettingsManager.CommunityContentMode + 1)
-                    % EnumUtils.GetEnumValues<CommunityContentMode>().Count);
-            }
             if (m_originalCommunityContentModeButton.IsClicked) {
                 SettingsManager.OriginalCommunityContentMode = (CommunityContentMode)((int)(SettingsManager.OriginalCommunityContentMode + 1)
                     % EnumUtils.GetEnumValues<CommunityContentMode>().Count);
@@ -194,7 +194,6 @@ namespace Game {
             m_screenshotSizeCustomWidthSlider.Text = SettingsManager.ScreenshotSizeCustomWidths[SettingsManager.ScreenshotSizeCustomWidthIndex].ToString();
             m_screenshotSizeCustomAspectRatioSlider.Text = SettingsManager.ScreenshotSizeCustomAspectRatiosNames[SettingsManager.ScreenshotSizeCustomAspectRatioIndex];
             m_deleteWorldNeedToTextButton.Text = SettingsManager.DeleteWorldNeedToText ? LanguageControl.Yes : LanguageControl.No;
-            m_communityContentModeButton.Text = LanguageControl.Get("CommunityContentMode", SettingsManager.CommunityContentMode.ToString());
             m_originalCommunityContentModeButton.Text = LanguageControl.Get(
                 "CommunityContentMode",
                 SettingsManager.OriginalCommunityContentMode.ToString()
@@ -202,7 +201,7 @@ namespace Game {
             if (Input.Back
                 || Input.Cancel
                 || Children.Find<ButtonWidget>("TopBar.Back").IsClicked) {
-                ScreensManager.SwitchScreen(ScreensManager.PreviousScreen);
+                ScreensManager.GoBack();
             }
         }
     }

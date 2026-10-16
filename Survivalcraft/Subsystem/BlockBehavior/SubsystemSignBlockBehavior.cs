@@ -59,7 +59,14 @@ namespace Game {
 
         public List<TextData> m_nearTexts = [];
 
-        public BitmapFont m_font = LabelWidget.BitmapFont;
+        public BitmapFont m_font = FontManager.FallbackBitmapFont;
+
+        // 矢量字体链（P4）：非 null 时牌告文本走矢量渲染（RenderText 分流），null 退位图路径零改动；
+        // 链内缺字由 DrawText 的位图回退段兜底
+        public VectorFont m_vectorFont = FontManager.DefaultChain;
+
+        // 矢量字形 sink（跨 RT 更新复用，批按纹理缓存在 renderer 内；类型嵌套 internal 故字段 internal）
+        internal FontTextWidget.VectorGlyphSink m_vectorTextSink;
 
         public RenderTarget2D m_renderTarget;
 
@@ -328,6 +335,12 @@ namespace Game {
                 }
             }
             if (list.Count > 0) {
+                if (m_vectorFont != null) {
+                    // 矢量分流：槽位几何/UV 全部沿用 m_font 位图口径（CreateRenderTarget、DrawSigns 零改），
+                    // 仅字形绘制源换链；fontBatch 留给重写 RenderText 的模组位图路径
+                    RenderTextVector(m_vectorFont, list, list2, textData);
+                    return;
+                }
                 float num = list.Max(l => l.Length) * m_font.GlyphHeight * m_fontScale;
                 float num2 = list.Count * m_font.GlyphHeight * m_fontScale;
                 float num3 = 4f;
@@ -361,6 +374,52 @@ namespace Game {
                 textData.UsedTextureWidth = num4;
                 textData.UsedTextureHeight = num5;
             }
+        }
+
+        // 矢量牌告行绘制（RenderText 矢量分流，v1 无阴影/无字距）：行高带沿用位图口径
+        //（m_font.GlyphHeight×m_fontScale），矢量字号按链 LineHeight 折算使行盒恰填行带；
+        // 行宽实量测（bitmap 侧字符数×GlyphHeight 估算），横带/纵带判定与 UsedTextureWidth/Height
+        // 输出同位图分支同式（UV 映射在 DrawSigns 不分渲染源）；
+        // HorizontalCenter 锚手动居中（VectorFont.DrawText 无锚点，RT 空间 GT 恒等无 gt 补偿）
+        public virtual void RenderTextVector(VectorFont vectorFont, List<string> lines, List<Color> colors, TextData textData) {
+            float lineHeight = m_font.GlyphHeight * m_fontScale;
+            float vectorSize = vectorFont.DefaultSize * lineHeight / vectorFont.LineHeight;
+            float num = lines.Max(l => vectorFont.MeasureString(l, vectorSize, false, false).X);
+            float num2 = lines.Count * lineHeight;
+            float num3 = 4f;
+            float num4;
+            float num5;
+            if (num / num2 < num3) {
+                num4 = num2 * num3;
+                num5 = num2;
+            }
+            else {
+                num4 = num;
+                num5 = num / num3;
+            }
+            bool flag = !string.IsNullOrEmpty(textData.Url);
+            m_vectorTextSink ??= new FontTextWidget.VectorGlyphSink(m_primitivesRenderer2D, SamplerState.LinearClamp);
+            for (int j = 0; j < lines.Count; j++) {
+                float lineWidth = vectorFont.MeasureString(lines[j], vectorSize, false, false).X;
+                m_vectorTextSink.Pivot = new Vector2(
+                    num4 / 2f - lineWidth / 2f,
+                    j * lineHeight
+                    + textData.TextureLocation.Value * (4f * lineHeight)
+                    + (num5 - num2) / 2f
+                );
+                vectorFont.DrawText(
+                    m_vectorTextSink,
+                    lines[j],
+                    Vector2.Zero,
+                    flag ? new Color(0, 0, 64) : colors[j],
+                    vectorSize,
+                    false,
+                    false,
+                    0f
+                );
+            }
+            textData.UsedTextureWidth = num4;
+            textData.UsedTextureHeight = num5;
         }
 
         public virtual void UpdateRenderTarget() {

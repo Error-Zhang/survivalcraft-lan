@@ -24,6 +24,10 @@ namespace Game {
 
             public T[][] m_data;
 
+            /// <summary>非 null 桶的 index 列表（Set 新桶时追加），供遍历跳过空桶；
+            /// 全量扫描 4096×4096 = 16.7M 槽是巨型爆炸冻结的主要组成之一。遍历前须 Sort 升序。</summary>
+            public readonly List<int> m_activeBuckets = [];
+
             public T m_outside;
 
             public SparseSpatialArray(int centerX, int centerY, int centerZ, T outside) {
@@ -79,6 +83,7 @@ namespace Game {
                     if (array == null) {
                         array = new T[4096];
                         m_data[num4] = array;
+                        m_activeBuckets.Add(num4);
                     }
                     int num5 = x & 0xF;
                     int num6 = y & 0xF;
@@ -92,26 +97,42 @@ namespace Game {
                 for (int i = 0; i < m_data.Length; i++) {
                     m_data[i] = null;
                 }
+                m_activeBuckets.Clear();
+            }
+
+            /// <summary>
+            /// 按桶序升序+桶内槽序升序枚举全部非零条目——与原 ToDictionary 遍历完全同序
+            /// （消费点 1 的 pressure 累积依赖该顺序），但不分配中转字典。
+            /// 槽级零值判定要求 T 的判等走 IEquatable 路径（struct 未实现时 EqualityComparer 会退化为反射+装箱）。
+            /// </summary>
+            public IEnumerable<KeyValuePair<Point3, T>> NonDefaultEntries() {
+                if (m_activeBuckets.Count > 1) {
+                    m_activeBuckets.Sort();
+                }
+                for (int i = 0; i < m_activeBuckets.Count; i++) {
+                    int num = m_activeBuckets[i];
+                    T[] array = m_data[num];
+                    if (array == null) {
+                        continue;
+                    }
+                    int num2 = m_originX + ((num & 0xF) << 4);
+                    int num3 = m_originY + (((num >> 4) & 0xF) << 4);
+                    int num4 = m_originZ + (((num >> 8) & 0xF) << 4);
+                    for (int j = 0; j < array.Length; j++) {
+                        if (!EqualityComparer<T>.Default.Equals(array[j], default)) {
+                            int num5 = j & 0xF;
+                            int num6 = (j >> 4) & 0xF;
+                            int num7 = (j >> 8) & 0xF;
+                            yield return new KeyValuePair<Point3, T>(new Point3(num2 + num5, num3 + num6, num4 + num7), array[j]);
+                        }
+                    }
+                }
             }
 
             public Dictionary<Point3, T> ToDictionary() {
                 Dictionary<Point3, T> dictionary = new();
-                for (int i = 0; i < m_data.Length; i++) {
-                    T[] array = m_data[i];
-                    if (array == null) {
-                        continue;
-                    }
-                    int num = m_originX + ((i & 0xF) << 4);
-                    int explosionPower = m_originY + (((i >> 4) & 0xF) << 4);
-                    int num3 = m_originZ + (((i >> 8) & 0xF) << 4);
-                    for (int j = 0; j < array.Length; j++) {
-                        if (!Equals(array[j], default(T))) {
-                            int num4 = j & 0xF;
-                            int num5 = (j >> 4) & 0xF;
-                            int num6 = (j >> 8) & 0xF;
-                            dictionary.Add(new Point3(num + num4, explosionPower + num5, num3 + num6), array[j]);
-                        }
-                    }
+                foreach (KeyValuePair<Point3, T> entry in NonDefaultEntries()) {
+                    dictionary.Add(entry.Key, entry.Value);
                 }
                 return dictionary;
             }
@@ -148,10 +169,22 @@ namespace Game {
             public int Axis;
         }
 
-        public struct SurroundingPressurePoint {
+        public struct SurroundingPressurePoint : IEquatable<SurroundingPressurePoint> {
             public float Pressure;
 
             public bool IsIncendiary;
+
+            public bool Equals(SurroundingPressurePoint other) =>
+                Pressure == other.Pressure && IsIncendiary == other.IsIncendiary;
+
+            public override bool Equals(object obj) =>
+                obj is SurroundingPressurePoint other && Equals(other);
+
+            public override int GetHashCode() => HashCode.Combine(Pressure, IsIncendiary);
+
+            public static bool operator ==(SurroundingPressurePoint left, SurroundingPressurePoint right) => left.Equals(right);
+
+            public static bool operator !=(SurroundingPressurePoint left, SurroundingPressurePoint right) => !left.Equals(right);
         }
 
         public SubsystemTerrain m_subsystemTerrain;
@@ -745,7 +778,7 @@ namespace Game {
             Point3 point = Point3.Zero;
             float num = float.MaxValue;
             float pressure = 0f;
-            foreach (KeyValuePair<Point3, float> item in m_pressureByPoint.ToDictionary()) {
+            foreach (KeyValuePair<Point3, float> item in m_pressureByPoint.NonDefaultEntries()) {
                 pressure += item.Value;
                 float num3 = m_subsystemAudio.CalculateListenerDistance(new Vector3(item.Key));
                 if (num3 < num) {
@@ -772,7 +805,7 @@ namespace Game {
                     return false;
                 }
             );
-            foreach (KeyValuePair<Point3, SurroundingPressurePoint> item2 in m_surroundingPressureByPoint.ToDictionary()) {
+            foreach (KeyValuePair<Point3, SurroundingPressurePoint> item2 in m_surroundingPressureByPoint.NonDefaultEntries()) {
                 int cellValue = m_subsystemTerrain.Terrain.GetCellValue(item2.Key.X, item2.Key.Y, item2.Key.Z);
                 int num6 = Terrain.ExtractContents(cellValue);
                 SubsystemBlockBehavior[] blockBehaviors = m_subsystemBlockBehaviors.GetBlockBehaviors(Terrain.ExtractContents(cellValue));

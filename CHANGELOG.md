@@ -2,6 +2,93 @@
 
 > 说明：此更新日志和发布页的更新日志略有不同
 
+## API 1.9.5.1 (2026-10-13)
+
+### 调整
+
+* 大幅提升出现大量掉落物、抛射物、粒子时的性能，从而将超大爆炸卡顿时间降低至原来的千分之一以下
+
+### 修复
+
+* 系统默认字体为 CFF2 格式时无法进入游戏主界面的问题，以及字体相关的各种小问题
+
+### 面向开发者
+
+* BaseTexturedBatch 新增 EnsureCapacity 方法，通过提前准确扩容来极大提高性能；使用自定义模型的方块，建议 override Block 类的新虚方法 GetDrawDemand，这样就会自动在 SubsystemPickables 等子系统准确扩容
+* 新增 VectorFontBatch3D、VectorFontSink3D 类，可在 3D 空间中绘制矢量字体
+* FontTextWidget 新增 StrokeWidth、StrokeColor 属性（描边）
+* 修复了实体模型动画驱动器蒙皮枢轴丢失问题
+
+## API 1.9.5 (2026-10-11)
+
+### 新增
+
+* iOS、浏览器以外平台默认使用系统默认字体，可通过`设置-界面-字体`来改回内置字体，或导入你喜欢的字体
+
+> 说明：iOS 平台不支持获取系统字体；浏览器平台支持获取系统字体，但需要手动给予权限
+
+## 调整
+
+* 源码仓库从 Gitee 迁移到 Atomgit
+* 修改语言后，不会回到主界面，如果在存档中修改语言，可能需要退出存档重进，才能看到变化
+* 链接默认有下划线
+
+### 修复
+
+* 上个版本引入的 Android 平台一系列渲染问题（例如生物图鉴屏打不开、闪电不显示、火焰卡顿）
+* 上个版本引入的底部物品栏背景色错误
+* API 版本列表屏获取不到完整发布列表
+
+### 对于开发者
+
+* 新增矢量字体相关支持，详见 FontManager、VectorFont 类
+* FontTextWidget 新增 VectorFont 以及多种文字装饰相关属性
+* ModLoader 新增钩子：DisplaySmallMessage、OnTerrainCreated、OnTerrainChunkCreated、BeforeTerrainSave、OnTerrainDraw、OnBlockGeometryGeneratorCreated、FindTerrainCollisionBoxes、OnBuildingBodyFontChainEntries、OnBuildingMonoFontChainEntries、OnFontChainsRebuilt
+
+## API 1.9.4 (2026-10-07)
+
+### 新增
+
+* 完整支持全新中文社区（即内置 [社区扩展模组](https://test.suancaixianyu.cn/#/post/1755)）
+* 来自 Ka27_27, 的土耳其语翻译
+
+### 改进
+
+* Windows 平台内置 Angle 兼容补丁，GPU 驱动不支持 OpenGL ES 3.2 时自动启用
+* API 版本列表渲染改进
+* 一些性能相关改进，游戏帧数将略有提高，如遇到模组兼容问题，请在游戏兼容性设置中启用“强制 32 位顶点索引”
+
+### 修复
+
+* 吃饱后继续进食时，食物消失的问题
+* 安卓使用蓝牙鼠标时，转动视角不顺畅的问题
+* 修复文本框存在的多个已知问题
+
+### 对于开发者
+
+* modinfo.json 中的依赖部分能设置依赖缺失时要显示的名称和链接，便于玩家找到所需依赖，示例如下，详情[点此查看](docs/ModInfoConfig.md#dependencies-依赖关系)
+```json
+{
+    "Dependencies": {
+        "PackageNameOfModA": {
+            "Name": "ModA",
+            "Version": "1.2",
+            "Link": "https://..."
+        }
+    }
+}
+```
+* 新增来自 [社区扩展模组](https://test.suancaixianyu.cn/#/post/1755) 的整合包支持，配置指南详见[此处](docs/ModPackConfig.md)
+* 新增 MarkdownWidget、HtmlWidget 用于渲染 Markdown 和 HTML（仅限基本支持）
+* 新增 FlexPanelWidget、TablePanelWidget 两种实用容器组件
+* 支持鼠标横向滚轮（Mouse.MouseWheelMovementX、WidgetInput.MouseWheelMovementX）
+* 新增 OnStartMounting、OnStartDismounting 钩子（开始骑乘、结束骑乘）
+* 修复 ChangeSkyColor 钩子阻断式调度，让多个该钩子能正常运行
+* IndexBuffer 支持按顶点池动态选择索引格式（`ushort`/`int`）与 SetData 智能转换，并在游戏兼容性设置中增加“强制 32 位顶点索引”开关
+* Storage 新增多个实用辅助方法，并改进部分已有方法
+* 在 Texture2D、JsInterface 为引用不规范模组添加一些辅助方法
+* 修正[架构文档](docs/Architecture.md)中的错误
+
 ## API 1.9.3.1 (2026-08-01)
 
 ### 改进
@@ -194,9 +281,9 @@
 ### 对于开发者
 
 * 对于新增的 glTF 格式模型支持，你可以参考 [SurvivalcraftTemplateModForAPI](https://github.com/XiaofengdiZhu/SurvivalcraftTemplateModForAPI) 和 [AdvancedGltfFoxMod](https://github.com/XiaofengdiZhu/AdvancedGltfFoxModForSC) 来添加模型、配置动画；通过前面两个示例模组项目来学习是最快的，你还可以选择阅读以下文档来学习：
-  * [glTF 生物模组开发教程](https://gitee.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/GltfCreatureModTutorial.md)
-  * [动画配置 JSON 参考](https://gitee.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/AnimationConfigReference.md)
-  * [动画系统高级主题](https://gitee.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/AnimationAdvancedTopics.md)
+  * [glTF 生物模组开发教程](https://atomgit.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/GltfCreatureModTutorial.md)
+  * [动画配置 JSON 参考](https://atomgit.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/AnimationConfigReference.md)
+  * [动画系统高级主题](https://atomgit.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/AnimationAdvancedTopics.md)
 * 为方块添加可供重写的方法 `GetIsCollidable`，可判断身体组件与某特定方块是否可发生碰撞
 
 > 本次更新几乎完全由 [Claude Code](https://claude.com/product/claude-code) + [智谱 GLM-5.1](https://docs.bigmodel.cn/cn/guide/models/text/glm-5.1) 完成
@@ -265,16 +352,16 @@
 **<center>欢迎来到 AI 模组开发时代！</center>**
 **<center>推荐使用 HarmonyX 注入方法！</center>**
 
-* 新增适合 AI Agent 从零开始开发模组的文档 [docs/HowToDevelopAMod.md](https://gitee.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/HowToDevelopAMod.md)，你可以尝试向你的 AI Agent 这么说，就能快速得到一个可用的模组（可能存在少量问题）
+* 新增适合 AI Agent 从零开始开发模组的文档 [docs/HowToDevelopAMod.md](https://atomgit.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/HowToDevelopAMod.md)，你可以尝试向你的 AI Agent 这么说，就能快速得到一个可用的模组（可能存在少量问题）
 
 ```
 请阅读此文档，帮我做一个在游戏中显示当前天气+距离晴天/下雨还有多久的生存战争插件版模组，最后把做好的 .scmod 文件发给我
-https://gitee.com/SC-SPM/SurvivalcraftApi/raw/SCAPI1.9/docs/HowToDevelopAMod.md
+https://atomgit.com/SC-SPM/SurvivalcraftApi/raw/SCAPI1.9/docs/HowToDevelopAMod.md
 ```
 > AI Agent： 例如 [OpenClaw](https://openclaw.ai/)、[Claude Code](https://claude.com/product/claude-code)、[OpenCode](https://opencode.ai/)、[CodeBuddy](https://www.codebuddy.cn/)
 
-* 项目结构已重构，详见新增的 [架构文档](https://gitee.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/Architecture.md)
-* 新增多篇 AI 生成技术文档，详见 [docs](https://gitee.com/SC-SPM/SurvivalcraftApi/tree/SCAPI1.9/docs)
+* 项目结构已重构，详见新增的 [架构文档](https://atomgit.com/SC-SPM/SurvivalcraftApi/blob/SCAPI1.9/docs/Architecture.md)
+* 新增多篇 AI 生成技术文档，详见 [docs](https://atomgit.com/SC-SPM/SurvivalcraftApi/tree/SCAPI1.9/docs)
 * 新增 [HarmonyX](https://github.com/BepInEx/HarmonyX) 包引用，通过它你可以非常方便地注入、修改、替换方法，使用方法详见此处：[HarmonyX Wiki](https://github.com/BepInEx/HarmonyX/wiki)
 * 改进以下三个 xml 数据文件的合并方式（旧写法仍然兼容），同时新增一个专门用来移除继承来的组件的空组件 `ComponentNoEffect`
 
@@ -409,7 +496,7 @@ startActivity(Intent().apply {
 ### 新增
 * Android 系统打开或分享`.scworld`、`.scmod`等格式文件时，如选择插件版，文件将自动导入到合适的位置，不再需要手动在文件管理器手动复制粘贴了；Windows 系统同理，第一次运行插件版后，将可以直接双击这些格式的文件来导入
 * Android 系统上导出存档、家具包等文件后，能立即进行分享
-* 再次支持 iOS 系统，安装注意事项详见[此处](https://gitee.com/SC-SPM/SurvivalcraftApi#iosipados-%E7%B3%BB%E7%BB%9F%E7%9C%8B%E8%BF%99%E9%87%8C)
+* 再次支持 iOS 系统，安装注意事项详见[此处](https://atomgit.com/SC-SPM/SurvivalcraftApi#iosipados-%E7%B3%BB%E7%BB%9F%E7%9C%8B%E8%BF%99%E9%87%8C)
 * 创建世界时可编辑真种子（并在多个位置显示真种子），可选择地形生成器版本
 * 扩大创建世界时多个选项的范围，包括：岛屿大小、生物群落大小、年天数、平坦地面方块、海平面高度
 * 界面设置新增自定义截图分辨率

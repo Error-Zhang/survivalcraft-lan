@@ -160,7 +160,10 @@
     "8": "Todos os Itens",
     "9": "Tem certeza?",
     "10": "Item inválido.",
-    "11": "A configuração foi alterada. Você deseja recarregá-la?"
+    "11": "A configuração foi alterada. Você deseja recarregá-la?",
+    "12": " | em {0} slot(s) de fonte",
+    "13": "Fonte | {0}",
+    "14": "[{0}] será excluída irrecuperavelmente.\n(usada por {1} slot(s) de fonte, eles voltarão à fonte padrão)"
   },
   "MainMenuScreen": {
     "1": "Falha ao obter o anúncio",
@@ -211,6 +214,7 @@
     "20": "Concluído",
     "21": "Caminho: ",
     "Directory": "Diretório",
+    "Font": "Fonte",
     "World": "Mundo",
     "Blocks Texture": "Textura de Blocos",
     "Character Skin": "Pele de Personagem",
@@ -3321,6 +3325,25 @@
       "17": "Compatibilidade de Mod:",
       "18": "Gerenciar Substituição de Classe"
     },
+    "SettingsFontScreen": {
+      "1": "Ajustar Configurações de Fonte",
+      "2": "Fonte do Corpo:",
+      "3": "Fonte do Corpo Negrito:",
+      "4": "Fonte do Corpo Itálico:",
+      "5": "Fonte do Corpo Negrito Itálico:",
+      "6": "Fonte Monoespaçada:",
+      "7": "Fonte Monoespaçada Negrito:",
+      "8": "Fonte Monoespaçada Itálico:",
+      "9": "Fonte Monoespaçada Negrito Itálico:",
+      "10": "Caracteres Ingleses Originais:",
+      "11": "Padrão do Sistema",
+      "12": "Com Base na Fonte do Corpo",
+      "13": "Com Base na Fonte Monoespaçada",
+      "14": "Escolher Arquivo...",
+      "15": "Lista de Arquivos...",
+      "16": "Nenhuma fonte foi importada ainda.",
+      "17": "Fonte Integrada"
+    },
     "SettingsControlsScreen": [
       "Ajustar Configurações de Controles",
       "Controle de Movimento na Tela de Toque:",
@@ -3398,7 +3421,8 @@
       "4": "Interface do Usuário",
       "5": "Áudio",
       "6": "Controles",
-      "7": "Compatibilidade"
+      "7": "Compatibilidade",
+      "9": "Fontes"
     },
     "SettingsUiScreen": [
       "Ajustar Configurações da Interface do Usuário",

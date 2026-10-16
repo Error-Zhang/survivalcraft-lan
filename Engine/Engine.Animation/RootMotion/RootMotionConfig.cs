@@ -268,8 +268,13 @@ namespace Engine.Animation.RootMotion {
         /// 运行时 ApplyRootMotionPhysics 仍读各具体字段，本属性仅供配置便捷。
         /// </summary>
         public bool DisableAll {
-            get => DisableGravity && DisableTerrainCollision && DisableInputMovement
-                && ClearVelocityOnExit && DisableAirDrag && DisableWaterDrag && DisableGroundDrag;
+            get => DisableGravity
+                && DisableTerrainCollision
+                && DisableInputMovement
+                && ClearVelocityOnExit
+                && DisableAirDrag
+                && DisableWaterDrag
+                && DisableGroundDrag;
             set {
                 DisableGravity = value;
                 DisableTerrainCollision = value;

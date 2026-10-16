@@ -65,10 +65,6 @@ namespace Game {
             return result;
         }
 
-        // （游戏侧裁定）仓库 release 来源检查（CheckRepositoryUpdateAsync）随自更新删除令
-        // 4126a14e 的 RepositoryRelease* 处置一并裁掉：游戏无 Gitee release 客户端，
-        // 更新检查仅走社区帖源。LocalModRepositoryUpdateRequest DTO 保留于已移植模型备用。
-
         static LocalModUpdateCheckResult CreateCheckResult(LocalModCommunityUpdateRequest request) => new() {
             RequestId = request.RequestId,
             ResourceKey = request.ResourceKey,

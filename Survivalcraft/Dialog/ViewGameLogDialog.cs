@@ -6,7 +6,7 @@ namespace Game {
     public class ViewGameLogDialog : Dialog {
         public ListPanelWidget m_listPanel;
 
-        public ButtonWidget m_copyButton, m_filterButton, m_closeButton, m_uploadButton, m_clearButton;
+        public ButtonWidget m_copyButton, m_filterButton, m_closeButton, m_hintButton, m_clearButton;
 
         public LogType m_filter;
 
@@ -28,7 +28,7 @@ namespace Game {
             m_filterButton = Children.Find<ButtonWidget>("ViewGameLogDialog.Filter");
             m_filterButton.Style = ContentManager.Get<XElement>("Styles/ButtonStyle_160x60");
             m_closeButton = Children.Find<ButtonWidget>("ViewGameLogDialog.Close");
-            m_uploadButton = Children.Find<ButtonWidget>("ViewGameLogDialog.Upload");
+            m_hintButton = Children.Find<ButtonWidget>("ViewGameLogDialog.Hint");
             m_headText = Children.Find<LabelWidget>("HeadText");
             m_adviceText = Children.Find<LabelWidget>("AdviceText");
             m_listPanel.ItemClicked += delegate (object item) {
@@ -64,6 +64,12 @@ namespace Game {
                 m_filter = m_filter < LogType.Warning ? LogType.Warning :
                     m_filter < LogType.Error ? LogType.Error : LogType.Debug;
                 PopulateList();
+            }
+            if (m_hintButton.IsClicked) {
+                DialogsManager.ShowDialog(
+                    null,
+                    new MessageDialog(LanguageControl.Get(fName, "18"), LanguageControl.Get(fName, "19"), LanguageControl.Ok, null, null)
+                );
             }
             if (Input.Cancel
                 || m_closeButton.IsClicked) {
@@ -147,9 +153,8 @@ namespace Game {
                         return false;
                     }
                 );
-                return new LabelWidget {
+                return new FontTextWidget {
                     Text = text,
-                    Font = LabelWidget.BitmapFont,
                     HorizontalAlignment = WidgetAlignment.Near,
                     VerticalAlignment = WidgetAlignment.Center,
                     FontScale = 0.6f,

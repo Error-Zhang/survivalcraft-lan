@@ -22,7 +22,9 @@ namespace Engine.Animation {
             if (reader.TokenType == JsonTokenType.StartObject) {
                 float x = 0, y = 0, z = 0;
                 while (reader.Read()) {
-                    if (reader.TokenType == JsonTokenType.EndObject) break;
+                    if (reader.TokenType == JsonTokenType.EndObject) {
+                        break;
+                    }
                     string prop = reader.GetString();
                     reader.Read();
                     switch (prop?.ToUpperInvariant()) {

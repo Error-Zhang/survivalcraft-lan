@@ -39,6 +39,11 @@ namespace Game {
             }
         }
 
+        public override Texture2D QuadDemandTexture => m_texture;
+
+        // per-particle UseAdditiveBlending 运行时可变，按容量上界两侧各报一份：纯 alpha 系统的 additive 侧预留不会入队（仅容量占用）
+        public override QuadDemandByBlend MaxQuadDemand => new QuadDemandByBlend { Additive = m_particles.Length, Alpha = m_particles.Length };
+
         public override void Draw(Camera camera) {
             if (AdditiveBatch == null
                 || AlphaBlendedBatch == null) {

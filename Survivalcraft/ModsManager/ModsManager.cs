@@ -17,16 +17,16 @@ using XmlUtilities;
 using ZipArchive = Game.ZipArchive;
 public static class ModsManager {
     public static string ModSuffix = ".scmod";
-    public static string APIVersionString = "1.9.3.2";
+    public static string APIVersionString = "1.9.5.1";
     public static string ShortAPIVersionString = "1.9";
-    public static NuGetVersion APINuGetVersion = new(1, 9, 3, 2);
+    public static NuGetVersion APINuGetVersion = new(1, 9, 5, 1);
     public static string GameVersion = "2.4.0.0";
     public static string ShortGameVersion = "2.4";
-    public static string ReportLink = "https://gitee.com/SC-SPM/SurvivalcraftApi/issues";
-    public static string APILatestReleaseLink_API = "https://gitee.com/api/v5/repos/SC-SPM/SurvivalcraftApi/releases/latest";
-    public static string APILatestReleaseLink_Client = "https://gitee.com/SC-SPM/SurvivalcraftApi/releases/latest";
-    public static string APIReleasesLink_API = "https://gitee.com/api/v5/repos/SC-SPM/SurvivalcraftApi/releases";
-    public static string APIReleasesLink_Client = "https://gitee.com/SC-SPM/SurvivalcraftApi/releases/";
+    public static string ReportLink = "https://atomgit.com/SC-SPM/SurvivalcraftApi/issues";
+    public static string APILatestReleaseLink_API = "https://atomgit.com/api/v5/repos/SC-SPM/SurvivalcraftApi/releases/latest";
+    public static string APILatestReleaseLink_Client = "https://atomgit.com/SC-SPM/SurvivalcraftApi/releases/latest";
+    public static string APIReleasesLink_API = "https://atomgit.com/api/v5/repos/SC-SPM/SurvivalcraftApi/releases?page=1&per_page=100&direction=desc";
+    public static string APIReleasesLink_Client = "https://atomgit.com/SC-SPM/SurvivalcraftApi/releases/";
     public static string fName = "ModsManager";
 
     [Obsolete("使用ApiVersionString")]
@@ -66,6 +66,7 @@ public static class ModsManager {
     public static string ConfigsPath { get; } = $"{DocPath}/Configs.xml";
     public static string LogPath { get; } = $"{ExternalPath}/Bugs";
     public static string ModsPath = $"{ExternalPath}/Mods";
+    public static string FontsPath { get; } = $"{DocPath}/Fonts";
 #if ANDROID
     public static string InternalModsPath => "app:/InternalMods";
 #else

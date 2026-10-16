@@ -281,6 +281,14 @@ namespace Game {
 
         public override void GenerateTerrainVertices(BlockGeometryGenerator generator, TerrainGeometry geometry, int value, int x, int y, int z) { }
 
+        public override BlockDrawDemand GetDrawDemand(int value, SubsystemTerrain subsystemTerrain) {
+            ClothingData clothingData = GetClothingData(value);
+            if (clothingData == null) {
+                return null;
+            }
+            return BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, clothingData.IsOuter ? m_outerMesh : m_innerMesh);
+        }
+
         public override void DrawBlock(PrimitivesRenderer3D primitivesRenderer,
             int value,
             Color color,

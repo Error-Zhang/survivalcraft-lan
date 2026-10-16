@@ -32,13 +32,6 @@ namespace Game {
             m_manageModpackButton = Children.Find<BevelledButtonWidget>("ManageModpack");
         }
 
-        public override void Enter(object[] parameters) {
-            base.Enter(parameters);
-#if RELEASE
-            CommunityContentManager.IsAdmin(new CancellableProgress(), delegate(bool isAdmin) { m_isAdmin = isAdmin; }, _ => { });
-#endif
-        }
-
         public void OpenManageSelectDialog() {
             List<string> list = [LanguageControl.Get(fName, 1), LanguageControl.Get(fName, 2)];
             if (m_isAdmin) {
@@ -68,7 +61,8 @@ namespace Game {
         }
 
         public override void Update() {
-            m_communityContentButton.IsEnabled = SettingsManager.CommunityContentMode != CommunityContentMode.Disabled && SettingsManager.OriginalCommunityContentMode != CommunityContentMode.Disabled;
+            //m_communityContentButton.IsEnabled = SettingsManager.CommunityContentMode != CommunityContentMode.Disabled && SettingsManager.OriginalCommunityContentMode != CommunityContentMode.Disabled;
+            m_communityContentButton.IsEnabled = true;
             if (m_externalContentButton.IsClicked) {
                 ScreensManager.SwitchScreen("ExternalContent");
             }

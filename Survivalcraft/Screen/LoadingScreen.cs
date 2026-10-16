@@ -122,7 +122,9 @@ namespace Game {
             Canvas.AddChildren(busyBar);
             AddChildren(Canvas);
             m_isContentLoaded = true;
-            Task.Run(() => { _ = ContentManager.Get<Image>("Fonts/Pericles", ".webp"); });
+            Task.Run(() => {
+                _ = ContentManager.Get<Image>("Fonts/Pericles", ".webp");
+            });
         }
 
         // 日志已经附带状态，不需要添加状态字符串
@@ -591,6 +593,7 @@ namespace Game {
 #endif
                 }
             );
+            AddLoadAction(FontManager.Initialize); //默认矢量链同步构建：必须在语言初始化之后（Android AFontMatcher 按 CurrentLanguageName 选 CJK 面）且先于全部屏构建
             AddLoadAction(ModsManager.ParseAllModSettings); //语言已加载（日志可国际化）+ 模组 dll 已加载（类型可解析）
 #if !IOS && !BROWSER
             AddLoadAction(
@@ -780,6 +783,7 @@ namespace Game {
             AddLoadAction(delegate { AddScreen("SettingsMultiplayer", new SettingsMultiplayerScreen()); });
             AddLoadAction(delegate { AddScreen("SettingsCompatibility", new SettingsCompatibilityScreen()); });
             AddLoadAction(delegate { AddScreen("SettingsAudio", new SettingsAudioScreen()); });
+            AddLoadAction(delegate { AddScreen("SettingsFont", new SettingsFontScreen()); });
             AddLoadAction(delegate { AddScreen("SettingsControls", new SettingsControlsScreen()); });
             AddLoadAction(delegate { AddScreen("Play", new PlayScreen()); });
             AddLoadAction(delegate { AddScreen("NewWorld", new NewWorldScreen()); });

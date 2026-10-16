@@ -16,9 +16,14 @@
     "7": "Chưa đăng nhập Dropbox trong ứng dụng này.",
     "8": "Không tìm thấy thông tin chia sẻ."
   },
+  "ChineseCommunityExternalContentProvider": {
+    "LoggedIn": "Đã đăng nhập",
+    "NotLoggedIn": "Chưa đăng nhập",
+    "CannotFindLocalFile": "Không tìm thấy tệp nội bộ"
+  },
   "FurnitureBlock": [
     "Kết hợp đồ nội thất thành thiết kế tương tác",
-    "Quá nhiều thiết kế nội thất khác nhau"
+    "Có quá nhiều thiết kế đồ nội thất khác nhau"
   ],
   "MemoryBankBlockBehavior": {
     "1": "Chọn Loại Trình Soạn thảo",
@@ -47,6 +52,13 @@
   "AndroidSdCardExternalContentProvider": {
     "1": "Thẻ SD"
   },
+  "CommunityMyPublishedScreen": {
+    "LoadMyPublishedFailed": "Không thể tải các bài đăng đã xuất bản của tôi: {0}",
+    "LoadingFormat": "{0} · Đang tải...",
+    "MyPublishedFormat": "Đã xuất bản {0} giây trước",
+    "MyUnpublishedFormat": "Đã hủy xuất bản {0} giây trước",
+    "ShareLinkCopiedToClipboard": "Đã sao chép liên kết chia sẻ vào bộ nhớ tạm."
+  },
   "ContentScreen": {
     "1": "Quản lý Mod",
     "2": "Quản lý nội dung",
@@ -65,6 +77,50 @@
       "OriginalCommunity": "Cộng Đồng Gốc",
       "ChineseCommunity": "Cộng Đồng TQ"
     }
+  },
+  "ModpacksManageContentScreen": {
+    "1": "Quản lý modpack",
+    "2": "Bật",
+    "3": "Tải xuống mục còn thiếu",
+    "4": "Chi tiết",
+    "5": "Tắt",
+    "6": "Đã sở hữu: {0}/{1}  Phiên bản modpack: {2}  Phiên bản API: {3}  Tác giả: {4}  Dung lượng: {5}",
+    "AllResourcesReady": "Đã tải xuống tất cả tài nguyên của modpack.",
+    "AndMore": " và {0} mục khác",
+    "AnotherModpackActive": "Một modpack khác đang hoạt động. Vui lòng tắt nó trước.",
+    "CannotDelete": "Không thể xóa",
+    "CloseModpack": "Tắt modpack",
+    "CurrentlyActive": "{0} (đang hoạt động)",
+    "DisableBeforeDelete": "Vui lòng tắt modpack đang hoạt động trước khi xóa bản ghi modpack này.",
+    "DisabledRestartPrompt": "Đã tắt modpack. Cần khởi động lại để khôi phục trạng thái mod trước đó. Khởi động lại ngay?",
+    "DownloadAndLaunch": "Tải xuống và bật",
+    "DownloadingMissingModpackResources": "Đang tải xuống tài nguyên modpack còn thiếu...",
+    "EnabledRestartPrompt": "Đã bật modpack. Cần khởi động lại để tải tài nguyên mod. Khởi động lại ngay?",
+    "ExtractFailedNotStarted": "Không thể giải nén tài nguyên modpack; modpack chưa được bật.",
+    "ExtractingResourcesFromTheModpack": "Đang giải nén tài nguyên từ modpack...",
+    "FailedToDownloadModpackResources": "Không thể tải tài nguyên modpack",
+    "IgnoreAndLaunch": "Bỏ qua và bật",
+    "LaunchModpack": "Bật modpack",
+    "MissingInArchiveList": "Không tìm thấy các tài nguyên sau trong tệp lưu trữ: {0}. Hãy hoàn thiện modpack trước khi bật.",
+    "MissingModpackFiles": "Thiếu tệp modpack",
+    "MissingModpackResourcesDownloaded": "Đã tải xuống các tài nguyên modpack còn thiếu.",
+    "MissingResources": "Thiếu tài nguyên",
+    "MissingResourcesDownloadPrompt": "Modpack \"{0}\" có {1} tài nguyên chưa tải xuống. Tải xuống trước khi bật?",
+    "StartBlockedMissingResources": "Modpack vẫn còn tài nguyên chưa tải xuống nên chưa được bật.",
+    "ThisModpackHasNoManagedModResources": "Modpack này không có tài nguyên mod được quản lý.",
+    "ThisModpackIsNotCurrentlyActive": "Modpack này hiện không hoạt động.",
+    "UnavailableResourcesIgnorePrompt": "Không thể tải {0} tài nguyên từ modpack ZIP hoặc qua mạng. Bỏ qua chúng và vẫn bật modpack?",
+    "FailedToSaveSettings": "Không thể lưu cài đặt",
+    "SaveConfigFailed": "Không thể lưu các cài đặt đã thay đổi khi dùng modpack: {0}",
+    "FailedToRestoreFiles": "Không thể khôi phục tệp",
+    "RestoreFilesFailed": "Không thể khôi phục các tệp trước khi bật modpack: {0}",
+    "Modpack": "Modpack",
+    "ModpackBusyWait": "Một modpack khác đang được xử lý. Vui lòng chờ.",
+    "LocalResourcesReadingModpacksFormat": "Tài nguyên cục bộ {0} · Đang đọc modpack...",
+    "DeleteFailed": "Xóa thất bại: {0}",
+    "DeleteConfirmTitle": "Xóa modpack?",
+    "DeleteConfirmMessage": "Bạn có chắc muốn xóa modpack \"{0}\" không?\nThao tác này không thể hoàn tác.",
+    "LoadingFileInfo": "Đang tải thông tin tệp..."
   },
   "ModsManageContentScreen": {
     "1": "Quản lý nội dung mod",
@@ -147,7 +203,40 @@
     "78": "Mod này không có liên kết trang chủ.",
     "79": "Phiên bản Module: {0}  Phiên bản API: {1}  Tác giả: {2}  Kích thước: {3}",
     "80": "Chi tiết",
-    "81": "*Cần khởi động lại"
+    "81": "*Cần khởi động lại",
+    "PendingRestartTag": "Chờ khởi động lại",
+    "FileDeletedTag": "Tệp đã bị xóa",
+    "LatestVersion": "Phiên bản mới nhất",
+    "CurrentVersion": "Phiên bản hiện tại",
+    "VersionDetails": "Chi tiết phiên bản",
+    "UpdateFound": "Có bản cập nhật",
+    "LocalResource": "Tài nguyên cục bộ",
+    "LocalMod": "Mod cục bộ",
+    "CommunityPost": "Bài đăng cộng đồng",
+    "CheckUpdate": "Kiểm tra bản cập nhật",
+    "HasUpdate": "Cập nhật",
+    "PleaseWait": "Vui lòng chờ",
+    "Community": {
+      "BusyMessage": {
+        "LoadingPreviousVersionList": "Đang tải danh sách phiên bản trước đó.",
+        "CheckingPreviousModUpdate": "Đang kiểm tra bản cập nhật mod trước đó.",
+        "SearchingPreviousDependency": "Đang tìm mod phụ thuộc trước đó."
+      },
+      "FailedToLoadVersionList": "Không thể tải danh sách phiên bản: {0}",
+      "AlreadyUpToDateFormat": "Đã là phiên bản mới nhất.\n{0}: {1}\n{2}: {3}",
+      "DependencySearchFailed": "Tìm mod phụ thuộc thất bại: {0}",
+      "ModsCanBeUpdatedTapToView": "Có thể cập nhật {0} mod",
+      "NoDownloadableDependenciesWereFound": "Không tìm thấy mod phụ thuộc nào có thể tải xuống.",
+      "NoUpdateReasonFormat": "{0}\n{1}: {2}\n{3}: {4}",
+      "SearchDependencies": "Tìm mod phụ thuộc",
+      "UpdateCheckFailed": "Kiểm tra bản cập nhật thất bại: {0}"
+    },
+    "Review": {
+      "MissingFileNameOrPackageName": "Thiếu tên tệp hoặc tên gói",
+      "Buttons": {
+        "NoPost": "Không có bài đăng"
+      }
+    }
   },
   "ManageContentScreen": {
     "1": "Texture khối | {0}x{1}",
@@ -160,7 +249,10 @@
     "8": "Tất cả mục",
     "9": "Bạn có chắc không?",
     "10": "Loại mục không hợp lệ.",
-    "11": "Cấu hình đã thay đổi. Bạn có muốn tải lại không?"
+    "11": "Cấu hình đã thay đổi. Bạn có muốn tải lại không?",
+    "12": " | đang dùng trong {0} ô phông chữ",
+    "13": "Phông chữ | {0}",
+    "14": "[{0}] sẽ bị xóa vĩnh viễn.\n(được dùng bởi {1} ô phông chữ, chúng sẽ trở về phông chữ mặc định)"
   },
   "MainMenuScreen": {
     "1": "Không thể lấy thông báo",
@@ -211,6 +303,7 @@
     "20": "Hoàn tất",
     "21": "Đường dẫn: ",
     "Directory": "Thư mục",
+    "Font": "Phông chữ",
     "World": "Thế giới",
     "Blocks Texture": "Texture khối",
     "Character Skin": "Skin nhân vật",
@@ -228,9 +321,9 @@
     "8": "Bị nổ tung"
   },
   "PlayerWidget": [
-    "{0} được điều khiển bởi {1}",
-    "Đã chơi {0} ngày",
-    "Chưa từng xuất hiện"
+    "{0} — do {1} điều khiển",
+    "Đã ở trong trò chơi {0} ngày",
+    "Chưa xuất hiện lần nào"
   ],
   "CrossbowWidget": {
     "0": "Kéo dây",
@@ -281,7 +374,29 @@
     "6": "Đã lưu cài đặt mod",
     "7": "Đã đặt lại cài đặt phím mod",
     "8": "Đã đặt lại cài đặt quản lý camera mod",
-    "9": "Đã đặt lại cài đặt tay cầm mod"
+    "9": "Đã đặt lại cài đặt tay cầm mod",
+    "10": "Lỗi OnSettingChanged, bộ nạp={0}: {1}",
+    "11": "Không thể phân tích giá trị đã lưu, đường dẫn={0}; dùng giá trị mặc định: {1}",
+    "12": "Không thể phân tích cài đặt của mod '{0}', dùng bộ cài đặt trống: {1}"
+  },
+  "ModSettingsParser": {
+    "PageInvalidId": "Trang của mod '{0}' thiếu Id hợp lệ hoặc chứa '/', đã bỏ qua",
+    "ItemInvalidId": "Mục cài đặt thiếu Id hợp lệ hoặc chứa '/', đã bỏ qua",
+    "LabelInvalidId": "Nhãn cài đặt mod thiếu Id hợp lệ hoặc chứa '/', đã bỏ qua",
+    "TypeResolveFailed": "Không thể xác định kiểu '{0}' của cài đặt '{1}', đã bỏ qua",
+    "DefaultParseFailed": "Không thể phân tích giá trị mặc định, dùng default({0}): {1}",
+    "WidgetResolveFailed": "Không tìm thấy widget '{0}' hoặc widget này không phải IModSettingItemWidget; chuyển về mặc định"
+  },
+  "SettingsItemWidgetFactory": {
+    "WidgetFallback": "Widget của cài đặt '{0}' không được hỗ trợ; đã chuyển về mặc định '{1}'.",
+    "WidgetNone": "Cài đặt '{0}' không có widget khả dụng (kiểu {1}), đã bỏ qua.",
+    "WidgetCreateFailed": "Không thể khởi tạo widget '{0}': {1}"
+  },
+  "ModSettingsScreen": {
+    "1": "Điều chỉnh cài đặt mod",
+    "2": "Bạn có thể điều chỉnh cài đặt mod tại đây.",
+    "3": "Không có cài đặt nào từ mod.",
+    "4": "Cài đặt '{0}' có widget '{1}' không kế thừa từ Widget nên không thể hiển thị; đã bỏ qua."
   },
   "SettingsManager": {
     "1": "Không có cài đặt ánh xạ bàn phím nào tên \"{0}\"!",
@@ -309,6 +424,24 @@
       ".scfpack": "Gói nội thất Survivalcraft",
       ".scmod": "Mod API Survivalcraft",
       ".scmodList": "Danh sách mod API Survivalcraft"
+    }
+  },
+  "CharacterSkinsManager": {
+    "1": "Không thể tải giao diện nhân vật \"{0}\". Lý do: {1}.",
+    "SkinName": {
+      "Empty": "Trống",
+      "Female": {
+        "1": "Doris",
+        "2": "Mabel",
+        "3": "Ada",
+        "4": "Shirley"
+      },
+      "Male": {
+        "1": "Walter",
+        "2": "Basil",
+        "3": "Geoffrey",
+        "4": "Zachary"
+      }
     }
   },
   "SubsystemCrossbowBlockBehavior": {
@@ -455,8 +588,8 @@
     "2": "Có {0} mod nhằm thay thế {1} ({2})"
   },
   "FurnitureDesignWidget": [
-    "Trước",
-    "Bên"
+    "Mặt trước",
+    "Mặt bên"
   ],
   "FurnitureSetItemWidget": [
     "Chưa phân loại",
@@ -651,22 +784,52 @@
     "105": "Mức độ ảnh hưởng của mod cao nhất",
     "106": "Điều khiển VR"
   },
+  "ModpackDetailsDialog": {
+    "1": "Phiên bản modpack: ",
+    "2": "Phiên bản API: ",
+    "3": "Tác giả: ",
+    "4": "Dung lượng: ",
+    "5": "Mô tả: ",
+    "6": "Trang chủ: ",
+    "7": "Tên tệp: ",
+    "8": "Tên gói: ",
+    "9": "Mục con đã sở hữu: {0}/{1}",
+    "Active": "Đang hoạt động",
+    "ItemsList": "Các mục con:",
+    "StateBundled": "Được đóng gói",
+    "StateExists": "Đã sở hữu",
+    "StateNeedDownload": "Cần tải xuống"
+  },
   "ModDetailsDialog": {
-    "1": "Lý do bị vô hiệu hóa: ",
+    "1": "Lý do bị tắt: ",
     "2": "Phiên bản mod:",
     "3": "Phiên bản API: ",
     "4": "Tác giả: ",
     "5": "Dung lượng: ",
     "6": "Mô tả: ",
     "7": "Trang chủ: ",
-    "8": "Tên file: ",
+    "8": "Tên tệp: ",
     "9": "Tên gói: ",
-    "10": "Phụ thuộc: ",
-    "11": "Bạn có chắc muốn xóa?",
-    "12": "\"{0}\" sẽ bị xóa.",
+    "10": "Các mod phụ thuộc: ",
+    "11": "Bạn có chắc chắn muốn xóa không?",
+    "12": "\"{0}\" sẽ bị xóa.\nThao tác này không thể hoàn tác.",
     "13": "Không thể xóa \"{0}\". Lý do: {1}",
-    "14": "Xóa \"{0}\" thành công.",
-    "15": "Không tìm thấy / Chưa bật"
+    "14": "Đã xóa \"{0}\" thành công.",
+    "15": "Không tìm thấy / Chưa bật",
+    "16": "Phiên bản tìm thấy: ",
+    "17": " (Mới nhất: {0})",
+    "18": "Thời gian đã chơi: ",
+    "CheckUpdate": "Kiểm tra bản cập nhật",
+    "Versions": "Các phiên bản",
+    "Dependencies": "Thiếu các mod phụ thuộc",
+    "Review": "Đánh giá",
+    "Upload": "Tải lên",
+    "StateMissing": "Bị thiếu",
+    "StateDisabled": "Đã tắt",
+    "StatePendingRestart": "Chờ khởi động lại",
+    "StateIncompatible": "Không tương thích",
+    "SearchDependency": "Tìm kiếm",
+    "AnyVersion": "Bất kỳ phiên bản nào"
   },
   "BlocksManager": {
     "1": "Không tìm thấy block với loại {0} trong tất cả assembly đã tải.",
@@ -723,7 +886,7 @@
     "11": "Xếp hạng cao nhất",
     "12": "Mới thêm gần đây",
     "13": "Thứ tự không hợp lệ.",
-    "14": "Boutique",
+    "14": "Cửa hàng",
     "15": "Thêm vào Boutique",
     "16": "Xóa khỏi Boutique",
     "17": "Thao tác",
@@ -819,7 +982,7 @@
     "ShowAll": "Hiển thị tất cả"
   },
   "MoveControlMode": {
-    "Pad": "Pad",
+    "Pad": "Cần điều khiển",
     "Buttons": "Nút"
   },
   "CameraManage": {
@@ -836,7 +999,7 @@
     "None": "Không"
   },
   "LookControlMode": {
-    "Pad": "Pad",
+    "Pad": "Cần điều khiển",
     "EntireScreen": "Toàn màn hình",
     "SplitTouch": "Chia chạm"
   },
@@ -874,7 +1037,7 @@
   "GameplayImpactLevel": {
     "0": "Thẩm mỹ",
     "1": "Hỗ trợ",
-    "2": "Turbo",
+    "2": "Tăng tốc",
     "3": "Phá vỡ",
     "4": "Chế độ thần thánh"
   },
@@ -897,7 +1060,7 @@
     "1": "Chia"
   },
   "SettingsControlsScreen": [
-    "{0}khối",
+    "{0} khối",
     "Pix",
     "Chính",
     "API"
@@ -910,14 +1073,14 @@
     "5": "(khuyến nghị 4GB RAM và\nthiết bị rất nhanh)",
     "6": "(khuyến nghị 8GB RAM và\nthiết bị rất nhanh)",
     "7": "(khuyến nghị 16GB RAM và\nthiết bị cực nhanh)",
-    "8": "{0} vsync",
+    "8": "{0} đồng bộ dọc (VSync)",
     "9": "Không giới hạn",
     "10": "Tầm nhìn xa",
     "11": "Trò chơi có thể bị crash ngẫu nhiên nếu thiết bị của bạn không đủ bộ nhớ để xử lý tầm nhìn bạn đã chọn.",
     "12": "Mượt",
     "13": "Tiêu chuẩn",
-    "14": "1 VSYNC",
-    "15": "2 VSYNC",
+    "14": "1 VSync",
+    "15": "2 VSync",
     "16": "Dừng làm mới",
     "17": "Mỗi khung hình",
     "18": "(khuyến nghị 32GB RAM và\nthiết bị cực nhanh)"
@@ -1133,7 +1296,7 @@
     "RightController": "Tay cầm phải",
     "Trigger": "Cò",
     "Grip": "Nút Grip",
-    "Menu": "Menu",
+    "Menu": "Trình đơn",
     "X": "Nút X",
     "Y": "Nút Y",
     "A": "Nút A",
@@ -1251,7 +1414,8 @@
     "2": "Sau khi bật liên kết file, bạn có thể mở các file liên kết bằng API để nhập chúng.",
     "3": "Sau khi bật chế độ an toàn, API sẽ ngừng tải mọi mod.",
     "4": "Khởi động lại game để áp dụng ",
-    "5": "Vui lòng mở Console trong DevTools của trình duyệt thủ công."
+    "5": "Vui lòng mở Console trong DevTools của trình duyệt thủ công.",
+    "20": "Khi bật, tất cả bộ đệm chỉ số sẽ sử dụng định dạng 32-bit (theo cách hoạt động cũ) để tương thích với các mod cần chỉ số 32-bit, đổi lại băng thông truyền chỉ số sẽ tăng. Khởi động lại trò chơi để áp dụng."
   },
   "JsInterface": {
     "1": "Đã có một script đang chạy.",
@@ -1305,20 +1469,20 @@
     "Bông dại"
   ],
   "ArrowBlock": [
-    "Mũi tên đầu gỗ",
-    "Mũi tên đầu đá",
-    "Mũi tên đầu sắt",
-    "Mũi tên đầu kim cương",
+    "Mũi tên gỗ",
+    "Mũi tên đá",
+    "Mũi tên sắt",
+    "Mũi tên kim cương",
     "Mũi tên lửa",
-    "Bu lông sắt",
-    "Bu lông sắt đầu kim cương",
-    "Bu lông nổ",
-    "Mũi tên đầu đồng"
+    "Tên nỏ sắt",
+    "Tên nỏ sắt mũi kim cương",
+    "Tên nỏ nổ",
+    "Mũi tên đồng"
   ],
   "BulletBlock": [
     "Đạn súng hỏa mai",
     "Đạn ghém",
-    "Bi đạn ghém"
+    "Viên đạn ghém"
   ],
   "PressurePlateBlock": [
     "Bàn đạp gỗ",
@@ -1330,10 +1494,10 @@
     "Pít-tông kéo chặt"
   ],
   "DeciduousLeavesBlock": [
-    "Mùa hè {0}",
-    "Mùa thu {0}",
-    "Mùa đông {0}",
-    "Mùa xuân {0}"
+    "{0} mùa hè",
+    "{0} mùa thu",
+    "{0} mùa đông",
+    "{0} mùa xuân"
   ],
   "SubsystemSeasons": [
     "Đầu mùa hè",
@@ -2870,7 +3034,7 @@
   "Help": {
     "1": {
       "value": "",
-      "Name": "Gamepad",
+      "Name": "Tay cầm",
       "Title": "Điều khiển bằng tay cầm"
     },
     "2": {
@@ -3030,7 +3194,7 @@
     },
     "33": {
       "value": "\\n Pít-tông (Pistons) là các khối có thể đẩy hoặc kéo các khối khác. \\n Pít-tông sẽ vươn ra hoặc co lại tùy thuộc vào điện áp truyền cho chúng.\\n Chúng có thể được đặt hướng về bất kỳ phía nào.\\n \\n\\n\\n Có 3 loại pít-tông: pít-tông đẩy (push piston), pít-tông kéo (pull piston) và pít-tông kéo nghiêm ngặt (strict pull piston).\\n \\n\\n\\n Pít-tông đẩy có thể đẩy tối đa 8 khối khi vươn ra, nhưng chúng không kéo các khối đó lại khi co vào.\\n \\n\\n\\n Pít-tông kéo hoạt động giống pít-tông đẩy, nhưng ngoài ra chúng còn kéo tối đa 8 khối ngược trở lại khi co vào.\\n \\n\\n\\n Pít-tông kéo nghiêm ngặt hoạt động giống pít-tông kéo bình thường, nhưng chúng sẽ không co vào trừ khi kéo đủ số lượng khối.\\n \\n\\n\\n Điện áp truyền cho pít-tông quyết định độ dài vươn ra.\\n Bất kỳ điện áp nào dưới 0.8V pít-tông sẽ co lại. 0.8V là vươn ra một khối, 0.9V là hai khối, v.v.\\n 1.5V tương đương với việc vươn ra tối đa 8 khối.\\n Pít-tông sẽ chỉ phản ứng với sự thay đổi điện áp khi nó không di chuyển.\\n Nó sẽ luôn hoàn thành bước di chuyển hiện tại trước khi bắt đầu một lệnh di chuyển khác.\\n \\n\\n\\n Pít-tông có thể được chỉnh sửa.\\n Bạn có thể điều chỉnh độ vươn tối đa, số lượng khối được kéo và tốc độ di chuyển.\\n \\n\\n\\n Một số khối nhất định không thể bị pít-tông dịch chuyển.\\n Chúng bao gồm khối kim cương và bất kỳ pít-tông nào đang vươn ra.\\n\\n Trong phiên bản API, các khối chứa túi đồ (như rương, bàn chế tạo, lò nung, v.v.) hiện đã có thể bị pít-tông đẩy.\\n Tuy nhiên, pít-tông đang co lại có thể bị các pít-tông khác dịch chuyển.\\n Điều này mở ra một thế giới đầy tiềm năng với những cỗ máy phức tạp, nơi pít-tông di chuyển các pít-tông khác.\\n Pít-tông cũng sẽ chặn chất lỏng khi vươn ra, vì vậy bạn có thể dùng chúng để làm van.\\n \\n\\n\\n Hãy dùng pít-tông để làm cửa, thang máy, bệ di động và đủ loại máy móc tinh xảo khác.\\n ",
-      "Name": "Piston",
+      "Name": "Pít-tông",
       "Title": "Pít-tông (Pistons)"
     },
     "34": {
@@ -3164,7 +3328,7 @@
       "8": "...",
       "9": "Nhập",
       "10": "Tìm kiếm",
-      "11": "Boutique",
+      "11": "Cửa hàng",
       "12": "Trang Web",
       "13": "Đăng nhập"
     },
@@ -3176,6 +3340,9 @@
       "5": "Xóa",
       "6": "Tìm kiếm",
       "7": "x"
+    },
+    "CommunityMyPublished": {
+      "Title": "Nội dung đã đăng"
     },
     "ContentScreen": {
       "1": "Chọn loại nội dung",
@@ -3192,7 +3359,9 @@
       "12": "Quản lý mod đã tải xuống",
       "13": "Quản lý mod",
       "14": "Nhập nội dung từ trình chọn tập tin của hệ thống.",
-      "15": "Thiết bị"
+      "15": "Thiết bị",
+      "16": "Quản lý nội dung modpack hiện có",
+      "17": "Modpack"
     },
     "ExternalContentScreen": {
       "1": "",
@@ -3298,23 +3467,23 @@
       "11": "Thêm Người khác"
     },
     "PlayersScreen": [
-      "Chỉnh sửa Người chơi",
-      "Bố cục Màn hình",
-      "Người chơi Mới",
+      "Chỉnh sửa người chơi",
+      "Bố cục màn hình",
+      "Người chơi mới",
       "Không thể thêm người chơi trong chế độ tàn khốc.",
       "Không thể thêm người chơi trong chế độ phiêu lưu.",
-      "Tối đa cho phép {0} người chơi.",
-      "Chọn Bố cục Màn hình"
+      "Cho phép tối đa {0} người chơi.",
+      "Chọn bố cục màn hình"
     ],
     "RecipaediaDescriptionScreen": {
       "1": "Mô tả Khối"
     },
     "RecipaediaRecipesScreen": [
-      "Công thức Khối",
+      "Công thức khối",
       "(công thức #{0})"
     ],
     "RecipaediaScreen": [
-      "Sách Công thức (Recipaedia)",
+      "Bách khoa công thức",
       "Mô tả",
       "Công thức"
     ],
@@ -3345,39 +3514,40 @@
       "15": "Chia sẻ tệp nhật ký",
       "16": "Chế độ an toàn",
       "17": "Tương Thích Mod:",
-      "18": "Quản lý lớp thay thế"
+      "18": "Quản lý lớp thay thế",
+      "19": "Buộc dùng chỉ số 32-bit:"
     },
     "SettingsControlsScreen": [
-      "Điều chỉnh Cài đặt Điều khiển",
-      "Điều khiển Di chuyển Màn hình Cảm ứng:",
-      "Điều khiển Nhìn Màn hình Cảm ứng:",
-      "Bố cục Thuận tay Trái:",
-      "Đảo ngược Trục Dọc:",
-      "Tự động Nhảy:",
-      "Bay Ngang Chế độ Sáng tạo:",
-      "Độ nhạy Di chuyển:",
-      "Độ nhạy Nhìn:",
-      "Tốc độ Con trỏ Tay cầm:",
-      "Vùng chết Tay cầm:",
-      "Tốc độ Đào Chế độ Sáng tạo:",
-      "Tầm với Chế độ Sáng tạo:",
-      "Thời gian Giữ Tối thiểu:",
-      "Khoảng cách Kéo Tối thiểu:",
+      "Điều chỉnh cài đặt điều khiển",
+      "Điều khiển di chuyển trên màn hình cảm ứng:",
+      "Điều khiển nhìn trên màn hình cảm ứng:",
+      "Bố cục thuận tay trái:",
+      "Đảo ngược trục dọc:",
+      "Tự động nhảy:",
+      "Bay ngang trong chế độ sáng tạo:",
+      "Độ nhạy di chuyển:",
+      "Độ nhạy nhìn:",
+      "Tốc độ con trỏ tay cầm:",
+      "Vùng chết tay cầm:",
+      "Tốc độ đào trong chế độ sáng tạo:",
+      "Tầm với trong chế độ sáng tạo:",
+      "Thời gian giữ tối thiểu:",
+      "Khoảng cách kéo tối thiểu:",
       "Giới thiệu:",
-      "Kiểu Khối Bộ nhớ:",
-      "Kéo Tối đa Ngăn xếp Khối Chế độ Sáng tạo:",
-      "Kéo Nửa Ngăn xếp Khối khi Chia:",
-      "Độ lệch Joystick Màn hình Cảm ứng",
-      "Độ lệch Joystick X Màn hình Cảm ứng",
-      "Độ lệch Joystick Y Màn hình Cảm ứng",
+      "Kiểu MemoryBank:",
+      "Số khối tối đa khi kéo trong chế độ sáng tạo:",
+      "Kéo nửa chồng khối khi chia:",
+      "Độ lệch cần điều khiển trên màn hình cảm ứng:",
+      "Độ lệch X của cần điều khiển trên màn hình cảm ứng:",
+      "Độ lệch Y của cần điều khiển trên màn hình cảm ứng:",
       "Đặt phím",
-      "Danh sách Camera:",
-      "Quản Lý",
+      "Danh sách camera:",
+      "Quản lý",
       "Ngưỡng kích hoạt tay cầm:",
-      "Vòng lặp kho ngắn:",
+      "Lặp nhanh kho đồ:",
       "Gán phím bàn phím:",
       "Gán nút tay cầm:",
-      "Gán phím điều khiển Vr:",
+      "Gán nút điều khiển VR:",
       "Điều khiển nhìn VR:",
       "Điều khiển di chuyển VR:"
     ],
@@ -3428,28 +3598,29 @@
       "4": "Giao diện Người dùng",
       "5": "Âm thanh",
       "6": "Điều khiển",
-      "7": "Tương thích"
+      "7": "Tương thích",
+      "8": "Cài đặt mod"
     },
     "SettingsUiScreen": [
-      "Điều chỉnh Cài đặt Giao diện Người dùng",
+      "Điều chỉnh cài đặt giao diện người dùng",
       "Ngôn ngữ:",
-      "Chế độ Cửa sổ:",
-      "Kích thước Giao diện:",
-      "Lật Dọc Giao diện:",
-      "Ẩn Bàn di Di chuyển/Nhìn:",
-      "Hiện Giao diện trong Ảnh chụp màn hình:",
-      "Hiện Logo trong Ảnh chụp màn hình:",
-      "Độ phân giải Ảnh chụp màn hình:",
-      "Nội dung Cộng đồng Trung Quốc:",
-      "Hiện Nhật ký Tải:",
+      "Chế độ cửa sổ:",
+      "Kích thước giao diện:",
+      "Lật dọc giao diện:",
+      "Ẩn cần điều khiển di chuyển/nhìn:",
+      "Hiện giao diện trong ảnh chụp màn hình:",
+      "Hiện logo trong ảnh chụp màn hình:",
+      "Độ phân giải ảnh chụp màn hình:",
+      "Nội dung cộng đồng Trung Quốc:",
+      "Hiện nhật ký tải:",
       "Nhập \"yes\" để xóa thế giới:",
-      "Nội dung Cộng đồng Gốc",
-      "Giấu Crosshair:",
-      "Chiều cao ảnh chụp",
-      "Tỷ lệ ảnh chụp",
-      "Hiển thị tràn viền",
-      "Kích thước UI VR:",
-      "Gắn UI VR vào tay trái:"
+      "Nội dung cộng đồng gốc",
+      "Ẩn tâm ngắm:",
+      "Chiều rộng ảnh chụp tùy chỉnh",
+      "Tỷ lệ khung hình ảnh chụp tùy chỉnh",
+      "Điều chỉnh hiển thị tràn viền",
+      "Kích thước giao diện VR:",
+      "Gắn giao diện VR vào tay trái:"
     ],
     "TrialEndedScreen": {
       "1": "Ngày đã kết thúc",
@@ -3659,10 +3830,10 @@
       "Female": "Nữ"
     },
     "EditMemoryBankDialogAPI": [
-      "Chỉnh sửa Khối Bộ nhớ",
+      "Chỉnh sửa MemoryBank",
       "Xóa",
       "Chuyển vị",
-      "Nhập Tất cả:",
+      "Nhập tất cả:",
       "Lưu",
       "Hủy"
     ],
@@ -3679,13 +3850,9 @@
     },
     "DownloadContentFromLinkDialog": {
       "1": "Nhập Liên kết đến Tệp",
-      "2": "Tên và loại sẽ được tự động điền từ liên kết nếu có thể, nếu không bạn phải chỉ định chúng thủ công.",
-      "3": "Liên kết:",
-      "4": "Tên:",
-      "5": "Loại Nội dung:",
-      "6": "...",
       "7": "Tải xuống",
-      "8": "Hủy"
+      "8": "Hủy",
+      "9": "Hỗ trợ liên kết trực tiếp đến tệp scworld / scfpack / png / scbtex / scskin / scmod / zip / json"
     },
     "EditAdjustableDelayGateDialog": {
       "1": "Điều chỉnh Độ trễ",
@@ -3969,7 +4136,8 @@
       "1": "Chọn máy chủ cộng đồng",
       "2": "Mở",
       "3": "Thêm",
-      "4": "Sửa"
+      "4": "Sửa",
+      "5": "Đặt làm máy chủ hiện tại"
     },
     "EditCommunityServerInfoDialog": {
       "1": "Sửa máy chủ",
@@ -3986,6 +4154,179 @@
     "SelectClassSubstituteDialog": {
       "1": "Chọn lớp nào để dùng",
       "2": "Lưu ý: Một trong hai tùy chọn có thể khiến trò chơi bị lỗi."
+    },
+    "SelectDownloadSourceDialog": {
+      "1": "Chọn nguồn tải xuống",
+      "2": "Đặt làm mặc định",
+      "3": "Thêm",
+      "4": "Sửa"
+    },
+    "EditDownloadSourceInfoDialog": {
+      "1": "Chỉnh sửa nguồn tải xuống",
+      "2": "Tên*: ",
+      "3": "Máy chủ mirror: ",
+      "4": "OK",
+      "5": "Xóa",
+      "6": "Hủy"
+    },
+    "ModVersionsDialog": {
+      "AllVersions": "Tất cả phiên bản",
+      "Close": "Đóng"
+    },
+    "ModReviewDialog": {
+      "Rating": "Đánh giá:",
+      "RestorePrevious": "Khôi phục nội dung trước đó",
+      "Submit": "Gửi",
+      "ReviewContent": "Nội dung đánh giá",
+      "EnterReviewContent": "Nhập nội dung đánh giá"
+    },
+    "MissingDependenciesDialog": {
+      "DownloadAllDeps": "Tải xuống tất cả mod phụ thuộc",
+      "Close": "Đóng"
+    },
+    "CommunityScreen": {
+      "UnpublishedOnly": "Chỉ nội dung chưa đăng",
+      "SCChineseCommunity": "Cộng đồng Trung Quốc",
+      "Community": "Cộng đồng",
+      "Type": "Loại",
+      "Filter": "Lọc",
+      "Mod": "Mod",
+      "Sort": "Sắp xếp",
+      "RecentlyUpdated": "Mới cập nhật gần đây",
+      "CurrentVersion": "Phiên bản hiện tại",
+      "All": "Tất cả",
+      "Search": "Tìm kiếm",
+      "World": "Thế giới",
+      "Furniture": "Đồ nội thất",
+      "Texture": "Kết cấu",
+      "Skin": "Giao diện nhân vật",
+      "Modpack": "Modpack",
+      "NoContent": "Không có nội dung",
+      "CommunityMods": "Mod cộng đồng",
+      "SelectLeftToShowDetails": "Chọn nội dung ở bên trái để xem chi tiết tại đây",
+      "WorldName": "Tên thế giới:",
+      "WorldSize": "Dung lượng thế giới:",
+      "WorldSeed": "Seed thế giới:",
+      "CopySeed": "Sao chép seed",
+      "CurrentStatus": "Trạng thái hiện tại:",
+      "EasiestMode": "Chế độ dễ nhất:",
+      "CurrentMode": "Chế độ hiện tại:",
+      "ChangeMode": "Đổi chế độ",
+      "Players": "Người chơi:",
+      "Days": "Số ngày:",
+      "CompatibleAPI": "API tương thích:",
+      "PackageName": "Gói:",
+      "Dependencies": "Mod phụ thuộc:",
+      "Deaths": "Số lần chết:",
+      "Review": "Đánh giá",
+      "Versions": "Phiên bản",
+      "CheckUpdate": "Kiểm tra bản cập nhật",
+      "Functions": "Chức năng",
+      "Download": "Tải xuống",
+      "Delete": "Xóa",
+      "Upload": "Tải lên",
+      "Save": "Lưu",
+      "Page": "Trang",
+      "Go": "Đi",
+      "ShareLink": "Chia sẻ liên kết",
+      "Details": "Chi tiết",
+      "More": "...",
+      "Disable": "Tắt",
+      "PendingRestartResources": "0 tài nguyên cần khởi động lại để tải"
+    },
+    "DownloadDialog": {
+      "DownloadingLabel": "Đang tải xuống",
+      "Close": "Đóng",
+      "PreparingDownload": "Đang chuẩn bị tải xuống...",
+      "CancelDownload": "Hủy tải xuống",
+      "Background": "Chạy nền"
+    },
+    "DownloadFailureDialog": {
+      "UseAnotherSource": "Dùng nguồn khác",
+      "CurrentDownloadLink": "Liên kết tải xuống hiện tại",
+      "ErrorReason": "Lý do lỗi",
+      "CopyLink": "Sao chép",
+      "Close": "Đóng"
+    },
+    "DownloadQueueDialog": {
+      "DownloadQueue": "Hàng đợi tải xuống",
+      "SelectionHint": "Nhấp vào một tác vụ để chọn. Nếu không chọn, các nút sẽ tự động áp dụng cho tác vụ phù hợp.",
+      "PauseResume": "Tạm dừng/Tiếp tục",
+      "CancelTask": "Hủy tác vụ",
+      "Retry": "Thử lại",
+      "ClearDone": "Xóa tác vụ đã xong",
+      "Close": "Đóng"
+    },
+    "FiltersDialog": {
+      "Title": "Lọc",
+      "Filter": "Lọc",
+      "IgnoreSearch": "Bỏ qua",
+      "FileType": "Loại tệp",
+      "SortOrder": "Thứ tự sắp xếp",
+      "VersionRange": "Phạm vi phiên bản",
+      "Section": "Mục"
+    },
+    "ImportOverwriteDialog": {
+      "DuplicateResource": "Tài nguyên trùng lặp",
+      "Overwrite": "Ghi đè",
+      "Rename": "Đổi tên"
+    },
+    "LoginDialog": {
+      "LogInToCommunity": "Đăng nhập vào cộng đồng",
+      "AccountLabel": "Email/Tên:",
+      "PasswordLabel": "Mật khẩu:",
+      "LogIn": "Đăng nhập",
+      "Register": "Đăng ký"
+    },
+    "ModpackFileConflictDialog": {
+      "DuplicateFileFound": "Phát hiện tệp trùng lặp",
+      "Overwrite": "Ghi đè",
+      "Skip": "Bỏ qua",
+      "SkipAll": "Bỏ qua tất cả",
+      "OverwriteAll": "Ghi đè tất cả",
+      "Close": "Đóng"
+    },
+    "PostDetailsDialog": {
+      "PostDetails": "Chi tiết bài đăng",
+      "Close": "Đóng",
+      "Download": "Tải xuống",
+      "ViewInBrowser": "Xem trong trình duyệt"
+    },
+    "RestartConfirmDialog": {
+      "Restart": "Khởi động lại",
+      "RestartToCurrentScreen": "Khởi động lại tại đây"
+    },
+    "CommunitySettingsScreen": {
+      "Title": "Cài đặt cộng đồng Trung Quốc",
+      "Close": "Đóng",
+      "LoggedAccount": "Tài khoản hiện tại",
+      "NotLoggedIn": "Chưa đăng nhập",
+      "CommunityAccount": "Tài khoản cộng đồng",
+      "CommunityAccountDescription": "Đăng nhập để tải tài nguyên lên và quản lý nội dung đã đăng",
+      "LogIn": "Đăng nhập",
+      "LinkImport": "Nhập từ liên kết",
+      "LinkImportDescription": "Nhập tài nguyên hoặc modpack từ liên kết web",
+      "Import": "Nhập",
+      "DownloadQueue": "Hàng đợi tải xuống",
+      "DownloadQueueDescription": "Xem các nội dung tải xuống đang chờ, đã tạm dừng hoặc thất bại",
+      "View": "Xem",
+      "CheckUpdate": "Kiểm tra bản cập nhật",
+      "ModSettings": "Cài đặt mod",
+      "ModSettingsDescription": "Mở phần cài đặt mod tích hợp trong trò chơi",
+      "Open": "Mở",
+      "DownloadSourceSelectionMode": "Chọn nguồn tải xuống thủ công",
+      "DownloadSourceSelectionModeDescription": "Khi bật, hộp thoại sẽ yêu cầu chọn nguồn cho mỗi lần tải xuống",
+      "DefaultDownloadSource": "Nguồn tải xuống mặc định",
+      "DefaultDownloadSourceDescription": "Nguồn tải xuống được sử dụng khi chọn \"Dùng nguồn tải xuống mặc định bên dưới\"",
+      "ApplyDownloadSourceToUpdates": "Áp dụng cho bản cập nhật tài nguyên",
+      "ApplyDownloadSourceToUpdatesDescription": "Dùng nguồn tải xuống đã chọn khi tải bản cập nhật cho các tài nguyên đã đăng",
+      "PlayedTimeReporting": "Báo cáo thời gian chơi",
+      "PlayedTimeReportingDescription": "Gửi thời gian chơi lên cộng đồng để thống kê",
+      "CurrentServer": "Máy chủ hiện tại",
+      "MyPublished": "Nội dung đã đăng",
+      "MyPublishedDescription": "Duyệt các tài nguyên bạn đã đăng lên cộng đồng Trung Quốc",
+      "PostDetailsAutoTranslate": "Tự động dịch chi tiết bài đăng",
+      "PostDetailsAutoTranslateDescription": "Tự động dịch chi tiết bài đăng hoặc phiên bản sang ngôn ngữ hệ thống hiện tại"
     }
   },
   "FireworksBlock": {
@@ -4010,7 +4351,7 @@
       "7": "Tím"
     },
     "Other": {
-      "1": "Pháo hoa {2} {0} {1}{3}",
+      "1": "Pháo hoa {0}{1} {2} {3}",
       "2": " Nhấp nháy",
       "3": " (Thấp)",
       "4": " (Cao)"
@@ -4023,19 +4364,19 @@
     "2": "Tên màu không hợp lệ.",
     "Colors": [
       "Trắng",
-      "Xanh Lơ Nhạt",
+      "Xanh lơ nhạt",
       "Hồng",
-      "Xanh Dương Nhạt",
+      "Xanh lam nhạt",
       "Vàng",
-      "Xanh Lá Nhạt",
-      "Hồng Cam",
-      "Xám Nhạt",
+      "Xanh lá nhạt",
+      "Hồng cam",
+      "Xám nhạt",
       "Xám",
-      "Xanh Lơ",
+      "Xanh lơ",
       "Tím",
-      "Xanh Dương",
+      "Xanh lam",
       "Nâu",
-      "Xanh Lá",
+      "Xanh lá",
       "Đỏ",
       "Đen"
     ]
@@ -4570,5 +4911,603 @@
       "372": "Tên lớp .NET dùng để tạo thành phần",
       "373": "Không có tác dụng. Chỉ để thay thế một thành phần này."
     }
+  },
+  "Enums": {
+    "CommunitySection": {
+      "All": "Tất cả",
+      "Trending": "Xu hướng",
+      "NewActivity": "Hoạt động mới"
+    },
+    "CommunityOrderType": {
+      "Latest": "Bản phát hành mới nhất",
+      "Oldest": "Cũ nhất",
+      "Updated": "Đã cập nhật",
+      "Hot": "Đang thịnh hành"
+    },
+    "ExternalContentType": {
+      "Unknown": "Tài nguyên",
+      "World": "Thế giới",
+      "FurniturePack": "Gói đồ nội thất",
+      "BlocksTexture": "Kết cấu",
+      "CharacterSkin": "Giao diện nhân vật",
+      "Mod": "Mod",
+      "Font": "Phông chữ",
+      "Modpack": "Modpack",
+      "NetMod": "Mod mạng",
+      "Image": "Hình ảnh",
+      "Other": "Tệp khác"
+    }
+  },
+  "CommunityDownloadSource": {
+    "DefaultCn": "Đường truyền mặc định (Trung Quốc đại lục)",
+    "Source1Global": "Đường truyền dự phòng 1 (toàn cầu)",
+    "Source2Cn": "Đường truyền dự phòng 2 (Trung Quốc đại lục)",
+    "Source3Global": "Đường truyền dự phòng 3 (toàn cầu)",
+    "Source4Global": "Đường truyền dự phòng 4 (toàn cầu)"
+  },
+  "EditDownloadSourceInfoDialog": {
+    "NewDownloadSource": "Nguồn tải xuống mới",
+    "DuplicateName": "Tên đang để trống hoặc đã được sử dụng."
+  },
+  "JsonFileStore": {
+    "ReadJsonFileFailedUsingDefault": "Không thể đọc tệp JSON; chuyển về giá trị mặc định: {0}, lỗi={1}",
+    "CleanJsonTempFileFailed": "Không thể dọn tệp JSON tạm: {0}, {1}",
+    "ScanJsonTempFilesFailed": "Không thể quét các tệp JSON tạm còn sót lại root={0} error={1}",
+    "RestoredJsonTempFile": "Đã khôi phục từ tệp JSON tạm còn sót lại: {0} → {1}",
+    "RestoreJsonTempFileFailed": "Không thể khôi phục từ tệp JSON tạm còn sót lại: {0}, {1}"
+  },
+  "LocalMods": {
+    "AutoUpdateScanFailed": "Quét tự động bản cập nhật cho mod cục bộ thất bại: {0}",
+    "PublishedCheckTaskFaulted": "Tác vụ kiểm tra nội dung đã đăng gặp lỗi: {0}"
+  },
+  "ModReviewDialog": {
+    "ReviewLocalResource": "Đánh giá tài nguyên cục bộ",
+    "ThereIsNoPreviousContentToRestore": "Không có nội dung trước đó để khôi phục.",
+    "PreviousContentRestored": "Đã khôi phục nội dung trước đó.",
+    "PleaseSelectARating": "Vui lòng chọn mức đánh giá.",
+    "LocalResource": "Tài nguyên cục bộ"
+  },
+  "MissingDependenciesDialog": {
+    "DependenciesFound": "Đã tìm thấy mod phụ thuộc",
+    "PublishTimePackageVersionFormat": "Ngày đăng: {0}   Gói: {1}   Phiên bản gói: {2}",
+    "Collapse": "Thu gọn",
+    "ResourcePackageNameNotFound": "Không tìm thấy tên gói tài nguyên",
+    "MoreModsWithTheSamePackageName": "Còn {0} mod khác có cùng tên gói",
+    "MoreDuplicateFiles": "Còn {0} tệp trùng lặp",
+    "Expand": "Mở rộng",
+    "CollapsedPackageGroupLatestInRange": "Đã ẩn {0} mod có cùng tên gói; ưu tiên hiển thị phiên bản mới nhất trong phạm vi",
+    "CollapsedPackageGroupLatestOnly": "Đã ẩn {0} mod có cùng tên gói; chỉ hiển thị phiên bản mới nhất",
+    "CollapsedFileGroupLatestOnly": "Đã ẩn {0} tệp trùng lặp; chỉ hiển thị tệp mới nhất",
+    "NoDownloadableFile": "Không tìm thấy tệp có thể tải xuống trong tài nguyên cộng đồng.",
+    "LocalMod": "Mod cục bộ",
+    "UnnamedFile": "Tệp không tên",
+    "OpenDependencyHomepage": "Mở trang chủ: "
+  },
+  "LocalModNetworkManager": {
+    "AutoUpdateCheckFailed": "Kiểm tra tự động bản cập nhật cho mod cục bộ thất bại: {0}, lỗi={1}",
+    "NoModVersionForCurrentGame": "Bài đăng không có phiên bản mod tương thích với trò chơi hiện tại.",
+    "VersionListIsEmpty": "Danh sách phiên bản trống.",
+    "CannotFindPublishedPostByFileName": "Không tìm thấy bài đăng đã xuất bản theo tên tệp: {0}",
+    "NoScmodFileInLatestVersion": "Phiên bản mới nhất không có tệp .scmod để tải xuống.",
+    "PostDetailsIsEmpty": "Chi tiết bài đăng trống."
+  },
+  "LocalModPostResolver": {
+    "FindPostByFileNameFailed": "Không thể tìm bài đăng theo tên tệp: {0}: {1}",
+    "FindPostByFileNameMalformed": "Phản hồi tìm bài đăng theo tên tệp không hợp lệ: {0}"
+  },
+  "CommunityScreen": {
+    "LoadFeaturedFailed": "Không thể tải tài nguyên nổi bật: {0}",
+    "LoadCommunityPostsFailed": "Không thể tải bài đăng cộng đồng: {0}",
+    "FailedToLoadFeaturedResources": "Không thể tải tài nguyên nổi bật",
+    "CurrentVersion": "Phiên bản hiện tại",
+    "LoadingFormat": "{0} · Đang tải...",
+    "CommunityFormat": "Cộng đồng {0}",
+    "Downloading": "Đang tải xuống...",
+    "LoadingProgress": "Đang tải...",
+    "VersionDetails": "Chi tiết phiên bản",
+    "MyPublishedFormat": "Nội dung của tôi ({0})",
+    "AllVersions": "Tất cả phiên bản",
+    "CommunityLoadingFormat": "Cộng đồng {0} · Đang tải...",
+    "FeaturedContentLoading": "Nội dung nổi bật · Đang tải...",
+    "Details": "Chi tiết",
+    "FailedToLoadPostDetails": "Không thể tải chi tiết bài đăng: {0}"
+  },
+  "HttpDownloader": {
+    "ReadCacheFileSizeFailed": "Không thể đọc dung lượng tệp trong bộ nhớ đệm: {0}, {1}",
+    "GetCacheFileSizeFailed": "Không thể lấy dung lượng tệp trong bộ nhớ đệm: {0}, {1}"
+  },
+  "CredentialStore": {
+    "DecryptCredentialFileFailed": "Không thể giải mã tệp thông tin đăng nhập; vô hiệu hóa tệp: {0}",
+    "DeleteCredentialFileFailed": "Không thể xóa tệp thông tin đăng nhập: {0}, {1}"
+  },
+  "TaskSlot": {
+    "TaskFaultConsumedAsNoResult": "Ngoại lệ của tác vụ [{0}] được xử lý như không có kết quả: {1}",
+    "StaleTaskFault": "Ngoại lệ từ tác vụ [{0}] đã cũ: {1}",
+    "PostsList": "Danh sách bài đăng",
+    "PostNodeDetails": "Chi tiết nút bài đăng",
+    "UpdateCheck": "Kiểm tra bản cập nhật",
+    "AutoUpdateScan": "Quét tự động bản cập nhật",
+    "VersionList": "Danh sách phiên bản",
+    "DependencyLookup": "Tra cứu mod phụ thuộc",
+    "ManualUpdateCheck": "Kiểm tra bản cập nhật thủ công",
+    "ScoreSubmission": "Gửi điểm đánh giá",
+    "Featured": "Tài nguyên nổi bật",
+    "WorldUpload": "Tải thế giới lên",
+    "PublishedCheck": "Kiểm tra nội dung đã đăng",
+    "ModpackFileInfo": "Thông tin tệp modpack",
+    "PostDetailsDialog": "Hộp thoại chi tiết bài đăng",
+    "Unspecified": "Chạy nền"
+  },
+  "CommunityDownloadGuard": {
+    "DownloadExceedsSizeLimit": "Nội dung tải xuống vượt quá giới hạn kích thước ({0} byte)."
+  },
+  "CommunityManager": {
+    "HighlightDataLoadFailed": "Không thể tải dữ liệu nổi bật: {0}",
+    "ScoreApiReturnedEmpty": "API điểm số trả về phản hồi trống",
+    "ScoreApiReturnedMalformed": "API điểm số trả về phản hồi không hợp lệ",
+    "NoStats": "Không có số liệu thống kê.",
+    "GetVersionListFailed": "Không thể lấy danh sách phiên bản: {0}: {1}",
+    "VersionListResponseMalformed": "Phản hồi danh sách phiên bản không hợp lệ: {0}",
+    "DownloadTrendsResponseMalformed": "Phản hồi xu hướng tải xuống không hợp lệ: {0}"
+  },
+  "VersionCatalogCache": {
+    "NoApiVersionSkippingApiMatch": "Không có phiên bản API; bỏ qua bước đối chiếu phiên bản API. game={0}",
+    "NoMatchingApiVersion": "Không tìm thấy phiên bản API phù hợp: game={0}, api={1}",
+    "VersionMatchSucceeded": "Đối chiếu phiên bản thành công: game={0}, api={1}, matchedId={2}, matchedVersion={3}, matchedName={4}"
+  },
+  "LocalModReviewState": {
+    "ReadReviewsFailed": "Không thể đọc đánh giá tài nguyên cục bộ: {0}",
+    "SaveReviewsFailed": "Không thể lưu đánh giá tài nguyên cục bộ: {0}"
+  },
+  "PendingLocalModActions": {
+    "ProcessedPendingModAction": "Đã xử lý thao tác mod đang chờ: lý do={0}, thao tác={1}, đường dẫn={2}",
+    "ProcessPendingModActionFailed": "Không thể xử lý thao tác mod đang chờ: lý do={0}, thao tác={1}, đường dẫn={2}, lỗi={3}",
+    "ReadPendingModManifestFailed": "Không thể đọc tệp kê khai mod đang chờ: {0}",
+    "SavePendingModManifestFailed": "Không thể lưu tệp kê khai mod đang chờ: {0}",
+    "MissingModPackageNameOrVersion": "Thiếu tên gói hoặc phiên bản mod; không thể cập nhật trạng thái đã tắt."
+  },
+  "DownloadQueueManager": {
+    "LoadDownloadQueueFailed": "Không thể tải hàng đợi tải xuống: {0}",
+    "RestoreQueueItemFailed": "Không thể khôi phục mục trong hàng đợi tải xuống: {0}"
+  },
+  "DownloadQueueDialog": {
+    "SelectedTask": "Đã chọn: tác vụ {0} - {1}",
+    "NoDownloadTasks": "Không có tác vụ tải xuống.",
+    "OnlyPendingDownloadsCanBeStarted": "Chỉ có thể bắt đầu các lượt tải đang chờ.",
+    "OnlyPendingOrRunningCanRequestOverwrite": "Chỉ lượt tải đang chờ hoặc đang chạy mới có thể yêu cầu xác nhận ghi đè.",
+    "OnlyAwaitingOverwriteCanBeConfirmed": "Chỉ có thể xác nhận các lượt tải đang chờ xác nhận ghi đè.",
+    "OnlyAwaitingOverwriteCanBeCanceled": "Chỉ có thể hủy các lượt tải đang chờ xác nhận ghi đè.",
+    "OnlyPausedDownloadsCanBeResumed": "Chỉ có thể tiếp tục các lượt tải đang tạm dừng.",
+    "OnlyFinishedOrPausedCanBeRetried": "Chỉ có thể thử lại các lượt tải đã hoàn tất hoặc đang tạm dừng.",
+    "SelectionHint": "Nhấp vào một tác vụ để chọn. Nếu không chọn, các nút sẽ tự động áp dụng cho tác vụ phù hợp."
+  },
+  "DownloadQueuePersistence": {
+    "CleanImportedItemCacheFailed": "Không thể dọn bộ nhớ đệm tải xuống của mục đã nhập: {0}, {1}"
+  },
+  "DownloadFeedbackClient": {
+    "MissingFeedbackIdsSkipped": "Phản hồi tải xuống thiếu fileId/postId; bỏ qua việc ghi nhận.",
+    "RecordDownloadFeedbackFailed": "Không thể ghi nhận phản hồi tải xuống: {0}: {1}",
+    "RecordDownloadFeedbackFaulted": "Gặp lỗi khi ghi nhận phản hồi tải xuống: {0}",
+    "FeedbackAuthRefreshFailedReportingAnonymously": "Không thể làm mới trạng thái đăng nhập để gửi báo cáo phản hồi; sẽ gửi ẩn danh: {0}"
+  },
+  "AuthClient": {
+    "LoginRequestFailed": "Yêu cầu đăng nhập thất bại: {0}",
+    "LoginResponseMalformed": "Phản hồi đăng nhập không hợp lệ: {0}",
+    "LogoutRequestCompleted": "Yêu cầu đăng xuất đã hoàn tất ({0})",
+    "LogoutRequestFailed": "Yêu cầu đăng xuất thất bại: {0}"
+  },
+  "LoginDialog": {
+    "LoggingIn": "Đang đăng nhập...",
+    "LoginResponseIsEmpty": "Phản hồi đăng nhập trống",
+    "LoginNetworkError": "Lỗi mạng: {0}",
+    "LoginResponseFormatError": "Phản hồi đăng nhập không đúng định dạng: {0}",
+    "CredentialFileFormatInvalid": "Định dạng tệp thông tin đăng nhập không hợp lệ.",
+    "OldCredentialFileFormatInvalid": "Định dạng tệp thông tin đăng nhập cũ không hợp lệ.",
+    "LogIn": "Đăng nhập"
+  },
+  "RemoteImportManager": {
+    "ZIPModpackHasBeenSavedLocally": "Đã lưu modpack ZIP {0} vào thiết bị.",
+    "ImportModpack": "Nhập modpack",
+    "Downloading": "Đang tải xuống: {0} ({1}/{2})",
+    "CheckingLocalResources": "Đang kiểm tra tài nguyên cục bộ...",
+    "LocalAlreadyExistsOverwriteIt": "{0} cục bộ \"{1}\" đã tồn tại. Ghi đè?",
+    "DownloadArchiveFormat": "Đang tải modpack: {0}",
+    "DownloadManifestFormat": "Đang tải tệp kê khai modpack: {0}",
+    "DownloadPackCompleteWithSkipped": "Tải modpack hoàn tất: thành công {0}, thất bại {1}, đã bỏ qua {2}.",
+    "DownloadPackComplete": "Tải modpack hoàn tất: thành công {0}, thất bại {1}.",
+    "DownloadFailedFormat": "Tải xuống thất bại: {0}",
+    "EnterResourceLink": "Vui lòng nhập liên kết tài nguyên.",
+    "InvalidUrl": "Vui lòng nhập liên kết http hoặc https hợp lệ.",
+    "CannotRecognizeFileName": "Không thể xác định tên tệp từ liên kết.",
+    "UnsupportedFileExtension": "Không thể nhận diện loại tài nguyên.",
+    "ImportDataIsEmpty": "Dữ liệu nhập trống.",
+    "CannotOverwriteBuiltInTexture": "Không thể ghi đè kết cấu có sẵn: {0}",
+    "CannotOverwriteBuiltInSkin": "Không thể ghi đè giao diện nhân vật có sẵn: {0}",
+    "ShowConflictDialogFailed": "Không thể hiển thị hộp thoại xung đột: {0}",
+    "RemoteImportPrepareTaskFaulted": "Tác vụ chuẩn bị nhập từ xa gặp lỗi: {0}",
+    "RemoteImportTaskFaulted": "Tác vụ nhập từ xa gặp lỗi: {0}",
+    "RemoteImportCompletionFaulted": "Xử lý hoàn tất nhập từ xa gặp lỗi: {0}",
+    "StartModpackImport": "Bắt đầu nhập modpack url={0} fileName={1}",
+    "ModpackManifestEmptyOrInvalid": "Tệp kê khai modpack trống hoặc không hợp lệ url={0}",
+    "ModpackManifestDownloadFailed": "Tải tệp kê khai modpack thất bại url={0} error={1}",
+    "ModpackImportFailed": "Nhập modpack thất bại error={0}",
+    "SaveModpackManifestFailed": "Không thể lưu tệp kê khai modpack: {0}",
+    "SaveArchiveFailed": "Không thể lưu tệp lưu trữ modpack: {0}",
+    "DownloadInterruptedManifestKept": "Đã dừng tải tài nguyên; chỉ giữ lại tệp kê khai modpack JSON.",
+    "ImportOrDownloadBusy": "Đang có tác vụ nhập hoặc tải xuống. Vui lòng chờ.",
+    "Manifest": " tệp kê khai",
+    "DownloadComplete": "Tải xuống hoàn tất",
+    "ImportComplete": "Nhập hoàn tất",
+    "TheModpackManifestIsEmptyOrInvalid": "Tệp kê khai modpack trống hoặc không hợp lệ.",
+    "HasNoDownloadLinkSkipped": "{0} không có liên kết tải xuống, đã bỏ qua.",
+    "UnknownItemCategory": "Danh mục mục không xác định: {0}",
+    "DataFileHostUnavailable": "Không thể nhập {0}: trang này không xử lý được tệp dữ liệu modpack. Thay vào đó, hãy tải modpack trong mục Tài nguyên cục bộ.",
+    "Modpack": "Modpack",
+    "Imported": "Đã nhập {0}.",
+    "ImportResource": "Nhập tài nguyên",
+    "Importing": "Đang nhập...",
+    "DownloadingFormat": "Đang tải xuống: {0}",
+    "DownloadingProgress": "Đang tải xuống...",
+    "DownloadPackPartialFailure": "Tải modpack chưa hoàn tất: thành công {0}, thất bại {1}.",
+    "DownloadPackFailure": "Tải modpack thất bại: thành công {0}, thất bại {1}."
+  },
+  "ModpackSourceResolver": {
+    "ModpackItemUrlDownloadFailedFallingBackToFileId": "Không thể tải mục modpack qua url; chuyển sang fileId={0}: {1}",
+    "FileIdReturnedNoDownloadLink": "ID tệp {0} không trả về liên kết tải xuống hợp lệ.",
+    "GetFileInfoByFileIdFailed": "Không thể lấy thông tin tệp theo ID: {0}: {1}",
+    "GetFileInfoByFileIdMalformed": "Phản hồi thông tin tệp theo ID không hợp lệ: {0}"
+  },
+  "ModpackManifestParser": {
+    "TheModpackManifestIsEmptyOrInvalid": "Tệp kê khai modpack trống hoặc không hợp lệ.",
+    "PackOnlySupportsZipOrJson": "Modpack chỉ hỗ trợ tệp .zip và .json.",
+    "PackinfoJsonNotFoundInZipRoot": "Không tìm thấy packinfo.json ở thư mục gốc của ZIP.",
+    "ZipEntryExceedsSizeLimit": "Mục trong ZIP vượt quá giới hạn kích thước: {0}",
+    "ZipReadFailed": "Đọc tệp ZIP thất bại: {0}",
+    "ManifestJsonParseFailed": "Phân tích JSON của tệp kê khai thất bại: {0}",
+    "ManifestMissingFieldName": "Tệp kê khai modpack thiếu trường bắt buộc: name.",
+    "ManifestMissingFieldVersion": "Tệp kê khai modpack thiếu trường bắt buộc: version.",
+    "ManifestMissingFieldDescription": "Tệp kê khai modpack thiếu trường bắt buộc: description.",
+    "ManifestMissingFieldPackageName": "Tệp kê khai modpack thiếu trường bắt buộc: packageName.",
+    "IconOnlySupportsPngOrWebp": "Biểu tượng modpack chỉ hỗ trợ PNG hoặc WebP.",
+    "JsonPackIconMustBeUrl": "Biểu tượng của modpack JSON phải là liên kết web.",
+    "ManifestHasNoValidItems": "Tệp kê khai modpack không có mục hợp lệ nào."
+  },
+  "ModpackRegistry": {
+    "ModpackRecordCorrupted": "Bản ghi modpack bị hỏng: {0}, {1}",
+    "ReadModpackRecordFailed": "Không thể đọc bản ghi modpack path={0} error={1}",
+    "CompareModpackSourceFailed": "Không thể so sánh nguồn modpack: path={0}, error={1}",
+    "ReadModpackRecordMetadataFailed": "Không thể đọc siêu dữ liệu bản ghi modpack: path={0}, error={1}",
+    "NoValidItemsRead": "không đọc được mục hợp lệ nào.",
+    "DownloadedZipPackIsEmpty": "Modpack ZIP đã tải xuống trống."
+  },
+  "ModpackFileConflictDialog": {
+    "ConflictAlreadyWaitingForUser": "Xung đột tệp modpack đang chờ người dùng xử lý.",
+    "IdenticalFileChooseAction": "Tệp có cùng tên chính xác đã tồn tại cục bộ: {0}\nChọn cách xử lý."
+  },
+  "Modpacks": {
+    "ReadModpackEnabledStateFailed": "Không thể đọc trạng thái bật của modpack: {0}",
+    "LoadModpackFileInfoFailed": "Không thể tải thông tin tệp modpack: {0}",
+    "GetModpackFileInfoFailed": "Không thể lấy thông tin tệp modpack fileId={0}: {1}",
+    "UserIgnoredUnavailableModpackResources": "Đã bỏ qua các tài nguyên modpack không thể tải và tiếp tục khởi động failed={0}",
+    "SaveModpackEnabledStateFailed": "Không thể lưu trạng thái bật modpack: {0}",
+    "ClearModpackEnabledStateFailed": "Không thể xóa trạng thái bật modpack: {0}"
+  },
+  "ModpackRules": {
+    "PackItemIsEmpty": "Mục modpack trống.",
+    "PackItemMissingTargetDirectory": "{0}: chưa chỉ định targetDirectory.",
+    "PackItemUrlAndFileIdBothEmpty": "{0}: url và fileId không thể đồng thời để trống.",
+    "PackItemFileNotFoundInArchive": "{0}: không tìm thấy tệp {1} trong tệp lưu trữ.",
+    "JsonPackNoLocalRelativePath": "{0}: modpack JSON không hỗ trợ đường dẫn tương đối cục bộ.",
+    "PackItemDefaultName": "Mục modpack"
+  },
+  "ModpackItemImporter": {
+    "ModinfoMissingSkipped": "{0}: tệp mod thiếu modinfo.json nên không thể xác minh.",
+    "PackageNameMismatchSkipped": "{0}: tên gói mod không khớp (dự kiến {1}, thực tế {2}), đã bỏ qua.",
+    "VersionMismatchSkipped": "{0}: phiên bản mod không khớp (dự kiến {1}, thực tế {2}), đã bỏ qua."
+  },
+  "ModpackDataFiles": {
+    "DeleteModpackBackupFailed": "Không thể xóa bản sao lưu modpack sau khi khôi phục thành công (sẽ giữ lại để dọn lần sau): {0}: {1}",
+    "CleanModpackCustomTempFileFailed": "Không thể dọn tệp tạm tùy chỉnh của modpack temp={0} error={1}",
+    "SaveModpackCustomConfigFailed": "Không thể lưu cấu hình tùy chỉnh modpack target={0} persisted={1} error={2}",
+    "RestoreModpackCustomFileFailed": "Không thể khôi phục tệp tùy chỉnh modpack target={0} backup={1} error={2}",
+    "DataFileHasNoTargetPathSpecified": "{0}: tệp dữ liệu chưa chỉ định đường dẫn đích.",
+    "DataFileHasNoTargetPathSpecifiedPlain": "Tệp dữ liệu chưa chỉ định đường dẫn đích.",
+    "CustomFileUrlHasNoFileName": "url của tệp tùy chỉnh không chứa tên tệp hợp lệ.",
+    "UnsafeCustomFileTargetPathRejected": "Đã từ chối đường dẫn đích không an toàn của tệp tùy chỉnh: {0}.",
+    "BackupFileDoesNotExist": "Tệp sao lưu không tồn tại: {0}"
+  },
+  "ModpackManifestLoadManager": {
+    "ReadModpackListFailed": "Không thể đọc danh sách modpack: {0}",
+    "StaleModpackListTaskFailed": "Tác vụ đọc danh sách modpack cũ thất bại: {0}"
+  },
+  "TransactionalFileReplacement": {
+    "ScanResidualBackupsFailed": "Không thể quét các bản sao lưu cập nhật còn sót lại root={0} error={1}",
+    "CleanResidualBackup": "Đang dọn bản sao lưu cập nhật còn sót lại backup={0}",
+    "RollbackResidualBackup": "Đang hoàn tác bản sao lưu cập nhật còn sót lại backup={0} original={1}",
+    "ProcessResidualBackupFailed": "Không thể xử lý bản sao lưu cập nhật còn sót lại backup={0} error={1}",
+    "ScanResidualBackupSubdirectoryFailed": "Không thể quét thư mục con của bản sao lưu cập nhật còn sót lại dir={0} error={1}",
+    "CleanModUpdateBackupFailed": "Không thể dọn bản sao lưu cập nhật mod: {0}",
+    "CleanIncompleteModUpdateFileFailed": "Không thể dọn tệp cập nhật mod chưa hoàn tất: {0}",
+    "RestoreModUpdateBackupFailed": "Không thể khôi phục bản sao lưu cập nhật mod: {0}",
+    "CleanOverwriteBackupFailed": "Không thể dọn bản sao lưu trước khi ghi đè: {0}",
+    "RestoreOverwriteBackupFailed": "Không thể khôi phục bản sao lưu trước khi ghi đè: {0}",
+    "StartupRollbackResidualBackupFailed": "Không thể hoàn tác các bản sao lưu cập nhật còn sót lại khi khởi động: {0}"
+  },
+  "PlayedTimeTracker": {
+    "ReadModPlayedTimeFailed": "Không thể đọc thời gian chơi mod: {0}",
+    "SaveModPlayedTimeFailed": "Không thể lưu thời gian chơi mod: {0}",
+    "PlayedTimeReportingDisabledSkipping": "Tính năng báo cáo thời gian chơi đã tắt; bỏ qua báo cáo này",
+    "SecondsFormat": "{0} giây",
+    "MinutesFormat": "{0} phút",
+    "HoursMinutesFormat": "{0} giờ {1} phút",
+    "HoursFormat": "{0} giờ",
+    "LessThanOneMinute": "<1 phút",
+    "PendingReportsEnqueued": "Đã đưa {0} bản ghi thời gian chơi vào hàng đợi báo cáo",
+    "PendingReportsTrimmed": "Hàng đợi báo cáo vượt quá giới hạn: đã loại bỏ {0} bản ghi cũ nhất",
+    "PendingReportsRetryStart": "Tìm thấy {0} bản ghi thời gian chơi đang chờ; đang thử gửi lại",
+    "PendingReportsOffline": "Không có kết nối Internet: giữ {0} bản ghi thời gian chơi trong hàng đợi chờ",
+    "PendingReportsKept": "Máy chủ chưa chấp nhận toàn bộ lô dữ liệu này; giữ hàng đợi để thử lại sau",
+    "PendingReportsDequeued": "Đã xóa {0} bản ghi được chấp nhận khỏi hàng đợi chờ",
+    "PendingReportsRemaining": "Còn {0} bản ghi đang chờ; sẽ thử lại khi khởi động lần tới hoặc khi có bản ghi mới",
+    "PendingReportsSaveFailed": "Không thể lưu các bản ghi thời gian chơi đang chờ: {0}",
+    "PendingReportsLoopFaulted": "Vòng lặp gửi báo cáo thời gian chơi đang chờ gặp lỗi: {0}"
+  },
+  "AuthSessionManager": {
+    "CreateLoginRequestFailed": "Không thể tạo yêu cầu đăng nhập: {0}",
+    "LoginRequestFaulted": "Yêu cầu đăng nhập gặp lỗi: {0}",
+    "AuthSessionPollFaulted": "Tác vụ kiểm tra phiên xác thực gặp lỗi: {0}",
+    "LoginFailed": "Đăng nhập thất bại: {0}",
+    "ClearedUnreadableCredentials": "{0} Đã xóa thông tin đăng nhập cộng đồng không thể đọc",
+    "CredentialDecryptionFailedClearedOld": "Không thể giải mã thông tin đăng nhập cộng đồng; đã xóa thông tin cũ",
+    "LoadCredentialsFailed": "Không thể tải thông tin đăng nhập cộng đồng: {0}",
+    "SaveCredentialsFailed": "Không thể lưu thông tin đăng nhập cộng đồng: {0}",
+    "DeleteCredentialFileFailed": "Không thể xóa tệp thông tin đăng nhập cộng đồng: {0}",
+    "TokenInvalidatedClearingLocalState": "Phát hiện token bị vô hiệu hóa (401/403); đang xóa trạng thái đăng nhập cục bộ",
+    "LogOut": "Đăng xuất",
+    "LogOutOfTheCurrentCommunityAccount": "Đăng xuất khỏi tài khoản cộng đồng hiện tại?",
+    "PleaseEnterAccountAndPassword": "Vui lòng nhập tài khoản và mật khẩu",
+    "LogoutFailedToast": "Yêu cầu đăng xuất chưa hoàn tất; phiên trên máy chủ có thể vẫn đang hoạt động",
+    "TokenExpiredTitle": "Phiên đăng nhập đã hết hạn",
+    "TokenExpired": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+    "LoginFailedDefaultMessage": "Đăng nhập thất bại"
+  },
+  "DownloadDialog": {
+    "DownloadingLabel": "Đang tải xuống",
+    "DownloadComplete": "Tải xuống hoàn tất.",
+    "DownloadingProgress": "Đang tải xuống...",
+    "DownloadFailed": "Tải xuống thất bại: {0}",
+    "Canceled": "Đã hủy"
+  },
+  "DownloadFailureDialog": {
+    "DownloadError": "Lỗi tải xuống",
+    "UnknownError": "Lỗi không xác định"
+  },
+  "DownloadFlowManager": {
+    "ModpackProcessingFaulted": "Tác vụ xử lý modpack gặp lỗi: {0}",
+    "BackgroundTaskFailed": "Tác vụ nền thất bại: {0}, downloadFailed={1}, error={2}",
+    "DownloadQueueRestored": "Đã khôi phục hàng đợi tải xuống gồm {0} mục",
+    "OldVersionDisabledPendingRestart": "Đã tắt phiên bản cũ {0}; phiên bản mới tải xuống sẽ có hiệu lực sau khi khởi động lại",
+    "SaveDownloadQueueFailed": "Không thể lưu hàng đợi tải xuống: {0}",
+    "CleanDownloadTempFileFailed": "Không thể dọn tệp tải xuống tạm: {0}",
+    "DownloadTaskFaulted": "Tác vụ tải xuống gặp lỗi: {0}",
+    "DownloadFlowPollFaulted": "Tác vụ theo dõi tiến trình tải xuống gặp lỗi: {0}",
+    "BackgroundManifestLoadTaskFaulted": "Tác vụ nền tải tệp kê khai modpack gặp lỗi: {0}",
+    "BackgroundItemDownloadTaskFaulted": "Tác vụ nền tải mục modpack gặp lỗi: {0}",
+    "ImportCompletedCallbackFaulted": "Hàm gọi lại khi hoàn tất nhập gặp lỗi (bản thân thao tác nhập đã thành công): {0}",
+    "Failed": "Thất bại",
+    "SkippedLocalDuplicates": ", đã bỏ qua {0} mục vì nội dung giống hệt đã tồn tại cục bộ.",
+    "TheModpackManifestIsEmptyOrInvalid": "Tệp kê khai modpack trống hoặc không hợp lệ.",
+    "HasNoDownloadLinkSkipped": "{0} không có liên kết tải xuống, đã bỏ qua.",
+    "UnknownItemCategory": "Danh mục mục không xác định: {0}",
+    "DataFileHostUnavailable": "Không thể nhập {0}: trang này không xử lý được tệp dữ liệu modpack. Thay vào đó, hãy tải modpack trong mục Tài nguyên cục bộ.",
+    "Imported": "Đã nhập {0}.",
+    "ImportResource": "Nhập tài nguyên",
+    "Importing": "Đang nhập...",
+    "DownloadingFormat": "Đang tải xuống: {0}",
+    "DownloadPackPartialFailure": "Tải modpack chưa hoàn tất: thành công {0}, thất bại {1}.",
+    "DownloadPackFailure": "Tải modpack thất bại: thành công {0}, thất bại {1}.",
+    "DownloadCanceled": "Đã hủy tải xuống: {0}",
+    "ModpackBusyWait": "Một modpack khác đang được xử lý. Vui lòng chờ.",
+    "ModpackManifestSaveFailed": "Không thể lưu tệp kê khai modpack: {0}",
+    "DownloadPaused": "Đã tạm dừng tải xuống: {0}",
+    "DownloadFailed": "Tải xuống thất bại: {0}",
+    "ImportFailed": "Nhập thất bại: {0}",
+    "UnknownError": "Lỗi không xác định",
+    "Canceled": "Đã hủy",
+    "Yes": "Có",
+    "No": "Không",
+    "ConfirmDownloadAndEnable": "Có {0} mục con. Tải xuống và bật ngay?",
+    "ConfirmEnableAllReady": "Tất cả mục con đã sẵn sàng. Bật ngay?",
+    "SubItemsHeader": "Các mục con:",
+    "DownloadComplete": "Tải xuống {0} hoàn tất",
+    "FailedToLoadModpackManifest": "Không thể tải tệp kê khai modpack: {0}",
+    "UnknownResource": "Tài nguyên không xác định",
+    "ModpackDownloadFinishedSummary": "Tải modpack hoàn tất: thành công {0}, thất bại {1}.",
+    "StartDownloading": "Bắt đầu tải xuống {0}",
+    "DownloadPausedDownloaded": "Đã tạm dừng tải xuống: {0} (đã tải {1})",
+    "AddedToDownloadQueue": "Đã thêm vào hàng đợi tải xuống: {0}",
+    "DuplicateDownloadQueued": "Đã bỏ qua lượt tải trùng (tệp này đã có trong hàng đợi): {0}",
+    "WaitingForOverwriteConfirmation": "Đang chờ xác nhận ghi đè",
+    "Completed": "Hoàn tất",
+    "Pausing": "Đang tạm dừng",
+    "Canceling": "Đang hủy",
+    "NoDownloadTaskCanBePausedOrResumed": "Không có tác vụ tải xuống nào có thể tạm dừng hoặc tiếp tục.",
+    "NoCancelableDownloadTasks": "Không có tác vụ tải xuống nào có thể hủy.",
+    "NoRetryableDownloadTasks": "Không có tác vụ tải xuống nào có thể thử lại.",
+    "TaskCannotBeCanceled": "Không thể hủy tác vụ {0}.",
+    "TaskCannotBePausedOrResumed": "Không thể tạm dừng hoặc tiếp tục tác vụ {0}.",
+    "TaskCannotBeRetried": "Không thể thử lại tác vụ {0}.",
+    "TaskCannotBeCleared": "Không thể xóa tác vụ {0}.",
+    "RequeuedDownload": "Đã đưa lại vào hàng đợi tải xuống: {0}",
+    "ClearedDownloadTask": "Đã xóa tác vụ tải xuống: {0}",
+    "ClearedDownloadTasks": "Đã xóa {0} tác vụ tải xuống.",
+    "SwitchedDownloadSource": "Đã chuyển nguồn tải xuống: {0}",
+    "Connecting": "Đang kết nối: {0}",
+    "ChooseDownloadSource": "Chọn nguồn tải xuống",
+    "LocalAlreadyExistsChooseAction": "Tệp cục bộ \"{0}\" đã tồn tại. Chọn thao tác:",
+    "ModpackFileHasNoDownloadLink": "Tệp modpack {0} không có liên kết tải xuống.",
+    "Downloading": "Đang tải xuống: {0} ({1})",
+    "DownloadingLabel": "Đang tải xuống",
+    "Paused": "Đã tạm dừng",
+    "AlreadyExistsReplace": "{0} đã tồn tại, thay thế?",
+    "CancelingDownload": "Đang hủy tải xuống: {0}",
+    "PausingDownload": "Đang tạm dừng tải xuống: {0}",
+    "Queued": "Đang chờ",
+    "ResumingDownload": "Đang tiếp tục tải xuống: {0}",
+    "DownloadSourceSwitchUnavailable": "Không thể chuyển nguồn tải xuống cho liên kết hiện tại.",
+    "UnfinishedDownloadsBadge": "Còn {0} lượt tải xuống chưa hoàn tất. Nhấn để xem.",
+    "BackgroundDownloading": "Đang tải xuống trong nền: {0}",
+    "NetworkError": "Kết nối mạng thất bại. Vui lòng kiểm tra mạng và thử lại."
+  },
+  "ModUpdateImporter": {
+    "CannotConfirmCurrentPackageName": "Không thể xác nhận tên gói mod hiện tại; đã hủy cập nhật.",
+    "UpdatePackageInvalidOrCorrupted": "Gói cập nhật đã tải xuống không hợp lệ hoặc bị hỏng; đã hủy cập nhật.",
+    "UpdatePackagePackageNameMismatch": "Gói cập nhật đã tải xuống không dành cho mod hiện tại: {0}."
+  },
+  "CommunityUploadClient": {
+    "FileServerReturnedNoLink": "Máy chủ tệp không trả về liên kết: {0}",
+    "FileServerUploadFailed": "Tải tệp lên máy chủ thất bại: {0}: {1}",
+    "GetUploadCredentialsFailed": "Không thể lấy thông tin xác thực để tải lên: {0}: {1}",
+    "InvalidUploadUrl": "URL tải lên không hợp lệ: {0}",
+    "RegisterUploadFileFailed": "Không thể đăng ký tệp tải lên: {0}: {1}",
+    "RegisterUploadFileResponseMalformed": "Phản hồi đăng ký tệp tải lên không đúng định dạng: {0}",
+    "UploadCredentialsResponseMalformed": "Phản hồi thông tin xác thực tải lên không đúng định dạng: {0}"
+  },
+  "ScmodArchiveReader": {
+    "DownloadedArchiveCorrupt": "Tệp .scmod đã tải xuống không phải tệp lưu trữ hợp lệ. Nguồn tải có thể đã trả về nội dung không hợp lệ hoặc tệp tài nguyên đã bị hỏng.",
+    "EntryNameMustBeInArchiveRoot": "Tên mục phải nằm ở thư mục gốc của tệp lưu trữ.",
+    "FileNotScmodArchive": "Tệp đã tải xuống không phải tệp lưu trữ scmod hợp lệ.",
+    "ModinfoMissingInPackage": "Gói cập nhật thiếu modinfo.json.",
+    "UpdatePackageDataIsEmpty": "Dữ liệu gói cập nhật trống.",
+    "UpdatePackageDataUnreadable": "Không thể đọc dữ liệu gói cập nhật."
+  },
+  "FiltersDialog": {
+    "SelectFileType": "Chọn loại tệp",
+    "SelectSortOrder": "Tùy chọn và thứ tự sắp xếp",
+    "SelectVersionRange": "Chọn phạm vi phiên bản",
+    "SelectSection": "Chọn mục",
+    "SaveDefault": "Lưu làm mặc định",
+    "Saved": "Đã lưu"
+  },
+  "GameUploadFileProvider": {
+    "CleanUploadTempFileFailed": "Không thể dọn tệp tải lên tạm: {0}, {1}",
+    "CannotFindLocalResourcePath": "Không tìm thấy đường dẫn tệp tài nguyên cục bộ.",
+    "LocalFileDoesNotExistFormat": "Tệp cục bộ không tồn tại: {0}",
+    "NoLocalResourceSelected": "Chưa chọn tài nguyên cục bộ.",
+    "UnsupportedUploadResourceTypeFormat": "Không hỗ trợ tải lên loại tài nguyên này: {0}"
+  },
+  "ModVersionWidget": {
+    "Files": "Tệp {0}",
+    "Details": "Chi tiết",
+    "Collapse": "Thu gọn"
+  },
+  "ModVersionsDialog": {
+    "Current": "Hiện tại",
+    "NoVersions": "Không có phiên bản nào.",
+    "NoDownloadableFiles": "Không có tệp nào có thể tải xuống.",
+    "DownloadsSize": "Lượt tải {0}   Dung lượng {1}",
+    "FullyCompatible": "Tương thích hoàn toàn",
+    "PotentialCompatibilityIssues": "Có thể gặp vấn đề tương thích",
+    "Incompatible": "Không tương thích",
+    "NoCompatibilityVersionSpecified": "Chưa chỉ định phiên bản tương thích",
+    "GameVersionsPublished": "{0}Phiên bản trò chơi: {1}   Ngày đăng: {2}",
+    "Version": "Phiên bản",
+    "Published": "Đã đăng",
+    "UnnamedFile": "Tệp không tên",
+    "CommunityPost": "Bài đăng cộng đồng"
+  },
+  "PlayedTimeClient": {
+    "PlayedTimeReportRejectedEntries": "Máy chủ đã từ chối các mục sau trong báo cáo thời gian chơi mod: {0}",
+    "PlayedTimeReportFailed": "Gửi báo cáo thời gian chơi mod thất bại: {0}"
+  },
+  "PostDetailsContentBuilder": {
+    "DisposePostDetailsTextureFailed": "Không thể giải phóng kết cấu chi tiết bài đăng: {0}",
+    "DisposeLatePostDetailsTextureFailed": "Không thể giải phóng kết cấu chi tiết bài đăng được tải muộn: {0}",
+    "DisposeDuplicatePostDetailsTextureFailed": "Không thể giải phóng kết cấu chi tiết bài đăng trùng lặp: {0}",
+    "DecodePostDetailsImageFailed": "Không thể giải mã hình ảnh chi tiết bài đăng: {0}, lỗi={1}",
+    "RequestPostDetailsImageFailed": "Không thể yêu cầu hình ảnh chi tiết bài đăng: {0}, lỗi={1}",
+    "Image": "Hình ảnh"
+  },
+  "PostDetailsDialog": {
+    "TranslatingTo": "Đang dịch sang {0}...",
+    "AutomaticallyTranslatedTo": "Đã tự động dịch sang {0}.",
+    "AutomaticTranslationFailed": "Tự động dịch thất bại: {0}",
+    "FailedToLoad": "Không thể tải {0}",
+    "Loading": "Đang tải {0}...",
+    "AutoTranslateFailed": "Tự động dịch bài đăng cộng đồng thất bại: {0}",
+    "NoDetails": "Không có chi tiết.",
+    "PostDetails": "Chi tiết bài đăng"
+  },
+  "PostDetailsHeaderBuilder": {
+    "DownloadFile": "Tải tệp xuống",
+    "UnknownError": "Lỗi không xác định",
+    "CurrentVersion": "Phiên bản hiện tại",
+    "LatestVersion": "Phiên bản mới nhất",
+    "UnnamedVersion": "Phiên bản không tên",
+    "PublishStats": "Thống kê đăng tải",
+    "FailedToLoadStats": "Không thể tải thống kê: {0}",
+    "Last30DaysTotalVersionsFiles": "30 ngày qua {0}, tổng cộng {1}, phiên bản {2}, tệp {3}",
+    "NoDownloadsInTheLast30Days": "Không có lượt tải xuống nào trong 30 ngày qua.",
+    "RecentDownloads": "Lượt tải gần đây",
+    "DailyDownloadsFormat": "{0}: {1}",
+    "VersionDownloads": "Lượt tải theo phiên bản",
+    "VersionLast30DaysTotalFiles": "Phiên bản {0}: 30 ngày qua {1}, tổng cộng {2}, tệp {3}"
+  },
+  "PostIconLoader": {
+    "SkipOversizedPostIcon": "Bỏ qua biểu tượng bài đăng quá lớn: {0}, kích thước={1}",
+    "DecodeRemoteIconFailed": "Không thể giải mã biểu tượng từ xa: {0}, lỗi={1}",
+    "CreatePostIconTextureFailed": "Không thể tạo kết cấu biểu tượng bài đăng: {0}, lỗi={1}",
+    "RequestPostIconFailed": "Không thể yêu cầu biểu tượng bài đăng: {0}, lỗi={1}"
+  },
+  "PostTreePresenter": {
+    "GetPostDetailsFailed": "Không thể lấy chi tiết bài đăng: {0}",
+    "LoadPostFailed": "Không thể tải bài đăng: {0}",
+    "Files": "Tệp {0}",
+    "UpdateAvailable": "Có bản cập nhật",
+    "NoFiles": "Không có tệp",
+    "PagePosts": "{0}, {3} bài đăng",
+    "NoPosts": "{0} · Không có bài đăng",
+    "UnknownUser": "Người dùng không xác định",
+    "PostSummaryFormat": "{0}  bởi {1} vào {2}  lượt tải {3}  {4} phiên bản",
+    "Installed": "Đã cài đặt",
+    "CurrentlyInstalled": "Đang cài đặt",
+    "Downloads": "Lượt tải {0}",
+    "VersionFormat": "Phiên bản {0}",
+    "ExpandToLoadFiles": "Mở rộng để tải danh sách tệp",
+    "File": "[Tệp] {0}",
+    "NoData": "Không có dữ liệu",
+    "NoResources": "Không có tài nguyên",
+    "LoadFailed": "{0} · Tải thất bại",
+    "PageUploads": "{0}, {3} tệp",
+    "NoUploads": "{0} · Không có tệp"
+  },
+  "RestartConfirmDialog": {
+    "RestartRequired": "Cần khởi động lại",
+    "UpdateComplete": "Cập nhật hoàn tất",
+    "ImportedRestartPrompt": "Đã nhập {0} và đánh dấu là chờ khởi động lại. Khởi động lại trò chơi ngay để áp dụng?"
+  },
+  "ReviewSubmissionHandler": {
+    "ScoreSubmissionTaskFaulted": "Tác vụ gửi điểm đánh giá gặp lỗi: {0}",
+    "PleaseWait": "Vui lòng chờ",
+    "PleaseLogInBeforeReviewing": "Vui lòng đăng nhập trước khi đánh giá.",
+    "ReviewSubmissionFailed": "Gửi đánh giá thất bại: {0}",
+    "ReviewSubmitted": "Đã gửi đánh giá",
+    "ReviewSubmittedToast": "Đã gửi đánh giá tài nguyên cục bộ lên cộng đồng.",
+    "Submitting": "Đang gửi",
+    "SubmittingPreviousReview": "Đang gửi đánh giá trước đó.",
+    "SubmittingReviewToTheCommunity": "Đang gửi đánh giá lên cộng đồng."
+  },
+  "TreeViewWidget": {
+    "RowWidgetsRebuiltCallbackFaulted": "Hàm gọi lại dựng lại widget hàng gặp lỗi: {0}"
+  },
+  "VersionDetailFormatter": {
+    "UnnamedVersion": "Phiên bản không tên"
+  },
+  "CommunitySettingsScreen": {
+    "StatusReady": "Cài đặt đã sẵn sàng.",
+    "LogOut": "Đăng xuất",
+    "LogIn": "Đăng nhập",
+    "NotLoggedIn": "Chưa đăng nhập",
+    "UnknownAccount": "Tài khoản không xác định"
   }
 }

@@ -118,7 +118,7 @@ namespace Game {
             NuGetVersion = new NuGetVersion(1, 0, 0),
             ApiVersion = ModsManager.APIVersionString,
             ApiVersionRange = new VersionRange(ModsManager.APINuGetVersion),
-            Link = "https://gitee.com/SC-SPM/SurvivalcraftApi",
+            Link = "https://atomgit.com/SC-SPM/SurvivalcraftApi",
             Author = "SC-SPM",
             Description = "For mod developers to debug uncompressed mod. 用于模组开发者调试未压缩的模组",
             ScVersion = "2.4.0.0",

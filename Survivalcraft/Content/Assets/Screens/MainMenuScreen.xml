@@ -44,7 +44,7 @@
 			</StackPanelWidget>
 			<StackPanelWidget HorizontalAlignment="Center">
 				<LabelWidget Text="[MainMenuScreen:12]" Color="64, 192, 64" VerticalAlignment="Center" FontScale="0.7" DropShadow="true"/>
-				<LinkWidget Name="ApiLink" Text="https://gitee.com/SC-SPM/SurvivalcraftApi" Color="255, 255, 255, 255" FontScale="0.7" VerticalAlignment="Center" Url="https://gitee.com/SC-SPM/SurvivalcraftApi" DropShadow="true" _ExcludePlatforms="Ios" />
+				<LinkWidget Name="ApiLink" Text="https://atomgit.com/SC-SPM/SurvivalcraftApi" Color="255, 255, 255, 255" FontScale="0.7" VerticalAlignment="Center" Url="https://atomgit.com/SC-SPM/SurvivalcraftApi" DropShadow="true" _ExcludePlatforms="Ios" />
 			</StackPanelWidget>
 
 		</StackPanelWidget>

@@ -184,7 +184,8 @@ namespace Engine.Animation.RootMotion {
         /// 获取指定相位区间内的平均速度
         /// </summary>
         public Vector3 GetAverageVelocity(float startPhase, float endPhase) {
-            if (m_positionSamples.Count < 2 || m_animationDuration <= 0) {
+            if (m_positionSamples.Count < 2
+                || m_animationDuration <= 0) {
                 return Vector3.Zero;
             }
             Vector3 startPos = SamplePosition(startPhase * m_animationDuration);
@@ -197,7 +198,8 @@ namespace Engine.Animation.RootMotion {
         /// 获取指定相位区间内的峰值速度
         /// </summary>
         public Vector3 GetPeakVelocity(float startPhase, float endPhase) {
-            if (m_positionSamples.Count < 2 || m_animationDuration <= 0) {
+            if (m_positionSamples.Count < 2
+                || m_animationDuration <= 0) {
                 return Vector3.Zero;
             }
             float startTime = Math.Min(startPhase, endPhase) * m_animationDuration;
@@ -206,7 +208,8 @@ namespace Engine.Animation.RootMotion {
             for (int i = 0; i < m_positionSamples.Count - 1; i++) {
                 (float t1, Vector3 p1) = m_positionSamples[i];
                 (float t2, Vector3 p2) = m_positionSamples[i + 1];
-                if (t2 < startTime || t1 > endTime) {
+                if (t2 < startTime
+                    || t1 > endTime) {
                     continue;
                 }
                 float dt = t2 - t1;

@@ -187,6 +187,15 @@ namespace Game {
 
         public override void GenerateTerrainVertices(BlockGeometryGenerator generator, TerrainGeometry geometry, int value, int x, int y, int z) { }
 
+        public override BlockDrawDemand GetDrawDemand(int value, SubsystemTerrain subsystemTerrain) {
+            // 蛋类型表为空（mod 子类覆写 Initialize 不调 base）时 GetEggType 的兜底索引会抛，
+            // 记账先于 Draw 且 AddPickable 直调路径无 try，这里提前静默退出。
+            if (m_eggTypes.Count == 0) {
+                return null;
+            }
+            return BlockDrawDemand.FromBlockMesh(TexturedBatchKey.MeshAlphaTest, GetEggType(Terrain.ExtractData(value)).BlockMesh);
+        }
+
         public override void DrawBlock(PrimitivesRenderer3D primitivesRenderer,
             int value,
             Color color,

@@ -189,6 +189,18 @@ namespace Game {
         }
 
         public virtual void DisplaySmallMessage(string text, Color color, bool blinking, bool playNotificationSound) {
+            bool skip = false;
+            ModsManager.HookAction(
+                "DisplaySmallMessage",
+                modLoader => {
+                    modLoader.DisplaySmallMessage(this, ref text, ref color, ref blinking, ref playNotificationSound, out bool Skip);
+                    skip |= Skip;
+                    return false;
+                }
+            );
+            if (skip) {
+                return;
+            }
             MessageWidget.Message message = new(text, color, blinking);
             DisplaySmallMessage(message, playNotificationSound);
         }

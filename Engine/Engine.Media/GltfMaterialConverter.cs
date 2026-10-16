@@ -34,13 +34,7 @@ namespace Engine.Media {
                 modelData.GltfTextureToModelIndex[gltfTexture.LogicalIndex] = texIndex;
                 bool isSrgb = textureIsSrgb.GetValueOrDefault(gltfTexture.LogicalIndex, true);
                 ModelTextureInfo texInfo = new() { Name = image.Name ?? $"Texture{image.LogicalIndex}", IsSrgb = isSrgb };
-                string sourcePath = image.Content.SourcePath;
-                if (!string.IsNullOrEmpty(sourcePath)) {
-                    texInfo.SourceImage = image.Content;
-                }
-                else {
-                    texInfo.SourceImage = image.Content;
-                }
+                texInfo.SourceImage = image.Content;
                 texInfo.SetSampler(gltfTexture.Sampler);
                 modelData.Textures.Add(texInfo);
             }

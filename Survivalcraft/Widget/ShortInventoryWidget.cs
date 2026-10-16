@@ -37,8 +37,10 @@ namespace Game {
                 for (int i = 0; i < m_inventoryGrid.ColumnsCount; i++) {
                     InventorySlotWidget inventorySlotWidget = new();
                     inventorySlotWidget.AssignInventorySlot(m_inventory, i);
-                    inventorySlotWidget.BevelColor = new Color(181, 172, 154) * 0.6f;
-                    inventorySlotWidget.CenterColor = new Color(181, 172, 154) * 0.33f;
+                    // BevelledRectangleWidget 绘制统一预乘后，压暗须只降 alpha、不可再乘 RGB（低 alpha 直色会被预乘二次压暗）；
+                    // A = 0.6f/0.33f×255，槽位观感与预乘修复前的 *0.6f/*0.33f 写法一致
+                    inventorySlotWidget.BevelColor = new Color(181, 172, 154, 153);
+                    inventorySlotWidget.CenterColor = new Color(181, 172, 154, 84);
                     m_inventoryGrid.Children.Add(inventorySlotWidget);
                     m_inventoryGrid.SetWidgetCell(inventorySlotWidget, new Point2(i, 0));
                 }

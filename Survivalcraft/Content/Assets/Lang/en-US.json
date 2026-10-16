@@ -249,7 +249,10 @@
     "8": "All Items",
     "9": "Are you sure?",
     "10": "Invalid item type.",
-    "11": "The configuration has been changed. Do you want to reload it?"
+    "11": "The configuration has been changed. Do you want to reload it?",
+    "12": " | in {0} font slot(s)",
+    "13": "Font | {0}",
+    "14": "[{0}] will be irrecoverably deleted.\n(used by {1} font slot(s), they will revert to the default)"
   },
   "MainMenuScreen": {
     "1": "Failed to Get Announcement",
@@ -300,6 +303,7 @@
     "20": "Completed",
     "21": "Path: ",
     "Directory": "Directory",
+    "Font": "Font",
     "World": "World",
     "Blocks Texture": "Blocks Texture",
     "Character Skin": "Character Skin",
@@ -568,7 +572,9 @@
     "14": "The world files may be occupied by another program.",
     "15": "All",
     "16": "Warnings",
-    "17": "Errors"
+    "17": "Errors",
+    "18": "Hint",
+    "19": "If you encounter an error, first go to the Content - Mod Management screen and check whether the enabled mods are compatible with the current API version. If they should be compatible but errors still occur, a mod conflict may have occurred; try disabling them one by one to ensure the game runs properly. You can usually open the mod's official website/release page from the Mod Management screen to report the issue. If you encounter a non-mod issue, please click the \"Report API Issue\" button in the Help screen."
   },
   "MoreCommunityLinkDialog": {
     "1": "No User",
@@ -824,8 +830,7 @@
     "15": "Not Found / Not Enabled",
     "16": "Found Version: ",
     "17": " (Latest: {0})",
-    "18": "Played for: "
-,
+    "18": "Played for: ",
     "StateMissing": "Missing",
     "StateDisabled": "Disabled",
     "StatePendingRestart": "Pending Restart",
@@ -3519,6 +3524,25 @@
       "18": "Manage Class Replacement",
       "19": "Force 32-bit indices:"
     },
+    "SettingsFontScreen": {
+      "1": "Adjust Font Settings",
+      "2": "Body Font:",
+      "3": "Body Font Bold:",
+      "4": "Body Font Italic:",
+      "5": "Body Font Bold Italic:",
+      "6": "Monospace Font:",
+      "7": "Monospace Font Bold:",
+      "8": "Monospace Font Italic:",
+      "9": "Monospace Font Bold Italic:",
+      "10": "Vanilla-style English:",
+      "11": "System Default",
+      "12": "Based on Body Font",
+      "13": "Based on Mono Font",
+      "14": "Choose File...",
+      "15": "Imported Files...",
+      "16": "No fonts have been imported yet.",
+      "17": "Built-in Font"
+    },
     "SettingsControlsScreen": [
       "Adjust Controls Settings",
       "Touchscreen Move Control:",
@@ -3602,7 +3626,8 @@
       "6": "Controls",
       "7": "Compatibility",
       "8": "Mod Settings",
-      "9": "Multiplayer"
+      "9": "Multiplayer",
+      "10": "Fonts"
     },
     "SettingsUiScreen": [
       "Adjust User Interface Settings",
@@ -3623,7 +3648,9 @@
       "Custom screenshot aspect ratio",
       "Adapt edge to edge display",
       "VR GUI Size:",
-      "VR GUI Dock to Left Hand:"
+      "VR GUI Dock to Left Hand:",
+      "Font:",
+      "Settings"
     ],
     "TrialEndedScreen": {
       "1": "The day has ended",
@@ -4101,7 +4128,8 @@
       "Clear",
       "Copy",
       "Close",
-      "Upload"
+      "Upload",
+      "Hint"
     ],
     "RunJsDialog": {
       "1": "Run",
@@ -4934,6 +4962,7 @@
       "BlocksTexture": "Texture",
       "CharacterSkin": "Skin",
       "Mod": "Mod",
+      "Font": "Font",
       "Modpack": "Modpack",
       "NetMod": "Net Mod",
       "Image": "Image",

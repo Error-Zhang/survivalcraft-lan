@@ -36,7 +36,7 @@
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `template` | string | `"Simple"` | 动画模板名称或自定义模板路径 |
+| `template` | string | 无（可选） | 动画模板名称或自定义模板路径。**省略时使用本配置内联的 `layers` 定义层栈**（见[内联层栈](#内联层栈无-template)）；两者皆空时为默认 Simple 层栈 |
 | `rootBoneRotation` | float 或 Vector3 | `0` | 根骨骼旋转修正（度）。单数字=绕 Y；`[x,y,z]` 或 `{"X":..,"Y":..,"Z":..}`=绕 X/Y/Z。详见 [根骨骼变换覆盖与混合](#根骨骼变换覆盖与混合) |
 | `rootBoneTranslation` | Vector3 | `[0,0,0]` | 根骨骼平移修正（米）。`[x,y,z]` 或 `{"X":..,"Y":..,"Z":..}`。沿实体本地坐标轴（Y 恒上；X/Z 随实体朝向），不受 rootBoneRotation 旋转影响 |
 | `modelScale` | float | `1` | 模型缩放。厘米单位模型用 `0.01`，米单位模型用 `1.0` |
@@ -168,6 +168,40 @@
 }
 ```
 
+### 内联层栈（无 template）
+
+不想维护独立模板文件时，`template` 可整体省略，此时 `layers` 的键集**本身就是层栈定义**，可写 `index`/`blendMode`/`bones`/`bonesExclude`/`weight` 声明拓扑：
+
+```json
+{
+  "layers": {
+    "Base": {
+      "driver": { "type": "FourLeggedWalk", "properties": { ... } }
+    },
+    "Head": {
+      "index": 1,
+      "blendMode": "Override",
+      "bones": ["Head", "Neck"],
+      "driver": { "type": "FourLeggedFeed", "properties": { ... } }
+    },
+    "Death": {
+      "index": 2,
+      "driver": { "type": "Death", "properties": { ... } }
+    }
+  },
+  ...
+}
+```
+
+规则：
+
+- `index` 省略时按 `layers` 声明顺序自动编号（0 起）；写与不写可混用，混合顺序 = index 升序（同 index 按声明顺序）。**必须存在一个 index 为 0 的层**——根运动/根骨骼变换只作用于 index 0 层，全部 index > 0 时这些功能静默失效。
+- `blendMode` 省略时为 `Override`。
+- `layers` 也为空（或整个省略）时，退回默认 Simple 层栈（单 Base/Override 层）。
+- 引用 `template` 时，层栈完全由模板决定，`layers` 里的 `index`/`blendMode` 被忽略（其余字段仍按层名覆盖模板默认值）。
+- 内联层栈不进模板注册表，其他配置无法按名引用；需要复用请使用 `.template.json` 文件。
+- 与引用模板的差异：内联时每个层的 driver 都会真正创建，driver 类型名写错会抛异常（引用模板时模板中不存在的层名被静默跳过，错名层不会走到 driver 创建）。
+
 ### 模板层配置字段
 
 | 字段 | 类型 | 说明 |
@@ -214,11 +248,12 @@
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `bones` | string[] | 骨骼过滤列表，按子树展开。**省略则保留模板 `boneMask`**；设为非空数组则覆盖 |
+| `index` | int? | 层混合顺序索引（小者先）。**仅无 `template`（内联层栈）时生效**，省略按声明顺序自动编号；引用模板时被忽略 |
+| `bones` | string[] | 骨骼过滤列表，按子树展开。**省略则保留模板 `boneMask`**（内联层栈时即该层遮罩）；设为非空数组则覆盖 |
 | `bonesExclude` | string[] | 排除骨骼（同子树语义）。**省略则保留模板 `boneMaskExclude`**；设为 `[]`（空数组）清除 |
 | `weight` | float? | 层权重（0-1）。**省略则保留模板 `weight`**；<=0 视为 1 |
 | `driver` | object | 驱动器配置（详见[驱动器章节](#6-驱动器drivers)） |
-| `blendMode` | string | 混合模式：`"override"` 或 `"additive"` |
+| `blendMode` | string | 混合模式：`"override"` 或 `"additive"`。**仅无 `template`（内联层栈）时生效**，省略为 `override`；引用模板时混合模式由模板决定 |
 | `blendCurve` | string | 混合曲线：`"linear"` 或 `"smoothstep"` |
 
 ### 混合模式
@@ -577,6 +612,8 @@ C# 侧 `p.SetString("RandomIdleEvent", "Dance_Loop")` 即让该规则播放 `Dan
 > **重要提示**：驱动器主要是为了兼容游戏本体中 `.dae` 模型的 C# 硬编码动画而设计的。对于 glTF 模型，**建议直接使用模型文件中的关键帧动画**，而非驱动器。驱动器仅在以下情况推荐使用：
 > - LookAt 驱动器：需要头部/骨骼实时跟踪目标方向
 > - Death 驱动器：需要统一的死亡物理效果
+
+> **蒙皮（glTF）模型上的枢轴补偿**：驱动器输出的是旋转 delta，引擎在蒙皮模型上会自动为 **Override（整份替换）层**中驱动器实际写入的骨骼补回 rest 枢轴平移（`AnimationDriverManager.SampleWithPivot`），非蒙皮模型行为不变。因此 `Identity` 写入（如死亡驱动器的头/颈重置）在蒙皮模型上会落在 rest 位而非模型原点。**Additive（叠加）层不补**：叠加输出是乘进底层姿态的 delta，底层已自带枢轴（叠加纯旋转驱动器如 HumanAttack/Aim/Mine、自定义转向层即属此类）；但底层关键帧未写过同一骨骼时（Blender"首次设置"分支），该骨骼仍会丢枢轴，请确保 Additive 层目标骨骼在底层有关键帧。注意：生物系列驱动器（Bird*/Human*/FourLegged*/Fish*）的 Body 写入携带经典管线的实体位置与量纲（如蹲下平移），这些语义仅对经典模型成立，蒙皮模型请只用旋转/重置类驱动器（LookAt、Death、Expression 或关键帧）。
 
 ### 在层级中配置驱动器
 

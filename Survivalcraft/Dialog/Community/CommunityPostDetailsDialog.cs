@@ -21,8 +21,9 @@ namespace Game {
 
         readonly string m_contentPlainText;
 
-        // 内容构建：HAP DOM → widget 的遍历与图片纹理生命周期都在构建器里。
-        readonly PostDetailsContentBuilder m_contentBuilder;
+        // content 区正文：HtmlWidget 持有 HTML→widget 构建与图片纹理生命周期，
+        // UpdateCeases（对话框移除，级联）释放纹理；翻译重建只换 Html 属性（loader 缓存复用）。
+        readonly HtmlWidget m_htmlWidget;
         Task<AutoTranslateResult> m_autoTranslateTask;
         CancellationTokenSource m_autoTranslateCancellation;
         int m_autoTranslateRequestId;
@@ -52,7 +53,19 @@ namespace Game {
             m_primaryButton = Children.Find<ButtonWidget>("PostDetailsDialog.PrimaryButton");
             m_closeButton = Children.Find<ButtonWidget>("PostDetailsDialog.CloseButton");
             m_translateStatusLabel = Children.Find<LabelWidget>("PostDetailsDialog.TranslateStatus");
-            m_contentBuilder = new PostDetailsContentBuilder(m_contentPanel, m_baseUrl);
+            // DefaultColor 对齐 ReleasesScreen 约定（正文 224 灰）；FontScale 维持 1f——富文本正文
+            // 字号大于旧降级渲染（0.86）属有意取舍，勿当遗漏补小
+            m_htmlWidget = new HtmlWidget { ImageBaseUrl = m_baseUrl, PreserveImagesOnRebuild = true, DefaultColor = new Color(224, 224, 224) };
+            // # 开头=站内锚点：滚动正文锚点（空 fragment=回顶），命中与否都不外抛浏览器；
+            // 带 fragment 的外部 URL（page.html#x）仍按外链处理
+            m_htmlWidget.LinkClicked += href => {
+                if (href.StartsWith("#", StringComparison.Ordinal)) {
+                    m_htmlWidget.TryScrollToAnchor(href.Substring(1));
+                    return;
+                }
+                WebBrowserManager.LaunchBrowser(href);
+            };
+            m_contentPanel.Children.Add(m_htmlWidget);
             bool hasPrimaryAction = !string.IsNullOrWhiteSpace(primaryButtonText) && primaryAction != null;
             // 行内含关闭按钮，恒可见；主按钮/浏览器按钮按有无动作与链接各自显隐。
             actionsRow.IsVisible = true;
@@ -90,35 +103,44 @@ namespace Game {
         }
 
         public override void UpdateCeases() {
-            // 框架移除对话框时调用（Widget.cs UpdateCeases）。构建器释放图片纹理句柄并标记已释放，
-            // 晚到的图片下载回调据此就地释放新纹理，不再加入列表。
-            m_contentBuilder.ReleaseTextures();
+            // 图片纹理由 m_htmlWidget.UpdateCeases 级联释放（ContainerWidget 移出更新树时）。
             // 取消在途翻译 HTTP 请求：对话框已移除，结果无消费方。
             m_autoTranslateCancellation?.Cancel();
             base.UpdateCeases();
         }
 
         void BuildContent(string translatedHtml = null) {
-            // 重建不释放纹理：已加载图片入纹理缓存供新内容复用（自动翻译重建
-            // 不再让第一批纹理成孤儿、同图下载两次），对话框关闭时统一释放。
-            // 只清 content 面板，header 区（本地数据）不受翻译重建影响。
-            m_contentPanel.Children.Clear();
+            // m_htmlWidget 恒为面板首子件，重建只截掉其后的降级/占位 label——不摘部件：
+            // Children 移除会 ChangeParent(null)→UpdateCeases 释放纹理缓存，毁掉翻译重建复用。
+            // 重建不释放纹理（PreserveImagesOnRebuild）：已加载图片入缓存供新内容复用
+            // （自动翻译重建不再让第一批纹理成孤儿、同图下载两次），对话框关闭时统一释放
+            while (m_contentPanel.Children.Count > 1) {
+                m_contentPanel.Children.RemoveAt(1);
+            }
             string html = translatedHtml ?? m_contentHtml;
-            bool appended = !string.IsNullOrWhiteSpace(html) && m_contentBuilder.AppendContent(html);
-            if (!appended
-                && !string.IsNullOrWhiteSpace(m_contentPlainText)) {
-                PostDetailsContentBuilder.AppendPlainText(m_contentPanel, m_contentPlainText);
+            // 会产出可见内容的判定与构建器产出一致：可见文本（script/style 不计）或图片；
+            // 两者皆无（空 DOM/纯 script）走纯文本降级，再否则占位文案
+            bool appended = !string.IsNullOrWhiteSpace(html)
+                && (HtmlTextUtils.HasVisibleText(html) || html.Contains("<img", StringComparison.OrdinalIgnoreCase));
+            if (appended) {
+                m_htmlWidget.Html = html;
+                return;
+            }
+            // 正文无可见内容：清空部件旧内容（纹理保留），展示纯文本降级/占位
+            m_htmlWidget.Html = null;
+            if (!string.IsNullOrWhiteSpace(m_contentPlainText)) {
+                AppendPlainText(m_contentPanel, m_contentPlainText);
                 appended = true;
             }
             if (!appended) {
-                m_contentBuilder.AppendParagraph(LanguageControl.Get("PostDetailsDialog", "NoDetails"));
+                AppendParagraph(m_contentPanel, LanguageControl.Get("PostDetailsDialog", "NoDetails"));
             }
         }
 
         void StartAutoTranslate() {
             string translateUrl = GetTranslateUrl();
             string targetLanguage = LanguageControl.CurrentLanguageSimpleEnglishName;
-            bool hasText = PostDetailsContentBuilder.HasVisibleText(m_contentHtml);
+            bool hasText = HtmlTextUtils.HasVisibleText(m_contentHtml);
             bool hasTitle = !string.IsNullOrWhiteSpace(m_titleLabel?.Text);
             if (string.IsNullOrWhiteSpace(translateUrl)
                 || string.IsNullOrWhiteSpace(targetLanguage)
@@ -131,7 +153,12 @@ namespace Game {
                 new Color(160, 210, 255)
             );
             // 服务端对相同内容有翻译缓存：先请求、返回后一次性建 Widget，不先建原文再重建。
-            m_contentPanel.Children.Clear();
+            // 等待期清正文：只截 m_htmlWidget 之后的降级 label，部件不摘（摘除触发 UpdateCeases
+            // 释放纹理缓存）；Html 置空重建即视觉清空，纹理保留待译文复用
+            while (m_contentPanel.Children.Count > 1) {
+                m_contentPanel.Children.RemoveAt(1);
+            }
+            m_htmlWidget.Html = null;
             int requestId = ++m_autoTranslateRequestId;
             string title = m_titleLabel?.Text;
             m_autoTranslateCancellation?.Cancel();
@@ -206,6 +233,37 @@ namespace Game {
 
         string GetTranslateUrl() =>
             Uri.TryCreate(m_baseUrl, UriKind.Absolute, out Uri baseUri) ? $"{baseUri.AbsoluteUri.TrimEnd('/')}/translate" : null;
+
+        // —— 纯文本降级渲染（原 PostDetailsContentBuilder.AppendPlainText/AppendParagraph 本地化，样式同源）——
+        // 纯文本（Git release notes 等）逐行渲染：行解析在 HtmlTextUtils.SplitPlainTextLines
+        static void AppendPlainText(StackPanelWidget panel, string text) {
+            foreach ((bool isListItem, string line) in HtmlTextUtils.SplitPlainTextLines(text)) {
+                if (isListItem) {
+                    AppendListItem(panel, "• " + line);
+                }
+                else {
+                    AppendParagraph(panel, line);
+                }
+            }
+        }
+
+        static void AppendParagraph(StackPanelWidget panel, string text) {
+            if (!string.IsNullOrWhiteSpace(text)) {
+                panel.Children.Add(new CanvasWidget { Size = new Vector2(0f, 6f) });
+                panel.Children.Add(
+                    new LabelWidget { Text = text, Color = new Color(225, 225, 225), FontScale = 0.86f, WordWrap = true }
+                );
+            }
+        }
+
+        static void AppendListItem(StackPanelWidget panel, string text) {
+            if (!string.IsNullOrWhiteSpace(text)) {
+                panel.Children.Add(new CanvasWidget { Size = new Vector2(0f, 3f) });
+                panel.Children.Add(
+                    new LabelWidget { Text = text, Color = new Color(225, 225, 225), FontScale = 0.86f, WordWrap = true, MarginLeft = 22f }
+                );
+            }
+        }
 
         /// <summary>
         /// 帖子网页链接：服务器网站根 + /#/postDetails/{postId}（形如 https://test.suancaixianyu.cn/#/postDetails/1059）。

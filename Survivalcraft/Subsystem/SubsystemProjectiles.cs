@@ -41,6 +41,9 @@ namespace Game {
 
         public List<Projectile> m_projectilesToRemove = [];
 
+        /// <summary>抛射物方块绘制容量需求账本（增删自报，绘制前据此预扩容共享批次）。</summary>
+        readonly BlockDrawDemandLedger m_blockDemandLedger = new();
+
         public PrimitivesRenderer3D m_primitivesRenderer = new();
 
         public Random m_random = new();
@@ -77,6 +80,7 @@ namespace Game {
                 }
             );
             lock (m_lock) {
+                m_blockDemandLedger.Book(BlocksManager.GetBlockDrawDemand(projectile.Value, m_subsystemTerrain), 1);
                 m_projectiles.Add(projectile);
             }
             if (projectile.Owner != null
@@ -222,6 +226,17 @@ namespace Game {
         }
 
         public virtual void Draw(Camera camera, int drawOrder) {
+            // 按账本对方块批次一次性精确预扩容：消除逐块扩容爬坡（DynamicArray 精确扩容下大批量入队是 O(N²) 拷贝）；
+            // 与记账同锁（lock 为模组多线程防御，原版无锁），避免读到记账中途的账本
+            lock (m_lock) {
+                if (m_blockDemandLedger.Demand.Count > 0) {
+                    Texture2D blocksTexture = m_subsystemTerrain.SubsystemAnimatedTextures.AnimatedBlocksTexture;
+                    foreach (KeyValuePair<TexturedBatchKey, (int Verts, int Idxs)> entry in m_blockDemandLedger.Demand) {
+                        BlocksManager.GetTexturedBatch(m_primitivesRenderer, blocksTexture, entry.Key)
+                            .EnsureCapacity(entry.Value.Verts, entry.Value.Idxs);
+                    }
+                }
+            }
             m_drawBlockEnvironmentData.SubsystemTerrain = m_subsystemTerrain;
             m_drawBlockEnvironmentData.InWorldMatrix = Matrix.Identity;
             for (int i = 0; i < m_projectiles.Count; i++) {
@@ -265,6 +280,7 @@ namespace Game {
                         item.TrailParticleSystem.IsStopped = true;
                     }
                     item.OnRemove?.Invoke();
+                    m_blockDemandLedger.Book(BlocksManager.GetBlockDrawDemand(item.Value, m_subsystemTerrain), -1);
                     m_projectiles.Remove(item);
                     ProjectileRemoved?.Invoke(item);
                 }
@@ -313,6 +329,8 @@ namespace Game {
                             return false;
                         }
                     );
+                    // 存档恢复的实体也要入账：否则其移除时 Book(-1) 会抵掉同键已记账实体的容量。
+                    m_blockDemandLedger.Book(BlocksManager.GetBlockDrawDemand(projectile.Value, m_subsystemTerrain), 1);
                     m_projectiles.Add(projectile);
                 }
                 catch (Exception ex) {

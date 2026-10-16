@@ -10,17 +10,17 @@ namespace Game {
 
         public string m_releasesURL = string.Empty; //此界面发布版系列的Releases链接
 
-        public IComparer<ReleaseInfo> m_versionComparer;
+        public IComparer<AtomgitReleaseInfo> m_versionComparer;
 
         #endregion
 
-        public List<ReleaseInfo> Releases { get; set; } = new(); //所有发布版的信息
+        public List<AtomgitReleaseInfo> Releases { get; set; } = new(); //所有发布版的信息
         public LabelWidget m_titleLabel;
-        public LabelWidget m_textLabel;
+        public MarkdownWidget m_textLabel;
         public LabelWidget m_infoLabel;
         public ListPanelWidget m_releasesListPanel;
         public StackPanelWidget m_releaseInfoPanel;
-        public Dictionary<BevelledButtonWidget, Asset> m_assetButtons = new(); //点击就下载资源的按钮
+        public Dictionary<BevelledButtonWidget, AtomgitAsset> m_assetButtons = new(); //点击就下载资源的按钮
         public ScrollPanelWidget m_scrollPanel;
         public BusyDialog m_busyDialog; //进入时展示的"获取发布版..."的对话框
         public const string fName = "ReleasesScreen";
@@ -29,17 +29,27 @@ namespace Game {
             XElement node = ContentManager.Get<XElement>("Screens/ReleasesScreen");
             LoadContents(this, node);
             m_titleLabel = Children.Find<LabelWidget>("ReleaseTitle");
-            m_textLabel = Children.Find<LabelWidget>("ReleaseText");
+            m_textLabel = Children.Find<MarkdownWidget>("ReleaseText");
             m_scrollPanel = Children.Find<ScrollPanelWidget>("ScrollPanel");
             m_releasesListPanel = Children.Find<ListPanelWidget>("ReleasesList");
             m_infoLabel = Children.Find<LabelWidget>("ReleaseInfo");
+            // # 开头=站内锚点：Markdown 路径未接锚点注册（留档），旧实现会拼成乱码外链，静默忽略；
+            // 其余 URL（含带 fragment 的外部地址）照旧外抛
+            m_textLabel.LinkClicked += href => {
+                if (!href.StartsWith("#", StringComparison.Ordinal)) {
+                    WebBrowserManager.LaunchBrowser(href);
+                }
+            };
             m_releaseInfoPanel = Children.Find<StackPanelWidget>("ReleaseInfoPanel");
-            m_releasesListPanel.ItemWidgetFactory = item => new LabelWidget {
-                Text = item is ReleaseInfo releaseInfo
-                    ? releaseInfo.name + GetVersionSuffix(releaseInfo.tag_name, APIUpdateManager.CurrentVersion)
-                    : string.Empty,
-                HorizontalAlignment = WidgetAlignment.Center,
-                VerticalAlignment = WidgetAlignment.Center
+            m_releasesListPanel.ItemWidgetFactory = item => {
+                if (item is not AtomgitReleaseInfo releaseInfo) {
+                    return new Widget();
+                }
+                return new LabelWidget {
+                    Text = releaseInfo.name + GetVersionSuffix(releaseInfo.tag_name, APIUpdateManager.CurrentVersion),
+                    VerticalAlignment = WidgetAlignment.Center,
+                    Margin = new Vector2(15f, 0f)
+                };
             };
             m_releasesListPanel.ItemClicked += DisplayReleaseInfo;
         }
@@ -49,7 +59,7 @@ namespace Game {
             m_releasesURL = (string)parameters[0];
             m_releasesName = (string)parameters[1];
             if (parameters.Length >= 3) {
-                m_versionComparer = parameters[2] as IComparer<ReleaseInfo> ?? new ReleaseInfoComparer();
+                m_versionComparer = parameters[2] as IComparer<AtomgitReleaseInfo> ?? new ReleaseInfoComparer();
             }
             else {
                 m_versionComparer = new ReleaseInfoComparer();
@@ -74,8 +84,7 @@ namespace Game {
             }
             try {
                 JsonDocument document = await OnlineJsonReader.GetJsonFromUrlAsync(m_releasesURL);
-                //Releases = JsonSerializer.Deserialize<List<ReleaseInfo>>(document.RootElement.GetRawText());
-                Releases = JsonSerializer.Deserialize(document.RootElement.GetRawText(), GiteeReleaseInfoJsonContext.Default.ListReleaseInfo);
+                Releases = JsonSerializer.Deserialize(document.RootElement.GetRawText(), AtomgitReleaseInfoJsonContext.Default.ListAtomgitReleaseInfo);
                 Releases.Sort(m_versionComparer);
                 PopulateReleasesList();
             }
@@ -105,7 +114,7 @@ namespace Game {
         public void PopulateReleasesList() //向左侧版本列表中加入Release条目
         {
             m_releasesListPanel.ClearItems();
-            foreach (ReleaseInfo releaseInfo in Releases) {
+            foreach (AtomgitReleaseInfo releaseInfo in Releases) {
                 m_releasesListPanel.AddItem(releaseInfo);
             }
             if (Releases.Count > 0) {
@@ -138,12 +147,15 @@ namespace Game {
             return string.Empty;
         }
 
-        public void PopulateAssetsList(ReleaseInfo releaseInfo) {
+        public void PopulateAssetsList(AtomgitReleaseInfo releaseInfo) {
             foreach (BevelledButtonWidget assetButton in m_assetButtons.Keys) {
                 m_releaseInfoPanel.Children.Remove(assetButton);
             }
             m_assetButtons.Clear();
-            foreach (Asset asset in releaseInfo.assets) {
+            foreach (AtomgitAsset asset in releaseInfo.assets) {
+                if (asset.type != "attach") {
+                    continue;
+                }
                 BevelledButtonWidget button = new() { Size = new Vector2(float.PositiveInfinity, 56), Text = asset.name, FontScale = 0.85f };
                 m_assetButtons.Add(button, asset);
                 m_releaseInfoPanel.Children.Add(button);
@@ -152,15 +164,17 @@ namespace Game {
 
         public void DisplayReleaseInfo(object item) //档左侧版本列表中某条目点击时
         {
-            ReleaseInfo releaseInfo = (ReleaseInfo)item;
+            if (item is not AtomgitReleaseInfo releaseInfo) {
+                return;
+            }
             m_titleLabel.Text = releaseInfo.name;
             m_infoLabel.Text = string.Format(LanguageControl.GetContentWidgets(fName, 4), releaseInfo.author.name, releaseInfo.created_at);
-            m_textLabel.Text = releaseInfo.body;
+            m_textLabel.Markdown = releaseInfo.body;
             PopulateAssetsList(releaseInfo);
         }
 
         public override void Update() {
-            foreach (KeyValuePair<BevelledButtonWidget, Asset> assetButton in m_assetButtons) {
+            foreach (KeyValuePair<BevelledButtonWidget, AtomgitAsset> assetButton in m_assetButtons) {
                 if (assetButton.Key.IsClicked) {
                     WebBrowserManager.LaunchBrowser(assetButton.Value.browser_download_url);
                 }
@@ -173,8 +187,8 @@ namespace Game {
         }
 
         //用于给版本列表排序
-        public class ReleaseInfoComparer : IComparer<ReleaseInfo> {
-            public int Compare(ReleaseInfo x, ReleaseInfo y) {
+        public class ReleaseInfoComparer : IComparer<AtomgitReleaseInfo> {
+            public int Compare(AtomgitReleaseInfo x, AtomgitReleaseInfo y) {
                 if (ReferenceEquals(x, y)) {
                     return 0;
                 }

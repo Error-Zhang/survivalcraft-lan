@@ -1,3 +1,5 @@
+using FontStashSharp;
+
 namespace Engine {
     public struct Color : IEquatable<Color> {
         public uint PackedValue;
@@ -150,6 +152,8 @@ namespace Engine {
         public static implicit operator Color((int R, int G, int B, int A) v) => new(v.R, v.G, v.B, v.A);
 
         public static implicit operator Color((float R, float G, float B, float A) v) => new(v.R, v.G, v.B, v.A);
+
+        public static implicit operator FSColor(Color color) => new(color.R, color.G, color.B, color.A);
 
         public override int GetHashCode() => (int)PackedValue;
 

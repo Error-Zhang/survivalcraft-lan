@@ -49,5 +49,4 @@ namespace Engine.Animation {
         /// </summary>
         public float? Weight { get; set; }
     }
-
 }

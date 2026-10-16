@@ -159,21 +159,33 @@ namespace Engine.Graphics {
             SetDataInternal(mipLevel, source);
         }
 
+        // 子矩形上传：存储由 AllocateTexture 的 TexImage2D(null) 预分配，TexSubImage2D 只改写矩形内像素，
+        // 矩形外内容保持不变（未写区域初始值取决于首次整传/清零，GL 不保证 TexImage2D(null) 清零）
+        public virtual void SetData<T>(int mipLevel, int x, int y, int width, int height, T[] source, int sourceStartIndex = 0) where T : unmanaged {
+            VerifyParametersSetData(mipLevel, x, y, width, height, source, sourceStartIndex);
+            GCHandle gCHandle = GCHandle.Alloc(source, GCHandleType.Pinned);
+            try {
+                int num = Utilities.SizeOf<T>();
+                SetDataInternal(mipLevel, x, y, width, height, gCHandle.AddrOfPinnedObject() + sourceStartIndex * num);
+            }
+            finally {
+                gCHandle.Free();
+            }
+        }
+
+        public virtual void SetData(int mipLevel, int x, int y, int width, int height, nint source) {
+            VerifyParametersSetData(mipLevel, x, y, width, height, source);
+            SetDataInternal(mipLevel, x, y, width, height, source);
+        }
+
         public virtual void SetDataInternal(int mipLevel, nint source) {
-            int width = MathUtils.Max(Width >> mipLevel, 1);
-            int height = MathUtils.Max(Height >> mipLevel, 1);
-            GLWrapper.BindTexture(TextureTarget.Texture2D, m_texture, false);
-            GLWrapper.GL.TexImage2D(
-                TextureTarget.Texture2D,
-                mipLevel,
-                m_internalFormat,
-                (uint)width,
-                (uint)height,
-                0,
-                m_pixelFormat,
-                m_pixelType,
-                in source
-            );
+            // Silk.NET 泛型 TexImage2D(in T pixels) 将「变量地址」而非「指针值」传给 GL：
+            // T=nint 时传入的是保存指针的栈变量地址，GL 从栈上读 width*height*4 字节
+            // → 小尺寸上传垃圾像素、大尺寸（如 4MB 字体图集）越界读直接 AV 段错误。
+            // 经 void* 重载取指针值直传（与 Image<Rgba32> 路径同机制，探针实证 4MB 稳定）。
+            unsafe {
+                SetDataInternal(mipLevel, (void*)source);
+            }
         }
 
         public virtual unsafe void SetDataInternal(int mipLevel, void* source) {
@@ -187,6 +199,29 @@ namespace Engine.Graphics {
                 (uint)width,
                 (uint)height,
                 0,
+                m_pixelFormat,
+                m_pixelType,
+                source
+            );
+        }
+
+        // 同 TexImage2D 路径：Silk.NET 泛型 in T 重载传「变量地址」而非「指针值」，必须走 void* 直传。
+        // 行对齐沿用默认 UNPACK_ALIGNMENT=4，与整纹理上传同状态（R8 等窄格式行宽非 4 倍数两路径同限，不另设）
+        public virtual void SetDataInternal(int mipLevel, int x, int y, int width, int height, nint source) {
+            unsafe {
+                SetDataInternal(mipLevel, x, y, width, height, (void*)source);
+            }
+        }
+
+        public virtual unsafe void SetDataInternal(int mipLevel, int x, int y, int width, int height, void* source) {
+            GLWrapper.BindTexture(TextureTarget.Texture2D, m_texture, false);
+            GLWrapper.GL.TexSubImage2D(
+                TextureTarget.Texture2D,
+                mipLevel,
+                x,
+                y,
+                (uint)width,
+                (uint)height,
                 m_pixelFormat,
                 m_pixelType,
                 source
@@ -412,7 +447,7 @@ namespace Engine.Graphics {
         }
 
         /// <summary>
-        /// 由于Load方法有使用Image&lt;Rgba32&gt;类型参数的重载，因此无法被模组项目直接调用，故增加此方法作为中转
+        /// 由于Load方法有使用Image&lt;Rgba32&gt;类型参数的重载，因此无法被引用不规范模组项目直接调用，故增加此方法作为中转
         /// </summary>
         public static Texture2D LoadForYsf(Image image, int mipLevelsCount = 1) => Load(image, mipLevelsCount);
 
@@ -463,6 +498,7 @@ namespace Engine.Graphics {
                 throw new ArgumentException("Pixel size is not an integer multiple of source array element size.");
             }
             if (sourceStartIndex < 0
+                || sourceStartIndex > source.Length
                 || (source.Length - sourceStartIndex) * num < num4) {
                 throw new InvalidOperationException("Not enough data in source array.");
             }
@@ -476,6 +512,57 @@ namespace Engine.Graphics {
             if (mipLevel < 0
                 || mipLevel >= MipLevelsCount) {
                 throw new ArgumentOutOfRangeException(nameof(mipLevel));
+            }
+        }
+
+        // 数据量只查下限：源缓冲容量可大于子矩形需求（如 FSS colorBuffer 按 (size+4)² 复用容量）
+        public virtual void VerifyParametersSetData<T>(int mipLevel, int x, int y, int width, int height, T[] source, int sourceStartIndex = 0) where T : unmanaged {
+            VerifyNotDisposed();
+            int num = Utilities.SizeOf<T>();
+            int size = ColorFormat.GetSize();
+            int num2 = MathUtils.Max(Width >> mipLevel, 1);
+            int num3 = MathUtils.Max(Height >> mipLevel, 1);
+            int num4 = size * width * height;
+            ArgumentNullException.ThrowIfNull(source);
+            if (mipLevel < 0
+                || mipLevel >= MipLevelsCount) {
+                throw new ArgumentOutOfRangeException(nameof(mipLevel));
+            }
+            VerifySubRectangle(mipLevel, x, y, width, height, num2, num3);
+            if (num > size) {
+                throw new ArgumentException("Source array element size is larger than pixel size.");
+            }
+            if (size % num != 0) {
+                throw new ArgumentException("Pixel size is not an integer multiple of source array element size.");
+            }
+            if (sourceStartIndex < 0
+                || sourceStartIndex > source.Length
+                || (source.Length - sourceStartIndex) * num < num4) {
+                throw new InvalidOperationException("Not enough data in source array.");
+            }
+        }
+
+        public virtual void VerifyParametersSetData(int mipLevel, int x, int y, int width, int height, nint source) {
+            VerifyNotDisposed();
+            if (source == IntPtr.Zero) {
+                throw new ArgumentNullException(nameof(source));
+            }
+            if (mipLevel < 0
+                || mipLevel >= MipLevelsCount) {
+                throw new ArgumentOutOfRangeException(nameof(mipLevel));
+            }
+            VerifySubRectangle(mipLevel, x, y, width, height, MathUtils.Max(Width >> mipLevel, 1), MathUtils.Max(Height >> mipLevel, 1));
+        }
+
+        static void VerifySubRectangle(int mipLevel, int x, int y, int width, int height, int mipWidth, int mipHeight) {
+            // 减法式比较防 x/y=极大值时 x+width 回绕为负漏检
+            if (x < 0
+                || y < 0
+                || width < 0
+                || height < 0
+                || x > mipWidth - width
+                || y > mipHeight - height) {
+                throw new ArgumentException($"Sub-rectangle ({x}, {y}, {width}, {height}) is outside mip level {mipLevel} ({mipWidth}x{mipHeight}).");
             }
         }
 

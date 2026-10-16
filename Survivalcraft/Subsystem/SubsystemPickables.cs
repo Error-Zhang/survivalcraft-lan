@@ -37,6 +37,9 @@ namespace Game {
 
         public List<Pickable> m_pickablesToRemove = [];
 
+        /// <summary>掉落物方块绘制容量需求账本（增删自报，绘制前据此预扩容共享批次）。</summary>
+        readonly BlockDrawDemandLedger m_blockDemandLedger = new();
+
         public PrimitivesRenderer3D m_primitivesRenderer = new();
 
         public Random m_random = new();
@@ -44,6 +47,24 @@ namespace Game {
         public DrawBlockEnvironmentData m_drawBlockEnvironmentData = new();
 
         public static int[] m_drawOrders = [10];
+
+        /// <summary>
+        /// 单帧允许掉落物播放音效的最大次数（水花/燃烧等同质音效风暴限流）。
+        /// </summary>
+        public static int MaxSoundPlayInOneFrame = 10;
+
+        int m_soundPlaysInFrame;
+
+        /// <summary>
+        /// 带每帧次数上限的音效播放；超限直接丢弃，防止大量掉落物同步入水时音效风暴拖垮 Update。
+        /// </summary>
+        public void PlayRandomSound(string directory, float volume, float pitch, Vector3 position, float minDistance, bool autoDelay) {
+            if (m_soundPlaysInFrame >= MaxSoundPlayInOneFrame) {
+                return;
+            }
+            m_soundPlaysInFrame++;
+            m_subsystemAudio.PlayRandomSound(directory, volume, pitch, position, minDistance, autoDelay);
+        }
 
         public List<int> useMaps = [];
 
@@ -100,6 +121,7 @@ namespace Game {
                 }
             );
             lock (m_lock) {
+                m_blockDemandLedger.Book(BlocksManager.GetBlockDrawDemand(pickable.Value, m_subsystemTerrain), 1);
                 m_pickables.Add(pickable);
             }
             PickableAdded?.Invoke(pickable);
@@ -174,6 +196,15 @@ namespace Game {
             m_drawBlockEnvironmentData.SubsystemTerrain = m_subsystemTerrain;
             Matrix matrix = Matrix.CreateRotationY((float)MathUtils.Remainder(totalElapsedGameTime, 6.2831854820251465));
             lock (m_lock) {
+                // 按账本对方块批次一次性精确预扩容：消除逐块扩容爬坡（DynamicArray 精确扩容下大批量入队是 O(N²) 拷贝）；
+                // 与记账同锁（lock 为模组多线程防御，原版无锁），避免读到记账中途的账本
+                if (m_blockDemandLedger.Demand.Count > 0) {
+                    Texture2D blocksTexture = m_subsystemTerrain.SubsystemAnimatedTextures.AnimatedBlocksTexture;
+                    foreach (KeyValuePair<TexturedBatchKey, (int Verts, int Idxs)> entry in m_blockDemandLedger.Demand) {
+                        BlocksManager.GetTexturedBatch(m_primitivesRenderer, blocksTexture, entry.Key)
+                            .EnsureCapacity(entry.Value.Verts, entry.Value.Idxs);
+                    }
+                }
                 foreach (Pickable pickable in m_pickables) {
                     try {
                         pickable.Project = Project;
@@ -191,6 +222,7 @@ namespace Game {
         }
 
         public virtual void Update(float dt) {
+            m_soundPlaysInFrame = 0;
             lock (m_lock) {
                 foreach (Pickable pickable in m_pickables) {
                     if (pickable.ToRemove) {
@@ -208,6 +240,7 @@ namespace Game {
                     }
                 }
                 foreach (Pickable item in m_pickablesToRemove) {
+                    m_blockDemandLedger.Book(BlocksManager.GetBlockDrawDemand(item.Value, m_subsystemTerrain), -1);
                     m_pickables.Remove(item);
                     useMaps.Remove(item.Id);
                     PickableRemoved?.Invoke(item);
@@ -276,6 +309,9 @@ namespace Game {
                             }
                         );
                         lock (m_lock) {
+                            // 存档恢复的实体也要入账：否则其移除时 Book(-1) 会抵掉同键已记账实体的容量。
+                            // 家具设计若此时未加载会自报 null（Book 跳过），与其后续移除侧的 null 跳过对称，无漂移。
+                            m_blockDemandLedger.Book(BlocksManager.GetBlockDrawDemand(pickable.Value, m_subsystemTerrain), 1);
                             m_pickables.Add(pickable);
                         }
                     }

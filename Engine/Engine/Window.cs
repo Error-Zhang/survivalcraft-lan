@@ -41,6 +41,9 @@ namespace Engine {
         }
 
         static State m_state;
+#if !WINDOWS && !MOBILE && !BROWSER
+        static GlfwCallbacks.ErrorCallback m_glfwErrorCallback;
+#endif
 #if BROWSER
         //public static string HostedHref;
 #else
@@ -443,6 +446,18 @@ namespace Engine {
 #if !BROWSER
             Silk.NET.Windowing.Window.ShouldLoadFirstPartyPlatforms(false);
             Silk.NET.Windowing.Window.TryAdd(WindowingLibrary);
+#if !WINDOWS && !MOBILE
+            // GLFW 错误默认只被 Silk 记入内部列表、永不读取（非 Windows 的 ThrowExceptions 是空操作）。非 Windows 平台上上下文创建失败时 glfwCreateWindow 返回 NULL，
+            // Silk.NET 无 NULL 守卫，紧接着的 SetWindowPos 会直接段错误，走不到下方 catch
+            // （Silk 的 ThrowExceptions 在非 Windows 上是空操作），必须在此把原始错误（如 EGL/GLX 报错）记入日志。
+            // GlfwProvider 首次取用会 glfwInit 并安装其默认回调覆盖此处设置，故取用后再链式覆盖：
+            // 先记日志再转发原回调，保留回调抛 GlfwException 的既有语义（Windows 上依赖此语义做 ANGLE 回退）。
+            m_glfwErrorCallback = (ErrorCode code, string description) => {
+                Log.Error($"GLFW error {code}: {description}");
+                Glfw.ErrorCallback(code, description);
+            };
+            GlfwProvider.GLFW.Value.SetErrorCallback(m_glfwErrorCallback);
+#endif
 #endif
 #if WINDOWS
             GLWrapper.LoadAngleMarker();

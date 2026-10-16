@@ -19,6 +19,11 @@
           </UniformSpacingPanelWidget>
 
           <UniformSpacingPanelWidget Direction="Horizontal" Margin="0, 3">
+            <LabelWidget Text="[SettingsUiScreen:19]" HorizontalAlignment="Far" VerticalAlignment="Center" Margin="20, 0" />
+            <BevelledButtonWidget Name="FontButton" Style="{Styles/ButtonStyle_310x60}" Text="[SettingsUiScreen:20]" VerticalAlignment="Center" Margin="20, 0" />
+          </UniformSpacingPanelWidget>
+
+          <UniformSpacingPanelWidget Direction="Horizontal" Margin="0, 3">
             <LabelWidget Text="[SettingsUiScreen:10]" HorizontalAlignment="Far" VerticalAlignment="Center" Margin="20, 0" />
             <BevelledButtonWidget Name="DisplayLogButton" Style="{Styles/ButtonStyle_310x60}" VerticalAlignment="Center" Margin="20, 0" />
           </UniformSpacingPanelWidget>
@@ -85,11 +90,6 @@
           <UniformSpacingPanelWidget Name="ScreenshotSizeCustomAspectRatioSliderContainer" Direction="Horizontal" Margin="0, 3">
             <LabelWidget Text="[SettingsUiScreen:15]" HorizontalAlignment="Far" VerticalAlignment="Center" Margin="20, 0" />
             <SliderWidget Name="ScreenshotSizeCustomAspectRatioSlider" Size="Infinity, 60" VerticalAlignment="Center" Margin="20, 0" MinValue="0" MaxValue="9" Granularity="1" />
-          </UniformSpacingPanelWidget>
-
-          <UniformSpacingPanelWidget Direction="Horizontal" Margin="0, 3">
-            <LabelWidget Text="[SettingsUiScreen:9]" HorizontalAlignment="Far" VerticalAlignment="Center" Margin="20, 0" />
-            <BevelledButtonWidget Name="CommunityContentModeButton" Style="{Styles/ButtonStyle_310x60}" VerticalAlignment="Center" Margin="20, 0" />
           </UniformSpacingPanelWidget>
 
           <UniformSpacingPanelWidget Direction="Horizontal" Margin="0, 3">

@@ -313,7 +313,11 @@ namespace Game {
 
         public static string LastLaunchedVersion { get; set; }
 
-        public static CommunityContentMode CommunityContentMode { get; set; }
+        [Obsolete]
+        public static CommunityContentMode CommunityContentMode {
+            get => CommunityContentMode.Normal;
+            set {}
+        }
 
         public static CommunityContentMode OriginalCommunityContentMode { get; set; }
 
@@ -383,6 +387,31 @@ namespace Game {
         public static ScreenLayout ScreenLayout4 { get; set; }
 
         public static bool UpsideDownLayout { get; set; }
+
+        #endregion
+
+        #region 字体设置（全局 TTF 矢量字体，解析/消费见 FontManager）
+
+        // 原版英文字形开关：true=链条头部保留 PericlesPro（拉丁用原版字形），false=拉丁也走后续槽位/系统字体
+        public static bool FontVanilaEnglish { get; set; }
+
+        // 字体槽位值格式 "builtin"|"system"|"ref:body"|"ref:mono"|"user:<file>"，与 FontManager.FontSlotSetting 互转。
+        // Body 四槽分别作正文链 Regular/Bold/Italic/BoldItalic 的首选条目，Mono 四槽同构作用于等宽链
+        public static string FontBody { get; set; }
+
+        public static string FontBodyBold { get; set; }
+
+        public static string FontBodyItalic { get; set; }
+
+        public static string FontBodyBoldItalic { get; set; }
+
+        public static string FontMono { get; set; }
+
+        public static string FontMonoBold { get; set; }
+
+        public static string FontMonoItalic { get; set; }
+
+        public static string FontMonoBoldItalic { get; set; }
 
         #endregion
 
@@ -681,7 +710,6 @@ namespace Game {
                 LastLaunchedVersion = string.Empty;
                 WillEnterServer = string.Empty;
                 WillEnterServerPwd = string.Empty;
-                CommunityContentMode = CommunityContentMode.Normal;
                 OriginalCommunityContentMode = CommunityContentMode.Normal;
                 CommunityDownloadSourceManualSelectEnabled = false;
                 CommunityDefaultDownloadSourceName = CommunityDownloadSourceManager.DefaultCnInfo.Name;
@@ -717,6 +745,26 @@ namespace Game {
                 SafeMode = false;
                 ForceThirtyTwoBitsIndexFormat = false;
                 AdaptEdgeToEdgeDisplay = Window.HasWideNotch;
+                FontVanilaEnglish = true;
+                // 浏览器基础槽默认内置字体（用户裁定）：系统字体须经 queryLocalFonts 权限弹窗+
+                // 手势扫描才可得，"system" 槽在扫描前恒解析 null（链退化），默认落 builtin 显式语义
+#if BROWSER
+                FontBody = "builtin";
+#else
+                FontBody = "system";
+#endif
+                // 样式槽默认"基于正文字体/基于等宽字体"（引用基础槽），跟随之联动，不再满屏"系统默认"
+                FontBodyBold = "ref:body";
+                FontBodyItalic = "ref:body";
+                FontBodyBoldItalic = "ref:body";
+#if BROWSER
+                FontMono = "builtin";
+#else
+                FontMono = "system";
+#endif
+                FontMonoBold = "ref:mono";
+                FontMonoItalic = "ref:mono";
+                FontMonoBoldItalic = "ref:mono";
                 LetRamdomStatic = false;
                 InitializeKeyboardMappingSettings();
                 InitializeGamepadMappingSettings();

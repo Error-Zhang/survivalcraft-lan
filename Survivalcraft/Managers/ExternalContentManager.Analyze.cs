@@ -87,7 +87,10 @@ namespace Game
                 return result;
             }
 
-            string importName = Storage.GetFileNameWithoutExtensionBCL(request.FileName);
+            // 字体引用键=含扩展名文件名（槽位 "user:<file>"），冲突检测按全名；其余类型沿用去扩展名归一名
+            string importName = request.Type == ExternalContentType.Font
+                ? Storage.GetFileName(request.FileName)
+                : Storage.GetFileNameWithoutExtensionBCL(request.FileName);
             string existingName = FindExistingExternalContentName(request.Type, importName);
             if (!string.IsNullOrWhiteSpace(existingName))
             {
@@ -122,6 +125,7 @@ namespace Game
                 ExternalContentType.FurniturePack => FindExistingFurniturePackName(normalized),
                 ExternalContentType.BlocksTexture => FindExistingBlocksTextureName(normalized),
                 ExternalContentType.CharacterSkin => FindExistingCharacterSkinName(normalized),
+                ExternalContentType.Font => FindExistingFontName(normalized),
                 _ => null
             };
         }
@@ -185,6 +189,19 @@ namespace Game
             return found;
         }
 
+        // 字体：ListUserFonts 每调新建列表（直枚举目录非共享 List），后台线程直调安全，无需封送主线程
+        private static string FindExistingFontName(string normalizedFileName)
+        {
+            foreach (string fileName in FontManager.ListUserFonts())
+            {
+                if (NamesMatch(fileName, normalizedFileName))
+                {
+                    return fileName;
+                }
+            }
+            return null;
+        }
+
         private static void EnsureExternalContentCanBeOverwritten(ExternalContentType type, string existingName)
         {
             if (type == ExternalContentType.BlocksTexture && BlocksTexturesManager.IsBuiltIn(existingName))
@@ -240,6 +257,7 @@ namespace Game
                 ExternalContentType.FurniturePack => FurniturePacksManager.GetFileName(existingName),
                 ExternalContentType.BlocksTexture => BlocksTexturesManager.GetFileName(existingName),
                 ExternalContentType.CharacterSkin => CharacterSkinsManager.GetFileName(existingName),
+                ExternalContentType.Font => FontManager.GetUserFontPath(existingName),
                 _ => null,
             };
         }

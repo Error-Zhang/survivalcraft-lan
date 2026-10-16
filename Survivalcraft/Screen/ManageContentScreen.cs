@@ -113,6 +113,25 @@ public class ManageContentScreen : Screen {
                         }
                         break;
                     }
+                case ExternalContentType.Font: {
+                        XElement node5 = ContentManager.Get<XElement>("Widgets/FontItem");
+                        containerWidget = (ContainerWidget)LoadWidget(this, node5, null);
+                        RectangleWidget fontIcon = containerWidget.Children.Find<RectangleWidget>("FontItem.Icon");
+                        LabelWidget fontText = containerWidget.Children.Find<LabelWidget>("FontItem.Text");
+                        LabelWidget fontDetails = containerWidget.Children.Find<LabelWidget>("FontItem.Details");
+                        fontIcon.Subtexture = ContentManager.Get<Subtexture>("Textures/Gui/FontIcon");
+                        fontText.Text = listItem.DisplayName;
+                        string fontPath = FontManager.GetUserFontPath(listItem.Name);
+                        fontDetails.Text = string.Format(
+                            LanguageControl.Get(fName, 13),
+                            Storage.FileExists(fontPath) ? DataSizeFormatter.Format(Storage.GetFileSize(fontPath)) : "?"
+                        );
+                        fontDetails.Text += $" | {listItem.CreationTime.ToLocalTime():dd MMM yyyy HH:mm}";
+                        if (listItem.UseCount > 0) {
+                            fontDetails.Text += string.Format(LanguageControl.Get(fName, 12), listItem.UseCount);
+                        }
+                        break;
+                    }
                 case ExternalContentType.Mod: {
                         XElement node2 = ContentManager.Get<XElement>("Widgets/BlocksTextureItem");
                         containerWidget = (ContainerWidget)LoadWidget(this, node2, null);
@@ -186,9 +205,18 @@ public class ManageContentScreen : Screen {
         }
         m_filterLabel.Text = GetFilterDisplayName(m_filter);
         if (m_deleteButton.IsClicked) {
-            string smallMessage = selectedItem.UseCount <= 0
-                ? string.Format(LanguageControl.Get(fName, 5), selectedItem.DisplayName)
-                : string.Format(LanguageControl.Get(fName, 6), selectedItem.DisplayName, selectedItem.UseCount);
+            // 字体删除确认专用文案：UseCount=字体槽位引用数，非世界（world(s) 措辞的 key 6 语义不符）
+            string smallMessage;
+            if (selectedItem.Type == ExternalContentType.Font) {
+                smallMessage = selectedItem.UseCount <= 0
+                    ? string.Format(LanguageControl.Get(fName, 5), selectedItem.DisplayName)
+                    : string.Format(LanguageControl.Get(fName, 14), selectedItem.DisplayName, selectedItem.UseCount);
+            }
+            else {
+                smallMessage = selectedItem.UseCount <= 0
+                    ? string.Format(LanguageControl.Get(fName, 5), selectedItem.DisplayName)
+                    : string.Format(LanguageControl.Get(fName, 6), selectedItem.DisplayName, selectedItem.UseCount);
+            }
             if (selectedItem.Type == ExternalContentType.Mod) {
                 ScreensManager.SwitchScreen("ModsManageContent", true);
                 //smallMessage = (ModsManager.DisabledMods.Contains(selectedItem.ModEntity.modInfo) ? LanguageControl.Enable : LanguageControl.Disable) + $"[{selectedItem.ModEntity.modInfo.Name}]?";
@@ -234,7 +262,8 @@ public class ManageContentScreen : Screen {
         }
         if (m_changeFilterButton.IsClicked) {
             List<ExternalContentType> list = [
-                ExternalContentType.Unknown, ExternalContentType.BlocksTexture, ExternalContentType.CharacterSkin, ExternalContentType.FurniturePack
+                ExternalContentType.Unknown, ExternalContentType.BlocksTexture, ExternalContentType.CharacterSkin, ExternalContentType.FurniturePack,
+                ExternalContentType.Font
             ];
             DialogsManager.ShowDialog(
                 null,
@@ -327,6 +356,21 @@ public class ManageContentScreen : Screen {
                         Type = ExternalContentType.FurniturePack,
                         DisplayName = FurniturePacksManager.GetDisplayName(furniturePackName),
                         CreationTime = FurniturePacksManager.GetCreationDate(furniturePackName)
+                    }
+                );
+            }
+        }
+        if (m_filter == ExternalContentType.Font
+            || m_filter == ExternalContentType.Unknown) {
+            foreach (string fontFileName in FontManager.ListUserFonts()) {
+                list.Add(
+                    new ListItem {
+                        Name = fontFileName,
+                        IsBuiltIn = false,
+                        Type = ExternalContentType.Font,
+                        DisplayName = Storage.GetFileNameWithoutExtensionBCL(fontFileName),
+                        CreationTime = FontManager.GetFontCreationDate(fontFileName),
+                        UseCount = FontManager.GetSlotReferenceCount(fontFileName)
                     }
                 );
             }
