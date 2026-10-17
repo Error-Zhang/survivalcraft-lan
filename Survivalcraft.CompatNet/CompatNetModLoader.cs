@@ -6,6 +6,7 @@ namespace Game;
 
 public sealed class CompatNetModLoader : ModLoader {
     private static readonly GhoulCompatNetAdapter s_ghoulAdapter = new();
+    private static readonly SiyahAkrepCompatNetAdapter s_siyahAkrepAdapter = new();
     private static readonly object s_preloadSync = new();
 
     private static readonly ICompatNetAdapter[] s_builtinAdapters = CreateBuiltInAdapters();
@@ -14,7 +15,8 @@ public sealed class CompatNetModLoader : ModLoader {
 
     private static ICompatNetAdapter[] CreateBuiltInAdapters() {
         List<ICompatNetAdapter> adapters = [
-            s_ghoulAdapter
+            s_ghoulAdapter,
+            s_siyahAkrepAdapter
         ];
         return adapters.ToArray();
     }
