@@ -35,6 +35,21 @@ public static class SiyahAkrepCompatNetRuntime {
         "widget"
     ];
 
+    // ComponentBulletProof is a target-mod component, but its gameplay fields
+    // are deliberately not included in the general state-name whitelist:
+    // most of them are private, short names (defence, blackFactor, etc.) and
+    // broad matching would also replicate unrelated visual/effect state.
+    // Capture this component explicitly instead.
+    private static readonly string[] s_armorStateNames = [
+        "blackFactor", "blueFactor", "maxDefence", "defence", "recoverSpeed",
+        "speedChangeable", "InSmoke", "BlindTime", "PalsyTime", "PotionTime",
+        "ConfuseTime", "WalkSpeed", "JumpSpeed", "SwimSpeed", "IsTough", "blueN",
+        "DefenceRate"
+    ];
+
+    private const string ArmorComponentTypeName =
+        "SiyahAkrep.Components.ComponentBulletProof";
+
     private static Type s_saProjectileType;
     private static Type s_functionsType;
     private static int s_stateSequence;
@@ -614,7 +629,8 @@ public static class SiyahAkrepCompatNetRuntime {
             || name.Contains("Pathfinder", StringComparison.OrdinalIgnoreCase)
             || name.Contains("Machine", StringComparison.OrdinalIgnoreCase)
             || name.Contains("Merchant", StringComparison.OrdinalIgnoreCase)
-            || name.Contains("Grenade", StringComparison.OrdinalIgnoreCase);
+            || name.Contains("Grenade", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("BulletProof", StringComparison.OrdinalIgnoreCase);
     }
 
     private static ComponentPlayer FindLocalPlayer(ComponentCreature creature) {
@@ -725,6 +741,14 @@ public static class SiyahAkrepCompatNetRuntime {
             return false;
         }
 
+        if (instance.GetType().FullName == ArmorComponentTypeName) {
+            if (instance is not Component armorComponent
+                || armorComponent.Entity?.FindComponent<ComponentPlayer>() == null) {
+                return false;
+            }
+            return TryCaptureArmorState(instance, record);
+        }
+
         HashSet<string> names = [];
         for (Type current = instance.GetType();
              current != null && current != typeof(object);
@@ -760,13 +784,54 @@ public static class SiyahAkrepCompatNetRuntime {
         return record.Values.Count > 0;
     }
 
+    private static bool TryCaptureArmorState(
+        object instance,
+        SiyahAkrepStateRecord record) {
+        Type type = instance.GetType();
+        foreach (string name in s_armorStateNames) {
+            FieldInfo field = null;
+            PropertyInfo property = null;
+            for (Type current = type;
+                 current != null && current != typeof(object);
+                 current = current.BaseType) {
+                field ??= current.GetField(name, InstanceFlags | BindingFlags.DeclaredOnly);
+                property ??= current.GetProperty(name, InstanceFlags | BindingFlags.DeclaredOnly);
+            }
+
+            if (field != null
+                && !field.IsStatic
+                && TryReadStateValue(
+                    name,
+                    field.FieldType,
+                    () => field.GetValue(instance),
+                    out SiyahAkrepStateValue fieldValue,
+                    enforceNameFilter: false)) {
+                record.Values.Add(fieldValue);
+                continue;
+            }
+
+            if (property?.GetMethod != null
+                && TryReadStateValue(
+                    name,
+                    property.PropertyType,
+                    () => property.GetValue(instance),
+                    out SiyahAkrepStateValue propertyValue,
+                    enforceNameFilter: false)) {
+                record.Values.Add(propertyValue);
+            }
+        }
+
+        return record.Values.Count > 0;
+    }
+
     private static bool TryReadStateValue(
         string name,
         Type type,
         Func<object> getter,
-        out SiyahAkrepStateValue value) {
+        out SiyahAkrepStateValue value,
+        bool enforceNameFilter = true) {
         value = null;
-        if (!IsAllowedStateName(name) || type == null) {
+        if (type == null || enforceNameFilter && !IsAllowedStateName(name)) {
             return false;
         }
 
