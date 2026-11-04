@@ -29,6 +29,12 @@
         <EnableLLVM>false</EnableLLVM>
         <RunAOTCompilation>false</RunAOTCompilation>
         <NetworkModDestinationDirectory Condition="'$(NetworkModDestinationDirectory)' == ''">$(MSBuildProjectDirectory)\obj\$(Configuration)\$(TargetFramework)\InternalMods\</NetworkModDestinationDirectory>
+        <CompatibilityModProject Condition="'$(CompatibilityModProject)' == ''">$(MSBuildProjectDirectory)\..\Survivalcraft.CompatNet\Survivalcraft.CompatNet.csproj</CompatibilityModProject>
+        <CompatibilityModPackageDirectory Condition="'$(CompatibilityModPackageDirectory)' == ''">$(MSBuildProjectDirectory)\..\Survivalcraft.CompatNet\bin\$(Configuration)\net10.0-windows\win-x64\scmod\</CompatibilityModPackageDirectory>
+        <CompatibilityModPackageName Condition="'$(CompatibilityModPackageName)' == ''">Survivalcraft.CompatNet.scmod</CompatibilityModPackageName>
+        <CompatibilityModPackagePath Condition="'$(CompatibilityModPackagePath)' == ''">$(CompatibilityModPackageDirectory)$(CompatibilityModPackageName)</CompatibilityModPackagePath>
+        <CompatibilityModDestinationDirectory Condition="'$(CompatibilityModDestinationDirectory)' == ''">$(MSBuildProjectDirectory)\obj\$(Configuration)\$(TargetFramework)\InternalMods\</CompatibilityModDestinationDirectory>
+        <CompatibilityModDestinationFile Condition="'$(CompatibilityModDestinationFile)' == ''">$(CompatibilityModDestinationDirectory)$(CompatibilityModPackageName)</CompatibilityModDestinationFile>
     </PropertyGroup>
     <ItemGroup>
         <ProjectReference Include="..\EntitySystem.Android\EntitySystem.Android.csproj" />
@@ -57,5 +63,16 @@
             <Link>Assets\InternalMods\$(NetworkModPackageName)</Link>
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </AndroidAsset>
+        <AndroidAsset Include="$(CompatibilityModDestinationFile)">
+            <Link>Assets\InternalMods\$(CompatibilityModPackageName)</Link>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </AndroidAsset>
     </ItemGroup>
+
+    <Target Name="PackageAndCopyCompatibilityMod" BeforeTargets="_ComputeAndroidAssetsPaths" AfterTargets="PackageAndCopyNetworkMod" Condition="'$(SkipCompatibilityModPackage)' != 'true' and '$(SkipCompatibilityMods)' != 'true'">
+        <MSBuild Projects="$(CompatibilityModProject)" Targets="Restore;Build" Properties="Configuration=$(Configuration);GenerateModPackage=true;TargetFramework=net10.0-windows;WindowsRuntimeIdentifier=win-x64;RuntimeIdentifier=win-x64;ModOutputPath=$(CompatibilityModPackageDirectory)" BuildInParallel="false" />
+        <MakeDir Directories="$(CompatibilityModDestinationDirectory)" />
+        <Copy SourceFiles="$(CompatibilityModPackagePath)" DestinationFiles="$(CompatibilityModDestinationFile)" SkipUnchangedFiles="true" />
+        <Message Importance="high" Text="Copied compatibility mod to $(CompatibilityModDestinationFile)" />
+    </Target>
 </Project>

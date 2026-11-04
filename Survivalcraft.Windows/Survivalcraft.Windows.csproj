@@ -65,6 +65,12 @@
     <CompatibilityModDestinationFile Condition="'$(CompatibilityModDestinationFile)' == '' and '$(CompatibilityModDestinationDirectory)' != ''">$(CompatibilityModDestinationDirectory)$(CompatibilityModPackageName)</CompatibilityModDestinationFile>
 
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(CompatibilityModPackagePath)" Link="InternalMods\$(CompatibilityModPackageName)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
   <Target Name="PackageAndCopyCompatibilityMod" AfterTargets="PackageAndCopyNetworkMod" Condition="'$(SkipNetworkModPackage)' != 'true' and '$(SkipCompatibilityModPackage)' != 'true' and '$(SkipCompatibilityMods)' != 'true'">
     <PropertyGroup>
       <CompatibilityModDestinationDirectory Condition="'$(CompatibilityModDestinationDirectory)' == ''">$(TargetDir)InternalMods\</CompatibilityModDestinationDirectory>

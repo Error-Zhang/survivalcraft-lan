@@ -1161,7 +1161,23 @@ namespace Game {
             int playerIndex = valuesDictionary.GetValue<int>("PlayerIndex");
             SubsystemPlayers subsystemPlayers = Project.FindSubsystem<SubsystemPlayers>(true);
 
-            PlayerData ??= subsystemPlayers.m_playersData.First(d => d.PlayerIndex == playerIndex);
+            PlayerData ??= subsystemPlayers.m_playersData.FirstOrDefault(d => d.PlayerIndex == playerIndex);
+            if (PlayerData == null) {
+                int playerEntityCount = Project.Entities.Count(e => e.FindComponent<ComponentPlayer>() != null);
+                if (!NetworkManager.IsClientRunning
+                    && !NetworkManager.IsServerRunning
+                    && subsystemPlayers.m_playersData.Count == 1
+                    && playerEntityCount == 1) {
+                    PlayerData = subsystemPlayers.m_playersData[0];
+                    Log.Warning(
+                        $"Repairing stale player index {playerIndex} while loading the only saved player. Using index {PlayerData.PlayerIndex}."
+                    );
+                    valuesDictionary.SetValue("PlayerIndex", PlayerData.PlayerIndex);
+                }
+                else {
+                    throw new InvalidOperationException($"No player data found for player index {playerIndex}.");
+                }
+            }
         }
 
         public override void Save(ValuesDictionary valuesDictionary, EntityToIdMap entityToIdMap) {

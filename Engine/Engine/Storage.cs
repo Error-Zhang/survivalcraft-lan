@@ -153,7 +153,18 @@ namespace Engine {
             return false;
         }
 
-        public static DateTime GetFileLastWriteTime(string path) => File.GetLastWriteTimeUtc(ProcessPath(path, false, m_isAndroidPlatform));
+        public static DateTime GetFileLastWriteTime(string path) {
+#if ANDROID
+            string path2 = ProcessPath(path, false, false, out bool isApp);
+            if (isApp) {
+                // APK assets have no standalone filesystem timestamp. Use the APK's
+                // modification time so bundled mods can be loaded and compared consistently.
+                string sourceDir = EngineActivity.m_activity?.ApplicationContext?.ApplicationInfo?.SourceDir;
+                return string.IsNullOrEmpty(sourceDir) ? DateTime.MinValue : File.GetLastWriteTimeUtc(sourceDir);
+            }
+#endif
+            return File.GetLastWriteTimeUtc(ProcessPath(path, false, m_isAndroidPlatform));
+        }
 
         public static Stream OpenFile(string path, OpenFileMode openFileMode) {
             if (openFileMode != 0
