@@ -5,7 +5,7 @@ using System;
 using TemplatesDatabase;
 
 namespace Game {
-    public class ComponentPlayer : ComponentCreature, IUpdateable {
+    public partial class ComponentPlayer : ComponentCreature, IUpdateable {
 
         public SubsystemGameInfo m_subsystemGameInfo;
 
@@ -804,6 +804,10 @@ namespace Game {
                     }
                     m_lastActionTime = timeIntervalLastActionTime;
                 }
+            }
+            if (shouldSyncPlayerEvents && UpdateHeldFood(playerInput, dt, flag)) {
+                flag = true;
+                playerInput.Aim = null;
             }
             float timeIntervalAim = m_subsystemGameInfo.WorldSettings.GameMode == GameMode.Creative ? 0.1f : 1.4f;
             if (playerInput.Aim.HasValue) {

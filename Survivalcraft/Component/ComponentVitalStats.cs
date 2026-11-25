@@ -104,6 +104,19 @@ namespace Game {
 
         public UpdateOrder UpdateOrder => UpdateOrder.Default;
 
+        private bool m_eatSoundSuppressed;
+
+        internal bool EatWithoutSound(int value) {
+            bool wasSuppressed = m_eatSoundSuppressed;
+            m_eatSoundSuppressed = true;
+            try {
+                return Eat(value);
+            }
+            finally {
+                m_eatSoundSuppressed = wasSuppressed;
+            }
+        }
+
         public virtual bool Eat(int value) {
             bool skipVanilla = false;
             bool eatSuccess = false;
@@ -136,14 +149,16 @@ namespace Game {
                     m_componentPlayer.ComponentGui.DisplaySmallMessage(LanguageControl.Get(fName, 2), Color.White, true, true);
                     return false;
                 }
-                m_subsystemAudio.PlayRandomSound(
-                    "Audio/Creatures/HumanEat",
-                    1f,
-                    m_random.Float(-0.2f, 0.2f),
-                    m_componentPlayer.ComponentBody.Position,
-                    2f,
-                    0f
-                );
+                if (!m_eatSoundSuppressed) {
+                    m_subsystemAudio.PlayRandomSound(
+                        "Audio/Creatures/HumanEat",
+                        1f,
+                        m_random.Float(-0.2f, 0.2f),
+                        m_componentPlayer.ComponentBody.Position,
+                        2f,
+                        0f
+                    );
+                }
                 if (m_componentPlayer.ComponentSickness.IsSick) {
                     num2 *= 0.75f;
                 }

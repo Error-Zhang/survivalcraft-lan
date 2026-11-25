@@ -52,6 +52,7 @@ namespace Survivalcraft.Multiplayer {
                 "OnNetworkPickableAttract",
                 "OnNetworkActiveSlotChanged",
                 "OnNetworkPlayerPickBlock",
+                "OnNetworkPlayerEat",
                 "OnNetworkPlayerAim",
                 "OnNetworkPlayerDig",
                 "OnNetworkPlayerHit",
@@ -298,7 +299,15 @@ namespace Survivalcraft.Multiplayer {
             networkStatusWidget.MarginRight = 10f;
             networkStatusWidget.MarginBottom = 10f;
 
-            if (guiWidget.Children.Find<MinimapWidget>(false) == null) {
+            if (VersionsManager.CurrentPlatform is VersionsManager.Platform.Android or VersionsManager.Platform.IOS) {
+                PlayerNameArrowWidget playerList = FindOrMoveToGuiRoot<PlayerNameArrowWidget>(guiWidget);
+                if (playerList == null) {
+                    playerList = new PlayerNameArrowWidget { Margin = new Vector2(10f) };
+                    guiWidget.AddChildren(playerList);
+                }
+                playerList.SetGameWidget(gameWidget);
+            }
+            else if (guiWidget.Children.Find<MinimapWidget>(false) == null) {
                 guiWidget.AddChildren(new MinimapWidget(gameWidget));
             }
 
@@ -609,6 +618,10 @@ namespace Survivalcraft.Multiplayer {
 
     public override void OnNetworkPlayerInteract(ComponentPlayer player) {
         NetworkManager.Queue(new PlayerInteractPacket(player));
+    }
+
+    public override void OnNetworkPlayerEat(ComponentPlayer player, int slot, int food, Vector3 direction) {
+        NetworkManager.Queue(new PlayerEatPacket(player, slot, food, direction));
     }
 
     public override void OnNetworkPlayerPlace(

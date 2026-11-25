@@ -2366,6 +2366,8 @@ namespace Game {
         public virtual void OnNetworkPickableAttract(Pickable pickable) { }
         public virtual void OnNetworkActiveSlotChanged(ComponentPlayer player) { }
         public virtual void OnNetworkPlayerPickBlock(ComponentPlayer player, Ray3 ray, int slotIndex) { }
+
+        public virtual void OnNetworkPlayerEat(ComponentPlayer player, int slot, int food, Vector3 direction) { }
         public virtual void OnNetworkPlayerAim(ComponentPlayer player) { }
         public virtual void OnNetworkPlayerDig(ComponentPlayer player) { }
         public virtual void OnNetworkPlayerHit(ComponentPlayer player, ComponentBody hitBody, Vector3 hitPoint, Vector3 direction) { }
