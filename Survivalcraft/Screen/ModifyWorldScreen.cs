@@ -12,6 +12,8 @@ namespace Game {
 
         public ButtonWidget m_worldOptionsButton;
 
+        private ButtonWidget m_lanButton;
+
         public LabelWidget m_errorLabel;
 
         public LabelWidget m_descriptionLabel;
@@ -45,6 +47,7 @@ namespace Game {
             m_seedLabel = Children.Find<LabelWidget>("Seed");
             m_gameModeButton = Children.Find<ButtonWidget>("GameMode");
             m_worldOptionsButton = Children.Find<ButtonWidget>("WorldOptions");
+            m_lanButton = Children.Find<ButtonWidget>("OpenToLan");
             m_errorLabel = Children.Find<LabelWidget>("Error");
             m_descriptionLabel = Children.Find<LabelWidget>("Description");
             m_applyButton = Children.Find<ButtonWidget>("Apply");
@@ -67,6 +70,11 @@ namespace Game {
         }
 
         public override void Update() {
+            m_lanButton.IsEnabled = NetworkManager.CanHostLan;
+            if (m_lanButton.IsClicked) {
+                m_worldSettings.OpenToLan = !m_worldSettings.OpenToLan;
+            }
+            m_lanButton.Text = LanguageControl.GetContentWidgets("LanMultiplayer", m_worldSettings.OpenToLan ? "On" : "Off");
             if (m_gameModeButton.IsClicked && m_changingGameModeAllowed) {
                 DialogsManager.ShowDialog(
                     null,

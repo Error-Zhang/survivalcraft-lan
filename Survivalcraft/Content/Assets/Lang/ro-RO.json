@@ -2860,6 +2860,36 @@
     "ScreenLayout.QuadrupleOpposite.Description": "Opus, pentru partajarea dispozitivelor tactile"
   },
   "ContentWidgets": {
+    "LanMultiplayer": {
+      "Multiplayer": "Multiplayer",
+      "OpenToLan": "Deschide în LAN",
+      "On": "Pornit",
+      "Off": "Oprit",
+      "Room": "Cameră multiplayer",
+      "RoomClosed": "Lumea este închisă pentru invitați",
+      "RoomOpen": "Adresă {0}  ·  {1} invitați",
+      "CloseRoom": "Închide camera",
+      "CopyAddress": "Copiază IP",
+      "ShareCode": "Generează cod",
+      "CreatingCode": "Se generează codul…",
+      "PublicCode": "Cod online  {0}",
+      "CodeFailed": "Codul nu a putut fi generat. Încearcă din nou.",
+      "Back": "Înapoi",
+      "Lobby": "Lobby multiplayer",
+      "Nearby": "Camere LAN în apropiere",
+      "Join": "Intră în cameră",
+      "DirectButton": "IP / Cod",
+      "Direct": "Introdu o adresă IP sau un cod",
+      "Connect": "Conectare",
+      "Searching": "Se caută camere în apropiere…",
+      "NoRooms": "Nicio cameră găsită. Cere gazdei să deschidă lumea.",
+      "Unavailable": "Modul multiplayer nu este disponibil.",
+      "OpenFailed": "Camera nu a putut fi deschisă ({0})",
+      "AddressRequired": "Introdu o adresă sau un cod.",
+      "AddressFormat": "Folosește adresă[:port]. Pentru IPv6, folosește [::1]:28887.",
+      "AddressMissing": "Adresa serverului nu a fost găsită.",
+      "RelayFormat": "Folosește relay@adresă[:port]#cod."
+    },
     "BestiaryDescriptionScreen": {
       "1": "Descrierea Creaturii",
       "2": "Predă:"

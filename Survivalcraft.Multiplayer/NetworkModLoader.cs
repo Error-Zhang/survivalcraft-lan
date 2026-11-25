@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Xml.Linq;
 using Game;
 using Engine;
@@ -10,6 +11,7 @@ using GameEntitySystem;
 namespace Survivalcraft.Multiplayer {
     public class NetworkModLoader : ModLoader {
         private const double FurnaceStateSyncPeriod = 0.1;
+        private readonly LanDiscovery m_lanDiscovery = new();
 
         public override void __ModInitialize() {
 
@@ -133,8 +135,15 @@ namespace Survivalcraft.Multiplayer {
             NetworkManager.InitializeAction = () => {
                 PacketManager.Initialize();
             };
+            NetworkManager.StartLanDiscoveryAction = m_lanDiscovery.StartBrowsing;
+            NetworkManager.StopLanDiscoveryAction = m_lanDiscovery.StopBrowsing;
+            NetworkManager.LanRoomsFunc = () => m_lanDiscovery.Rooms;
+            NetworkManager.LanAddressFunc = () => NetworkManager.NetworkServer is NetworkServer { IsRunning: true } server
+                ? LanDiscovery.GetLocalAddress(server.Port)
+                : null;
             NetworkManager.UpdateAction = () => {
                 (NetworkManager.NetworkServer as NetworkServer)?.Update();
+                m_lanDiscovery.Update();
                 (NetworkManager.NetworkClient as NetworkClient)?.Update();
                 (NetworkManager.RelayHost as RelayHost)?.Update();
                 (NetworkManager.RelayClient as RelayClient)?.Update();
@@ -145,6 +154,8 @@ namespace Survivalcraft.Multiplayer {
                 InventoryPacketHelpers.FlushPendingSync();
             };
             NetworkManager.StopAction = () => {
+                m_lanDiscovery.StopBrowsing();
+                m_lanDiscovery.StopHosting();
                 (NetworkManager.NetworkServer as NetworkServer)?.Stop();
                 (NetworkManager.NetworkClient as NetworkClient)?.Disconnect();
                 (NetworkManager.RelayHost as RelayHost)?.Disconnect();
@@ -187,9 +198,13 @@ namespace Survivalcraft.Multiplayer {
                 player.Project?.FindSubsystem<SubsystemNetwork>()?.SavePlayerEntity(player, networkGuid);
 
             NetworkManager.StartServerAction = () => {
-                var server = new NetworkServer();
-                NetworkManager.NetworkServer = server;
+                if (NetworkManager.NetworkServer is NetworkServer { IsRunning: true }) {
+                    return;
+                }
+                NetworkServer server = new();
                 server.Start();
+                NetworkManager.NetworkServer = server;
+                m_lanDiscovery.StartHosting();
             };
             NetworkManager.ConnectServerAction = (endPoint) => {
                 var client = new NetworkClient();
@@ -197,17 +212,40 @@ namespace Survivalcraft.Multiplayer {
                 client.Connect(endPoint);
             };
             NetworkManager.StartRelayHostAsyncFunc = async () => {
+                object server = NetworkManager.NetworkServer;
+                if (server == null || NetworkManager.RelayHostCodeStatus is RelayHostCodeStatus.Creating or RelayHostCodeStatus.Ready) {
+                    return;
+                }
+                NetworkManager.RelayHostCodeStatus = RelayHostCodeStatus.Creating;
+                IPEndPoint endPoint;
                 try {
-                    NetworkManager.RelayHostCodeStatus = RelayHostCodeStatus.Creating;
-                    var endPoint = await CenterServerClient.GetBestRelayEndPointAsync();
-                    var host = new RelayHost();
-                    NetworkManager.RelayHost = host;
-                    host.Start(endPoint);
+                    endPoint = await CenterServerClient.GetBestRelayEndPointAsync();
                 }
                 catch (Exception ex) {
-                    Log.Warning($"Failed to start relay host: {ex.Message}");
-                    NetworkManager.RelayHostCodeStatus = RelayHostCodeStatus.Failed;
+                    Dispatcher.Dispatch(() => {
+                        if (ReferenceEquals(server, NetworkManager.NetworkServer)) {
+                            Log.Warning($"Failed to start relay host: {ex.Message}");
+                            NetworkManager.RelayHostCodeStatus = RelayHostCodeStatus.Failed;
+                        }
+                    });
+                    return;
                 }
+                Dispatcher.Dispatch(() => {
+                    if (!ReferenceEquals(server, NetworkManager.NetworkServer)) {
+                        return;
+                    }
+                    try {
+                        (NetworkManager.RelayHost as RelayHost)?.Disconnect();
+                        RelayHost host = new();
+                        host.Start(endPoint);
+                        NetworkManager.RelayHost = host;
+                    }
+                    catch (Exception ex) {
+                        NetworkManager.RelayHost = null;
+                        Log.Warning($"Failed to start relay host: {ex.Message}");
+                        NetworkManager.RelayHostCodeStatus = RelayHostCodeStatus.Failed;
+                    }
+                });
             };
             NetworkManager.StartRelayHostAction = (relayEndPoint) => {
                 var host = new RelayHost();
@@ -239,7 +277,7 @@ namespace Survivalcraft.Multiplayer {
             NetworkStatusWidget networkStatusWidget = FindOrMoveToGuiRoot<NetworkStatusWidget>(guiWidget);
             if (networkStatusWidget == null) {
                 networkStatusWidget = new NetworkStatusWidget {
-                    Name = "RelayCodeLabel",
+                    Name = "NetworkLatencyLabel",
                     Color = Color.White,
                     DropShadow = true,
                     HorizontalAlignment = WidgetAlignment.Far,
@@ -260,18 +298,9 @@ namespace Survivalcraft.Multiplayer {
             networkStatusWidget.MarginRight = 10f;
             networkStatusWidget.MarginBottom = 10f;
 
-            PlayerNameArrowWidget playerNameArrowWidget = FindOrMoveToGuiRoot<PlayerNameArrowWidget>(guiWidget);
-            if (playerNameArrowWidget == null) {
-                playerNameArrowWidget = new PlayerNameArrowWidget();
-                guiWidget.AddChildren(playerNameArrowWidget);
+            if (guiWidget.Children.Find<MinimapWidget>(false) == null) {
+                guiWidget.AddChildren(new MinimapWidget(gameWidget));
             }
-            playerNameArrowWidget.HorizontalAlignment = WidgetAlignment.Near;
-            playerNameArrowWidget.VerticalAlignment = WidgetAlignment.Near;
-            playerNameArrowWidget.MarginLeft = 10f;
-            playerNameArrowWidget.MarginTop = 10f;
-            playerNameArrowWidget.MarginRight = 10f;
-            playerNameArrowWidget.MarginBottom = 10f;
-            playerNameArrowWidget.SetGameWidget(gameWidget);
 
             // Keep the chat in the same control layer and position as the
             // original NetMessageWidget: top-right, 68 px from the edge.

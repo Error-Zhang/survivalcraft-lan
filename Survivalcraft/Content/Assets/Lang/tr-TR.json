@@ -3191,6 +3191,36 @@
     "ScreenLayout.QuadrupleOpposite.Description": "Opposite, for sharing touch devices"
   },
   "ContentWidgets": {
+    "LanMultiplayer": {
+      "Multiplayer": "Çok oyunculu",
+      "OpenToLan": "Yerel ağa aç",
+      "On": "Açık",
+      "Off": "Kapalı",
+      "Room": "Çok oyunculu oda",
+      "RoomClosed": "Dünya konuklara kapalı",
+      "RoomOpen": "Adres {0}  ·  {1} konuk",
+      "CloseRoom": "Odayı kapat",
+      "CopyAddress": "IP'yi kopyala",
+      "ShareCode": "Kod al",
+      "CreatingCode": "Kod oluşturuluyor…",
+      "PublicCode": "İnternet katılım kodu  {0}",
+      "CodeFailed": "Kod oluşturulamadı. Tekrar deneyin.",
+      "Back": "Geri",
+      "Lobby": "Çok oyunculu lobi",
+      "Nearby": "Yakındaki yerel ağ odaları",
+      "Join": "Odaya katıl",
+      "DirectButton": "IP / Katılım kodu",
+      "Direct": "IP adresini veya katılım kodunu girin",
+      "Connect": "Bağlan",
+      "Searching": "Yakındaki odalar aranıyor…",
+      "NoRooms": "Oda bulunamadı. Ev sahibinden dünyayı açmasını isteyin.",
+      "Unavailable": "Çok oyunculu mod kullanılamıyor.",
+      "OpenFailed": "Oda açılamadı ({0})",
+      "AddressRequired": "Bir adres veya katılım kodu girin.",
+      "AddressFormat": "adres[:port] biçimini kullanın. IPv6 örneği: [::1]:28887.",
+      "AddressMissing": "Sunucu adresi bulunamadı.",
+      "RelayFormat": "relay@adres[:port]#kod biçimini kullanın."
+    },
     "BestiaryDescriptionScreen": {
       "1": "Yaratık Açıklaması",
       "2": "Düşenler:"

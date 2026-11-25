@@ -46,6 +46,8 @@ namespace Game {
 
         public float m_progress;
         public int PlayerIndex { get; set; }
+        public Guid MapPlayerId { get; set; }
+        public int MapColorIndex { get; set; } = -1;
         public bool isSetStatus = false;
 
         public bool IsDead;
@@ -388,6 +390,8 @@ namespace Game {
             CharacterSkinName = valuesDictionary.GetValue("CharacterSkinName", CharacterSkinsManager.CharacterSkinsNames[0]);
             InputDevice = valuesDictionary.GetValue("InputDevice", InputDevice);
             PlayerIndex = valuesDictionary.GetValue("PlayerIndex", -1);
+            MapPlayerId = valuesDictionary.GetValue("MapPlayerId", Guid.Empty);
+            MapColorIndex = valuesDictionary.GetValue("MapColorIndex", -1);
         }
 
         public virtual void Save(ValuesDictionary valuesDictionary) {
@@ -401,6 +405,10 @@ namespace Game {
             valuesDictionary.SetValue("CharacterSkinName", CharacterSkinName);
             valuesDictionary.SetValue("InputDevice", InputDevice);
             valuesDictionary.SetValue("PlayerIndex", PlayerIndex);
+            if (MapPlayerId != Guid.Empty) {
+                valuesDictionary.SetValue("MapPlayerId", MapPlayerId);
+            }
+            valuesDictionary.SetValue("MapColorIndex", MapColorIndex);
         }
 
         public void WaitEntityAdded() {

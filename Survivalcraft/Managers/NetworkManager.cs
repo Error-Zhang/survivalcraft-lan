@@ -26,7 +26,16 @@ public class ClientSession {
     public NetworkState NetworkState { get; set; }
 }
 
+public sealed record LanRoomInfo(Guid Id, IPEndPoint EndPoint, string WorldName, string HostName, int PlayerCount, int Capacity);
+
 public static class NetworkManager {
+    public static bool CanHostLan => StartServerAction != null;
+    public static Action StartLanDiscoveryAction { get; set; }
+    public static Action StopLanDiscoveryAction { get; set; }
+    public static Func<IReadOnlyList<LanRoomInfo>> LanRoomsFunc { get; set; }
+    public static Func<string> LanAddressFunc { get; set; }
+    public static string LanAddress => LanAddressFunc?.Invoke();
+    public static IReadOnlyList<LanRoomInfo> LanRooms => LanRoomsFunc?.Invoke() ?? Array.Empty<LanRoomInfo>();
     public static object NetworkClient { get; set; }
     public static object NetworkServer { get; set; }
     public static object RelayClient { get; set; }
@@ -114,6 +123,23 @@ public static class NetworkManager {
 
     public static void StartServer() {
         StartServerAction?.Invoke();
+    }
+
+    public static bool TryStartLanHost(out string error) {
+        error = null;
+        if (!CanHostLan) {
+            error = LanguageControl.GetContentWidgets("LanMultiplayer", "Unavailable");
+            return false;
+        }
+        try {
+            StartServer();
+            return true;
+        }
+        catch (Exception ex) {
+            Log.Warning(ex);
+            error = string.Format(LanguageControl.GetContentWidgets("LanMultiplayer", "OpenFailed"), ex.Message);
+            return false;
+        }
     }
 
     public static void ConnectServer(IPEndPoint iPEndPoint) {

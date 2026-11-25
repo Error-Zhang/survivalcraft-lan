@@ -67,7 +67,8 @@ namespace Game {
 
             BevelledButtonWidget button = new() {
                 Size = new Vector2(310f, 60f),
-                Text = "联机",
+                Name = "Multiplayer",
+                Text = LanguageControl.GetContentWidgets("LanMultiplayer", "Multiplayer"),
                 HorizontalAlignment = WidgetAlignment.Center,
                 VerticalAlignment = WidgetAlignment.Center
             };
@@ -225,7 +226,7 @@ namespace Game {
             }*/
             if (_connectServerButton != null
                 && _connectServerButton.IsClicked) {
-                DialogsManager.ShowDialog(null, new ConnectServerDialog());
+                ScreensManager.SwitchScreen("Multiplayer");
             }
         }
     }

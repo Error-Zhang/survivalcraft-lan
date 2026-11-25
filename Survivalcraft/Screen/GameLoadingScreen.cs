@@ -20,6 +20,7 @@ public class GameLoadingScreen : Screen {
     private string m_password;
     private bool IsAdventureRestart;
     private bool m_startRelayHostWithCenter;
+    private bool m_reopenLan;
 
     public GameLoadingScreen() {
         XElement node = ContentManager.Get<XElement>("Screens/GameLoadingScreen");
@@ -78,18 +79,23 @@ public class GameLoadingScreen : Screen {
                         subsystemPlayers.AddPlayerData(new PlayerData(GameManager.Project));
                     }
                 }
-                NetworkManager.StartServer();
-                if (Program.IsDebugMultiplayerHost && !NetworkManager.IsServerRunning) {
-                    throw new InvalidOperationException("The multiplayer network module is required for debug multiplayer mode.");
-                }
-                if (m_startRelayHostWithCenter) {
-                    _ = NetworkManager.StartRelayHostAsync();
+                string lanError = null;
+                if (m_worldInfo.WorldSettings.OpenToLan || m_reopenLan || m_startRelayHostWithCenter || Program.IsDebugMultiplayerHost) {
+                    if (!NetworkManager.TryStartLanHost(out lanError) && Program.IsDebugMultiplayerHost) {
+                        throw new InvalidOperationException(lanError);
+                    }
+                    if (lanError == null && m_startRelayHostWithCenter) {
+                        _ = NetworkManager.StartRelayHostAsync();
+                    }
                 }
                 if (IsAdventureRestart && NetworkManager.IsClientRunning) {
                     // 需要注入主玩家的概念
                     ModsManager.HookAction("OnNetworkPlayerIntoPlaying", loader => loader.OnNetworkPlayerIntoPlaying());
                 }
                 ScreensManager.SwitchScreen("Game");
+                if (lanError != null) {
+                    DialogsManager.Alert(LanguageControl.GetContentWidgets("LanMultiplayer", "Room"), lanError);
+                }
             }
         }, delegate {
             IsServerReply = false;
@@ -164,6 +170,7 @@ public class GameLoadingScreen : Screen {
 
     public override void Enter(object[] parameters) {
         m_startRelayHostWithCenter = false;
+        m_reopenLan = false;
         if (parameters.Length >= 1 && parameters[0] is WorldInfo) {
             m_worldInfo = (WorldInfo)parameters[0];
             m_worldSnapshotName = (string)parameters[1];
@@ -171,9 +178,13 @@ public class GameLoadingScreen : Screen {
             m_relayJoinInfo = null;
             m_startRelayHostWithCenter = parameters.Length > 2 && parameters[2] is bool startRelayHostWithCenter && startRelayHostWithCenter;
             IsAdventureRestart = m_worldSnapshotName == "AdventureRestart";
+            m_reopenLan = IsAdventureRestart && NetworkManager.IsServerRunning;
         }
         else {
             m_worldSnapshotName = null;
+            m_serverEndPoint = null;
+            m_relayJoinInfo = null;
+            IsAdventureRestart = false;
             if (parameters[2] is RelayJoinInfo relayJoinInfo) m_relayJoinInfo = relayJoinInfo;
             else m_serverEndPoint = (IPEndPoint)parameters[2];
             if (parameters.Length == 4) m_password = (string)parameters[3];

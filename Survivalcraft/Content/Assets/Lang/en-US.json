@@ -3317,6 +3317,36 @@
     "ScreenLayout.QuadrupleOpposite.Description": "Opposite, for sharing touch devices"
   },
   "ContentWidgets": {
+    "LanMultiplayer": {
+      "Multiplayer": "Multiplayer",
+      "OpenToLan": "Open to LAN",
+      "On": "On",
+      "Off": "Off",
+      "Room": "Multiplayer Room",
+      "RoomClosed": "This world is closed to guests",
+      "RoomOpen": "Address {0}  ·  {1} guests",
+      "CloseRoom": "Close Room",
+      "CopyAddress": "Copy Address",
+      "ShareCode": "Get Join Code",
+      "CreatingCode": "Creating a join code…",
+      "PublicCode": "Online join code  {0}",
+      "CodeFailed": "Could not create a join code. Try again.",
+      "Back": "Back",
+      "Lobby": "Multiplayer Lobby",
+      "Nearby": "Nearby LAN Rooms",
+      "Join": "Join Room",
+      "DirectButton": "IP / Join Code",
+      "Direct": "Enter an IP address or join code",
+      "Connect": "Connect",
+      "Searching": "Searching for nearby rooms…",
+      "NoRooms": "No rooms found. Ask the host to open their world.",
+      "Unavailable": "The multiplayer mod is unavailable.",
+      "OpenFailed": "Could not open the room ({0})",
+      "AddressRequired": "Enter an address or join code.",
+      "AddressFormat": "Use address[:port]. Put IPv6 addresses in brackets, for example [::1]:28887.",
+      "AddressMissing": "No address found for this server.",
+      "RelayFormat": "Use relay@address[:port]#roomcode."
+    },
     "BestiaryDescriptionScreen": {
       "1": "Creature Description",
       "2": "Drops:"

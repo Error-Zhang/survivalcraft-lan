@@ -3327,6 +3327,36 @@
     "ScreenLayout.QuadrupleOpposite.Description": "四名玩家共同面向设备，共享触摸屏"
   },
   "ContentWidgets": {
+    "LanMultiplayer": {
+      "Multiplayer": "联机",
+      "OpenToLan": "开放到局域网",
+      "On": "开启",
+      "Off": "关闭",
+      "Room": "联机房间",
+      "RoomClosed": "当前世界尚未开放",
+      "RoomOpen": "地址 {0}  ·  已加入 {1} 人",
+      "CloseRoom": "关闭房间",
+      "CopyAddress": "复制地址",
+      "ShareCode": "生成联机码",
+      "CreatingCode": "正在生成联机码…",
+      "PublicCode": "公网联机码  {0}",
+      "CodeFailed": "联机码生成失败，可以重试",
+      "Back": "返回",
+      "Lobby": "联机大厅",
+      "Nearby": "附近的局域网房间",
+      "Join": "加入房间",
+      "DirectButton": "IP / 联机码",
+      "Direct": "输入 IP 或联机码",
+      "Connect": "连接",
+      "Searching": "正在搜索附近房间…",
+      "NoRooms": "暂未发现房间，请确认房主已开放",
+      "Unavailable": "联机模组未加载。",
+      "OpenFailed": "无法开放房间（{0}）",
+      "AddressRequired": "请输入服务器地址或联机码。",
+      "AddressFormat": "请使用 地址[:端口]，IPv6 地址示例为 [::1]:28887。",
+      "AddressMissing": "找不到此服务器的地址。",
+      "RelayFormat": "请使用 relay@地址[:端口]#房间码。"
+    },
     "BestiaryDescriptionScreen": {
       "1": "生物信息",
       "2": "掉落物："

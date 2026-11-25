@@ -202,7 +202,6 @@ namespace Survivalcraft.Multiplayer {
             m_hint.IsVisible = string.IsNullOrEmpty(m_input.Text);
             SetGameplayInputBlocked(m_panel.IsVisible);
             m_gameWidget.PlayerData.ComponentPlayer.ComponentInput.AllowHandleInput = !m_input.HasFocus;
-            Input.IsMouseCursorVisible = m_panel.IsVisible;
         }
 
         void SetGameplayInputBlocked(bool blocked) {
@@ -240,13 +239,11 @@ namespace Survivalcraft.Multiplayer {
             if (focusInput) {
                 m_input.HasFocus = true;
             }
-            Input.IsMouseCursorVisible = true;
         }
 
         void ClosePanel() {
             m_panel.IsVisible = false;
             SetGameplayInputBlocked(false);
-            Input.IsMouseCursorVisible = false;
             if (m_input.HasFocus) {
                 m_input.HasFocus = false;
             }

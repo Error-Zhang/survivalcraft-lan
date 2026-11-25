@@ -55,6 +55,10 @@ public class ConnectPacket : Packet {
     }
 
     public static byte[] GetNowProject(Project project) {
+        SubsystemNetwork network = project.FindSubsystem<SubsystemNetwork>();
+        foreach (PlayerData player in project.FindSubsystem<SubsystemPlayers>(true).PlayersData) {
+            network?.PlayerColors.EnsurePlayer(player);
+        }
         ProjectData projectData = new ProjectData {
             NextEntityID = project.NextEntityID,
             ValuesDictionary = new ValuesDictionary {

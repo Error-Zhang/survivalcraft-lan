@@ -789,6 +789,7 @@ namespace Game {
             AddLoadAction(delegate { AddScreen("NewWorld", new NewWorldScreen()); });
             AddLoadAction(delegate { AddScreen("ModifyWorld", new ModifyWorldScreen()); });
             AddLoadAction(delegate { AddScreen("WorldOptions", new WorldOptionsScreen()); });
+            AddLoadAction(delegate { AddScreen("Multiplayer", new MultiplayerScreen()); });
             AddLoadAction(delegate { AddScreen("GameLoading", new GameLoadingScreen()); });
             AddLoadAction(delegate { AddScreen("Game", new GameScreen()); });
             AddLoadAction(delegate { AddScreen("TrialEnded", new TrialEndedScreen()); });

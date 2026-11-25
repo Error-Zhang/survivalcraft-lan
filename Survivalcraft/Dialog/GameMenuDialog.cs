@@ -450,6 +450,12 @@ namespace Game {
                         () => ScreensManager.SwitchScreen("ModSettings")
                     )
                 );
+                if (NetworkManager.CanHostLan && !GameManager.IsNetworkProject && m_componentPlayer.PlayerData.IsMainPlayer) {
+                    list.Add(new Tuple<string, Action>(
+                        LanguageControl.GetContentWidgets("LanMultiplayer", "Room"),
+                        () => DialogsManager.ShowDialog(ParentWidget, new LanRoomDialog())
+                    ));
+                }
                 list.Add(new Tuple<string, Action>(LanguageControl.Get(fName, 89), delegate { ScreensManager.SwitchScreen("Help"); }));
                 if ((Input.Devices & (WidgetInputDevice.Keyboard | WidgetInputDevice.Mouse)) != 0) {
                     list.Add(new Tuple<string, Action>(LanguageControl.Get(fName, 90), delegate { ScreensManager.SwitchScreen("KeyboardMapping"); }));

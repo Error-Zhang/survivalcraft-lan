@@ -3310,6 +3310,36 @@
     "ScreenLayout.QuadrupleOpposite.Description": "Đối diện, để chia sẻ thiết bị cảm ứng"
   },
   "ContentWidgets": {
+    "LanMultiplayer": {
+      "Multiplayer": "Nhiều người chơi",
+      "OpenToLan": "Mở mạng LAN",
+      "On": "Bật",
+      "Off": "Tắt",
+      "Room": "Phòng chơi chung",
+      "RoomClosed": "Thế giới chưa mở cho khách",
+      "RoomOpen": "Địa chỉ {0}  ·  {1} khách",
+      "CloseRoom": "Đóng phòng",
+      "CopyAddress": "Sao chép IP",
+      "ShareCode": "Tạo mã",
+      "CreatingCode": "Đang tạo mã tham gia…",
+      "PublicCode": "Mã tham gia qua mạng  {0}",
+      "CodeFailed": "Không thể tạo mã. Hãy thử lại.",
+      "Back": "Quay lại",
+      "Lobby": "Sảnh chơi chung",
+      "Nearby": "Phòng LAN gần đây",
+      "Join": "Vào phòng",
+      "DirectButton": "IP / Mã tham gia",
+      "Direct": "Nhập IP hoặc mã tham gia",
+      "Connect": "Kết nối",
+      "Searching": "Đang tìm phòng gần đây…",
+      "NoRooms": "Chưa tìm thấy phòng. Hãy nhờ chủ phòng mở thế giới.",
+      "Unavailable": "Không tải được mod nhiều người chơi.",
+      "OpenFailed": "Không thể mở phòng ({0})",
+      "AddressRequired": "Nhập địa chỉ hoặc mã tham gia.",
+      "AddressFormat": "Dùng địa_chỉ[:cổng]. Ví dụ IPv6: [::1]:28887.",
+      "AddressMissing": "Không tìm thấy địa chỉ máy chủ.",
+      "RelayFormat": "Dùng relay@địa_chỉ[:cổng]#mã_phòng."
+    },
     "BestiaryDescriptionScreen": {
       "1": "Mô tả Sinh vật",
       "2": "Vật phẩm rơi ra:"

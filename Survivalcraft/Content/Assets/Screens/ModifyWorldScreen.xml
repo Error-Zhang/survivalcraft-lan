@@ -36,6 +36,11 @@
         <BevelledButtonWidget Name="WorldOptions" Style="{Styles/ButtonStyle_310x60}" Text="[ModifyWorldScreen:6]" VerticalAlignment="Center" Margin="5, 0" />
       </UniformSpacingPanelWidget>
 
+      <UniformSpacingPanelWidget Direction="Horizontal" VerticalAlignment="Center">
+        <LabelWidget Text="[LanMultiplayer:OpenToLan]" HorizontalAlignment="Far" VerticalAlignment="Center" Margin="10, 0" />
+        <BevelledButtonWidget Name="OpenToLan" Style="{Styles/ButtonStyle_310x60}" VerticalAlignment="Center" Margin="5, 0" />
+      </UniformSpacingPanelWidget>
+
       <CanvasWidget Size="0, Infinity"/>
 
       <CanvasWidget HorizontalAlignment="Center">

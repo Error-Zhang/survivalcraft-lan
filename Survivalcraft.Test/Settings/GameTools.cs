@@ -27,6 +27,7 @@ public static class GameTools {
                 "NewWorldScreen world settings were not ready.");
             await server.PushCommandAsync($"EXEC (ScreensManager.CurrentScreen as NewWorldScreen).m_seedTextBox.Text = \"{seed}\";");
         }
+        await server.PushCommandAsync("CLICK_WIDGET OpenToLan");
         await server.PushCommandAsync("CLICK_WIDGET Play");
         bool playerScreen = await server.WaitLogAsync("Entered screen \"Player\"");
         Assert.True(playerScreen, "Failed to load the Player screen");

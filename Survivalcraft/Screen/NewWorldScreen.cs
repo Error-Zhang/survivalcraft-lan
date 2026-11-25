@@ -13,6 +13,8 @@ namespace Game {
 
         public ButtonWidget m_worldOptionsButton;
 
+        private ButtonWidget m_lanButton;
+
         public LabelWidget m_blankSeedLabel;
 
         public ButtonWidget m_seedButton;
@@ -37,6 +39,7 @@ namespace Game {
             m_gameModeButton = Children.Find<ButtonWidget>("GameMode");
             m_startingPositionButton = Children.Find<ButtonWidget>("StartingPosition");
             m_worldOptionsButton = Children.Find<ButtonWidget>("WorldOptions");
+            m_lanButton = Children.Find<ButtonWidget>("OpenToLan");
             m_blankSeedLabel = Children.Find<LabelWidget>("BlankSeed");
             m_seedButton = Children.Find<ButtonWidget>("SeedButton");
             m_descriptionLabel = Children.Find<LabelWidget>("Description");
@@ -57,6 +60,11 @@ namespace Game {
         }
 
         public override void Update() {
+            m_lanButton.IsEnabled = NetworkManager.CanHostLan;
+            if (m_lanButton.IsClicked) {
+                m_worldSettings.OpenToLan = !m_worldSettings.OpenToLan;
+            }
+            m_lanButton.Text = LanguageControl.GetContentWidgets("LanMultiplayer", m_worldSettings.OpenToLan ? "On" : "Off");
             if (m_seedButton.IsClicked) {
                 DialogsManager.ShowDialog(
                     null,
@@ -112,9 +120,7 @@ namespace Game {
                     m_worldSettings.ResetOptionsForNonCreativeMode(null);
                 }
                 WorldInfo worldInfo = WorldsManager.CreateWorld(m_worldSettings);
-                PlayWithFriendsDialog.ShowIfNeeded(playWithFriends => {
-                    ScreensManager.SwitchScreen("GameLoading", worldInfo, null, playWithFriends);
-                });
+                ScreensManager.SwitchScreen("GameLoading", worldInfo, null);
             }
             if (Input.Back
                 || Input.Cancel

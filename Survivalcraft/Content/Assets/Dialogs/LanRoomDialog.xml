@@ -1,0 +1,16 @@
+<CanvasWidget xmlns="runtime-namespace:Game" Size="660, 268" ClampToBounds="true" HorizontalAlignment="Center" VerticalAlignment="Center">
+  <BevelledRectangleWidget Style="{Styles/DialogArea}" />
+  <StackPanelWidget Direction="Vertical" Margin="18, 12" HorizontalAlignment="Stretch">
+    <LabelWidget Text="[LanMultiplayer:Room]" HorizontalAlignment="Center" Margin="0, 6" />
+    <LabelWidget Name="RoomStatus" HorizontalAlignment="Center" Margin="0, 8" />
+    <StackPanelWidget Direction="Horizontal" HorizontalAlignment="Center">
+      <BevelledButtonWidget Name="ToggleLan" Style="{Styles/ButtonStyle_310x60}" Margin="5, 0" />
+      <BevelledButtonWidget Name="CopyAddress" Style="{Styles/ButtonStyle_160x60}" Text="[LanMultiplayer:CopyAddress]" Margin="5, 0" />
+    </StackPanelWidget>
+    <LabelWidget Name="PublicStatus" HorizontalAlignment="Center" Margin="0, 9" />
+    <StackPanelWidget Direction="Horizontal" HorizontalAlignment="Center">
+      <BevelledButtonWidget Name="ShareCode" Style="{Styles/ButtonStyle_160x60}" Text="[LanMultiplayer:ShareCode]" Margin="5, 0" />
+      <BevelledButtonWidget Name="Close" Style="{Styles/ButtonStyle_160x60}" Text="[LanMultiplayer:Back]" Margin="5, 0" />
+    </StackPanelWidget>
+  </StackPanelWidget>
+</CanvasWidget>

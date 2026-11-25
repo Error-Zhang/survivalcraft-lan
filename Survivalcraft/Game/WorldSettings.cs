@@ -60,6 +60,7 @@ namespace Game {
         public string BlocksTextureName = string.Empty;
 
         public bool RunServer = false;
+        public bool OpenToLan;
 
         public WorldPalette Palette = new();
 
@@ -147,6 +148,7 @@ namespace Game {
             BlocksTextureName = valuesDictionary.GetValue("BlockTextureName", string.Empty);
             Palette = new WorldPalette(valuesDictionary.GetValue("Palette", new ValuesDictionary()));
             RunServer = valuesDictionary.GetValue("RunServer", false);
+            OpenToLan = valuesDictionary.GetValue("OpenToLan", false);
             DaySpeed = valuesDictionary.GetValue("DaySpeed", 1.0f);
             RecoverFator = valuesDictionary.GetValue("RecoverFator", 1.0f);
             DisableBlocks = valuesDictionary.GetValue("DisableBlocks", string.Empty);
@@ -172,6 +174,7 @@ namespace Game {
             valuesDictionary.SetValue("IsFriendlyFireEnabled", IsFriendlyFireEnabled);
             valuesDictionary.SetValue("Password", Password);
             valuesDictionary.SetValue("RunServer", RunServer);
+            valuesDictionary.SetValue("OpenToLan", OpenToLan);
             valuesDictionary.SetValue("DaySpeed", DaySpeed);
             valuesDictionary.SetValue("RecoverFator", RecoverFator);
             valuesDictionary.SetValue("DisableBlocks", DisableBlocks);

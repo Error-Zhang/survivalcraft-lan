@@ -1,0 +1,23 @@
+<Screen xmlns="runtime-namespace:Game">
+  <PanoramaWidget />
+  <StackPanelWidget Direction="Horizontal">
+    <CanvasWidget Style="{Widgets/TopBarContents}">
+      <LabelWidget Name="TopBar.Label" Text="[LanMultiplayer:Lobby]" />
+    </CanvasWidget>
+
+    <StackPanelWidget Direction="Vertical" HorizontalAlignment="Stretch" Margin="14, 10">
+      <LabelWidget Text="[LanMultiplayer:Nearby]" Margin="6, 6" />
+      <CanvasWidget>
+        <BevelledRectangleWidget Style="{Styles/Area}" />
+        <ListPanelWidget Name="LanRooms" Direction="Vertical" ItemSize="58" SelectionColor="39, 105, 32, 185" Margin="3, 3" />
+        <LabelWidget Name="LanEmpty" HorizontalAlignment="Center" VerticalAlignment="Center" TextAnchor="HorizontalCenter, VerticalCenter"
+                     Color="180, 180, 180" WordWrap="true" Margin="12, 6" />
+      </CanvasWidget>
+      <StackPanelWidget Direction="Horizontal" Margin="0, 10">
+        <BevelledButtonWidget Name="DirectConnect" Text="[LanMultiplayer:DirectButton]" Style="{Styles/ButtonStyle_310x60}" />
+        <CanvasWidget Size="Infinity, 0" />
+        <BevelledButtonWidget Name="JoinLanRoom" Text="[LanMultiplayer:Join]" Style="{Styles/ButtonStyle_310x60}" />
+      </StackPanelWidget>
+    </StackPanelWidget>
+  </StackPanelWidget>
+</Screen>

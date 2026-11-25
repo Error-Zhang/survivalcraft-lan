@@ -11,6 +11,7 @@ public class NetworkServer : INetEventListener {
     private NetManager _netManager;
     private bool _disconnectByUser;
     public bool IsRunning { get; private set; } = false;
+    public int Port => _netManager.LocalPort;
     public Dictionary<NetPeer, ClientSession> ClientSessions { get; set; } = [];
 
     public void Start() {
@@ -18,8 +19,7 @@ public class NetworkServer : INetEventListener {
             MaxConnectAttempts = 6,
             DisconnectTimeout = 10000,
             ChannelsCount = NetworkChannels.Count,
-            UnconnectedMessagesEnabled = true,
-            ReuseAddress = true
+            UnconnectedMessagesEnabled = true
         };
 
         if (!_netManager.Start(SettingsManager.ServerPort)) {

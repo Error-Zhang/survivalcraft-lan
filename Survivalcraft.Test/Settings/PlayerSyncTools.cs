@@ -110,6 +110,7 @@ public static class PlayerSyncTools {
 
         Assert.Equal("Creative", modeResult);
 
+        await server.PushCommandAsync("CLICK_WIDGET OpenToLan");
         await server.PushCommandAsync("CLICK_WIDGET Play");
         bool playerScreen = await server.WaitLogAsync("Entered screen \"Player\"");
         Assert.True(playerScreen, "Failed to load the Player screen");

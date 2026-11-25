@@ -38,6 +38,7 @@ namespace Engine.Input {
         static bool m_pointerCaptureRequested;
 #elif !IOS
         public static IMouse m_mouse;
+        private static CursorMode m_desktopCaptureMode;
 #endif
         public static Point2? m_lastMousePosition;
 
@@ -86,6 +87,7 @@ namespace Engine.Input {
             }
 #elif !IOS && !BROWSER
             m_mouse = Window.m_inputContext.Mice[0];
+            m_desktopCaptureMode = m_mouse.Cursor.IsSupported(CursorMode.Raw) ? CursorMode.Raw : CursorMode.Disabled;
             m_mouse.MouseDown += MouseDownHandler;
             m_mouse.MouseUp += MouseUpHandler;
             //m_mouse.MouseMove += MouseMoveHandler;
@@ -170,33 +172,26 @@ namespace Engine.Input {
             MouseWheelMovementX = (int)MathUtils.Round(m_queuedMouseWheelMovementX) * 120;
             m_queuedMouseWheelMovementX = 0f;
 #elif !IOS
-            if (Window.IsActive) {
-                Point2 position = new((int)m_mouse.Position.X, (int)m_mouse.Position.Y);
-                ProcessMouseMove(position);
-                if (IsMouseVisible) {
-                    m_mouse.Cursor.CursorMode = CursorMode.Normal;
-                    MouseMovement = Point2.Zero;
-                    m_lastMousePosition = null;
-                }
-                else {
-                    m_mouse.Cursor.CursorMode = CursorMode.Raw;
-                    if (m_lastMousePosition.HasValue) {
-                        MouseMovement = new Point2(position.X - m_lastMousePosition.Value.X, position.Y - m_lastMousePosition.Value.Y);
-                    }
-                    Point2 windowSize = Window.Size;
-                    if (position.X < 0
-                        || position.X >= windowSize.X
-                        || position.Y < 0
-                        || position.Y >= windowSize.Y) {
-                        position = new Point2(windowSize.X / 2, windowSize.Y / 2);
-                        SetMousePosition(position.X, position.Y);
-                    }
-                    m_lastMousePosition = position;
-                }
-            }
-            else {
+            MouseMovement = Point2.Zero;
+            if (!Window.IsActive) {
                 m_lastMousePosition = null;
+                return;
             }
+
+            System.Numerics.Vector2 rawPosition = m_mouse.Position;
+            Point2 position = new((int)rawPosition.X, (int)rawPosition.Y);
+            ProcessMouseMove(position);
+            if (IsMouseVisible || m_mouse.Cursor.CursorMode != m_desktopCaptureMode) {
+                m_lastMousePosition = null;
+                return;
+            }
+
+            // In raw mode GLFW reports a virtual position that can move beyond the window.
+            // Recentring it makes the warp appear as a camera movement on the next frame.
+            if (m_lastMousePosition is Point2 previousPosition) {
+                MouseMovement = position - previousPosition;
+            }
+            m_lastMousePosition = position;
 #endif
         }
 #if ANDROID
@@ -339,6 +334,10 @@ namespace Engine.Input {
         public static bool IsMouseButtonUpOnce(MouseButton mouseButton) => m_mouseButtonsUpOnceArray[(int)mouseButton];
 
         public static void Clear() {
+            MouseMovement = Point2.Zero;
+            MouseWheelMovement = 0;
+            MouseWheelMovementX = 0;
+            m_lastMousePosition = null;
             for (int i = 0; i < m_mouseButtonsDownArray.Length; i++) {
                 m_mouseButtonsDownArray[i] = false;
                 m_mouseButtonsDownFrameArray[i] = 0;
@@ -362,13 +361,14 @@ namespace Engine.Input {
             }
             if (!IsMouseVisible) {
                 MousePosition = null;
+            }
 #if !MOBILE && !BROWSER
-                m_mouse.Cursor.CursorMode = Window.IsActive ? CursorMode.Raw : CursorMode.Normal;
+            CursorMode mode = !IsMouseVisible && Window.IsActive ? m_desktopCaptureMode : CursorMode.Normal;
+            if (m_mouse.Cursor.CursorMode != mode) {
+                m_mouse.Cursor.CursorMode = mode;
+                m_lastMousePosition = null;
             }
-            else {
-                m_mouse.Cursor.CursorMode = CursorMode.Normal;
 #endif
-            }
             MouseWheelMovement = 0;
         }
 

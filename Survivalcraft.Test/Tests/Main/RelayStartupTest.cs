@@ -332,6 +332,7 @@ public sealed class RelayStartupTest : IClassFixture<GameFixture> {
 
         await WaitForNewWorldSettingsAsync(server);
         await server.PushCommandAsync($"EXEC (ScreensManager.CurrentScreen as NewWorldScreen).m_seedTextBox.Text = \"{EscapeScriptString(seed)}\";");
+        await server.PushCommandAsync("CLICK_WIDGET OpenToLan");
         await server.PushCommandAsync("CLICK_WIDGET Play");
 
         Assert.True(await WaitForPlayWithFriendsDialogAsync(server),

@@ -833,10 +833,7 @@ namespace Game {
                 || !widget.IsEnabled) {
                 return;
             }
-            if (widget.WidgetsHierarchyInput != null) {
-                widget.WidgetsHierarchyInput.Update();
-                isMouseCursorVisible |= widget.WidgetsHierarchyInput.IsMouseCursorVisible;
-            }
+            widget.WidgetsHierarchyInput?.Update();
             if (widget is ContainerWidget containerWidget) {
                 WidgetsList children = containerWidget.Children;
                 for (int num = children.Count - 1; num >= 0; num--) {
@@ -864,6 +861,9 @@ namespace Game {
             }
             else {
                 widget.Update1();
+            }
+            if (widget.WidgetsHierarchyInput != null) {
+                isMouseCursorVisible |= widget.WidgetsHierarchyInput.IsMouseCursorVisible;
             }
         }
     }

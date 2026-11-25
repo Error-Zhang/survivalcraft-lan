@@ -8,25 +8,8 @@ namespace Survivalcraft.Multiplayer {
         public override void Update() {
             base.Update();
 
-            bool showClientLatency = NetworkManager.IsClientRunning;
-            bool showHostCode = NetworkManager.RelayHostCodeStatus != RelayHostCodeStatus.Inactive;
-            if (!showClientLatency && !showHostCode) {
-                Text = string.Empty;
-                return;
-            }
-            if (showClientLatency) {
-                int latency = NetworkManager.ClientLatency;
-                Text = latency >= 0
-                    ? $"延迟：{latency}ms"
-                    : "延迟：--ms";
-                return;
-            }
-            Text = NetworkManager.RelayHostCodeStatus switch {
-                RelayHostCodeStatus.Creating => "联机码：正在创建...",
-                RelayHostCodeStatus.Ready => GetRelayHostCodeText(),
-                RelayHostCodeStatus.Failed => "联机码：创建失败",
-                _ => string.Empty
-            };
+            int latency = NetworkManager.ClientLatency;
+            Text = NetworkManager.IsClientRunning ? (latency >= 0 ? $"延迟：{latency}ms" : "延迟：--ms") : string.Empty;
         }
 
         public override void MeasureOverride(Vector2 parentAvailableSize) {
@@ -39,18 +22,14 @@ namespace Survivalcraft.Multiplayer {
         }
 
         public override void Arrange(Vector2 position, Vector2 parentActualSize) {
-            float rightWidgetWidth = GetVisibleRightWidgetWidth();
-            if (rightWidgetWidth > 0f) {
-                position.X = MathUtils.Max(position.X - rightWidgetWidth - RightWidgetGap, 0f);
+            if (ParentWidget is ContainerWidget parent) {
+                position.X = Math.Max(0f, position.X - GetRightHudInset(parent));
             }
             base.Arrange(position, parentActualSize);
         }
 
-        float GetVisibleRightWidgetWidth() {
-            if (ParentWidget is not ContainerWidget parentWidget) {
-                return 0f;
-            }
-            ContainerWidget rightControlsContainerWidget = parentWidget.Children.Find<ContainerWidget>("RightControlsContainer", false);
+        internal static float GetRightHudInset(ContainerWidget parent) {
+            ContainerWidget rightControlsContainerWidget = parent.Children.Find<ContainerWidget>("RightControlsContainer", false);
             if (rightControlsContainerWidget?.IsVisible != true) {
                 return 0f;
             }
@@ -64,19 +43,9 @@ namespace Survivalcraft.Multiplayer {
             }
 
             float hiddenWidth = MathUtils.Max(rightControlsContainerWidget.RenderTransform.M41, 0f);
-            return MathUtils.Max(width - hiddenWidth, 0f);
+            float visibleWidth = MathUtils.Max(width - hiddenWidth, 0f);
+            return visibleWidth > 0f ? visibleWidth + RightWidgetGap : 0f;
         }
 
-        static string GetRelayHostCodeText() {
-            string globalCode = NetworkManager.RelayGlobalCode;
-            if (!string.IsNullOrWhiteSpace(globalCode)) {
-                return $"联机码：{globalCode}";
-            }
-            string roomCode = NetworkManager.RelayRoomCode;
-            if (!string.IsNullOrWhiteSpace(roomCode)) {
-                return $"房间码：{roomCode}";
-            }
-            return "联机码：--";
-        }
     }
 }

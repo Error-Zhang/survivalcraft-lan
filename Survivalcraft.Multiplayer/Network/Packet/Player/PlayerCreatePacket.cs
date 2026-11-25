@@ -30,7 +30,10 @@ public class PlayerCreatePacket : Packet {
         var subsystemPlayers = GameManager.Project.FindSubsystem<SubsystemPlayers>();
         var playerData = new PlayerData(GameManager.Project);
         playerData.Load(m_vd);
+        playerData.MapPlayerId = Guid.Empty;
+        playerData.MapColorIndex = -1;
         subsystemPlayers.AddPlayerData(playerData);
+        GameManager.Project.FindSubsystem<SubsystemNetwork>()?.PlayerColors.EnsurePlayer(playerData);
         // 服务端广播给所有客户端，添加玩家
         NetworkManager.Queue(new PlayerAddPacket(playerData));
 

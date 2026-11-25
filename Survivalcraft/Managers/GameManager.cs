@@ -226,6 +226,9 @@ namespace Game {
 
         public static void DisposeProject() {
             if (m_project != null) {
+                if (!IsNetworkProject && NetworkManager.IsServerRunning) {
+                    NetworkManager.Stop();
+                }
                 ProjectDisposed?.Invoke(m_project);
                 m_project.Dispose();
                 m_project = null;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Engine;
 using GameEntitySystem;
+using Survivalcraft.Multiplayer;
 using TemplatesDatabase;
 
 namespace Game.Network;
@@ -11,11 +12,29 @@ public class SubsystemNetwork : Subsystem {
     public SubsystemPlayers m_subsystemPlayers;
     public SubsystemTerrain m_subsystemTerrain;
     public SubsystemGameInfo m_subsystemGameInfo;
+    internal MapPlayerColors PlayerColors { get; private set; }
+
+    private Guid m_legacyMapWorldId;
+    private ValuesDictionary m_legacyMapPins;
 
     public override void Load(ValuesDictionary valuesDictionary) {
         m_subsystemPlayers = Project.FindSubsystem<SubsystemPlayers>(true);
         m_subsystemTerrain = Project.FindSubsystem<SubsystemTerrain>(true);
         m_subsystemGameInfo = Project.FindSubsystem<SubsystemGameInfo>(true);
+        PlayerColors = new MapPlayerColors(valuesDictionary.GetValue("NextMapColor", 0));
+        // Preserve existing world map data when an older save is saved again.
+        m_legacyMapWorldId = valuesDictionary.GetValue("MapWorldId", Guid.Empty);
+        m_legacyMapPins = valuesDictionary.GetValue<ValuesDictionary>("MapPins", null);
+    }
+
+    public override void Save(ValuesDictionary valuesDictionary) {
+        valuesDictionary.SetValue("NextMapColor", PlayerColors.NextColor);
+        if (m_legacyMapWorldId != Guid.Empty) {
+            valuesDictionary.SetValue("MapWorldId", m_legacyMapWorldId);
+        }
+        if (m_legacyMapPins != null) {
+            valuesDictionary.SetValue("MapPins", m_legacyMapPins);
+        }
     }
 
     public void MakeAllPlayersOffline() => 
@@ -75,6 +94,7 @@ public class SubsystemNetwork : Subsystem {
             playerData.Load(dict.GetValue<ValuesDictionary>("Data"));
             RemoveStalePlayerData(playerData.PlayerIndex);
             m_subsystemPlayers.AddPlayerData(playerData, true);
+            PlayerColors.EnsurePlayer(playerData);
             playerData.WaitEntityAdded();
             return true;
         }

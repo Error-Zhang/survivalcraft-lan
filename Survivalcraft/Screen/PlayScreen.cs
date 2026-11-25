@@ -283,12 +283,8 @@ namespace Game {
                     return false;
                 }
             );
-            var modInfos = new List<ModInfo>();
-            object loadItem = item;
-            PlayWithFriendsDialog.ShowIfNeeded(playWithFriends => {
-                ScreensManager.SwitchScreen("GameLoading", loadItem, null, playWithFriends);
-                m_worldsListWidget.SelectedItem = null;
-            });
+            ScreensManager.SwitchScreen("GameLoading", item, null);
+            m_worldsListWidget.SelectedItem = null;
         }
 
         public bool ShowTips(object item) {

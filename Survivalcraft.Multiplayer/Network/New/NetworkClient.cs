@@ -109,6 +109,11 @@ public class NetworkClient : INetEventListener {
             GameManager.DisposeProject();
             ScreensManager.SwitchScreen("MainMenu");
             DialogsManager.Alert("Disconnected", disconnectInfo.Reason.ToString());
+            Dispatcher.Dispatch(() => {
+                if (ReferenceEquals(NetworkManager.NetworkClient, this)) {
+                    NetworkManager.Stop();
+                }
+            });
         }
     }
 }

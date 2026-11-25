@@ -3119,6 +3119,36 @@
     "ScreenLayout.QuadrupleOpposite.Description": "Opuesto, para compartir dispositivos táctiles"
   },
   "ContentWidgets": {
+    "LanMultiplayer": {
+      "Multiplayer": "Multijugador",
+      "OpenToLan": "Abrir en LAN",
+      "On": "Sí",
+      "Off": "No",
+      "Room": "Sala multijugador",
+      "RoomClosed": "El mundo está cerrado a invitados",
+      "RoomOpen": "Dirección {0}  ·  {1} invitados",
+      "CloseRoom": "Cerrar sala",
+      "CopyAddress": "Copiar IP",
+      "ShareCode": "Obtener código",
+      "CreatingCode": "Generando código…",
+      "PublicCode": "Código en línea  {0}",
+      "CodeFailed": "No se pudo generar el código. Inténtalo de nuevo.",
+      "Back": "Volver",
+      "Lobby": "Sala multijugador",
+      "Nearby": "Partidas cercanas en LAN",
+      "Join": "Unirse",
+      "DirectButton": "IP / Código",
+      "Direct": "Ingresa una IP o un código",
+      "Connect": "Conectar",
+      "Searching": "Buscando partidas cercanas…",
+      "NoRooms": "No hay partidas. Pídele al anfitrión que abra su mundo.",
+      "Unavailable": "El mod multijugador no está disponible.",
+      "OpenFailed": "No se pudo abrir la sala ({0})",
+      "AddressRequired": "Ingresa una dirección o un código.",
+      "AddressFormat": "Usa dirección[:puerto]. Para IPv6, usa [::1]:28887.",
+      "AddressMissing": "No se encontró la dirección del servidor.",
+      "RelayFormat": "Usa relay@dirección[:puerto]#código."
+    },
     "BestiaryDescriptionScreen": {
       "1": "Descripción de la Criatura",
       "2": "Drops:"

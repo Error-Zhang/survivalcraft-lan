@@ -33,6 +33,7 @@ public sealed class GameStartupTest : IClassFixture<GameFixture> {
         bool newWorldScreenEntered = await server.WaitLogAsync("Entered screen \"NewWorld\"");
         Assert.True(newWorldScreenEntered, "Failed to enter the New World screen");
 
+        await server.PushCommandAsync("CLICK_WIDGET OpenToLan");
         await server.PushCommandAsync("CLICK_WIDGET Play");
         bool gameEntered = await server.WaitLogAsync("Entered screen \"Game\"");
         Assert.True(gameEntered, $"Failed to enter the Game screen\nServer log:\n{server.GetRecentLogText(160)}");

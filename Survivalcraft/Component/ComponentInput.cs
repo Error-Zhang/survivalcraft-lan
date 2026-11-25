@@ -80,11 +80,15 @@ namespace Game {
         public virtual void Update(float dt) {
             m_playerInput = default;
             if (!m_componentPlayer.PlayerData.IsMainPlayer) return;
-            if (GameplayInputBlocked) return;
-            UpdateInputFromMouseAndKeyboard(m_componentPlayer.GameWidget.Input);
-            UpdateInputFromGamepad(m_componentPlayer.GameWidget.Input);
-            UpdateInputFromVrControllers(m_componentPlayer.GameWidget.Input);
-            UpdateInputFromWidgets(m_componentPlayer.GameWidget.Input);
+            WidgetInput input = m_componentPlayer.GameWidget.Input;
+            if (GameplayInputBlocked) {
+                input.IsMouseCursorVisible = true;
+                return;
+            }
+            UpdateInputFromMouseAndKeyboard(input);
+            UpdateInputFromGamepad(input);
+            UpdateInputFromVrControllers(input);
+            UpdateInputFromWidgets(input);
             if (m_playerInput.Jump) {
                 if (Time.RealTime - m_lastJumpTime < 0.3 && ToggleFlyInDoubleJump) {
                     m_playerInput.ToggleCreativeFly = true;
