@@ -452,135 +452,20 @@ namespace Game {
             );
             AddLoadAction(
                 delegate { // 初始化所有ModEntity的语言包
-                    //>>>初始化语言列表
                     LanguageControl.LanguageTypes.Clear();
-                    foreach (ContentInfo contentInfo in ContentManager.List("Lang")) {
-                        string fileName = Path.GetFileNameWithoutExtension(contentInfo.Filename);
-                        if (string.IsNullOrEmpty(fileName)) {
-                            continue;
-                        }
-                        try {
+                    foreach (string language in new[] { "en-US", "zh-CN" }) {
 #if BROWSER
-                            LanguageControl.LanguageTypes.Add(fileName);
+                        LanguageControl.LanguageTypes.Add(language);
 #else
-                            CultureInfo cultureInfo = new(fileName, false);
-                            LanguageControl.LanguageTypes.TryAdd(fileName, cultureInfo); //第二个参数应为CultureInfo
+                        LanguageControl.LanguageTypes.Add(language, new CultureInfo(language, false));
 #endif
-                        }
-                        catch (Exception) {
-                            // ignore
-                        }
                     }
-                    //<<<结束
-#if BROWSER
-                    if (ModsManager.Configs.TryGetValue("Language", out string value)
-                        && LanguageControl.LanguageTypes.Contains(value)) {
-                        LanguageControl.Initialize(value);
+                    if (!ModsManager.Configs.TryGetValue("Language", out string savedLanguage)
+                        || savedLanguage is not ("en-US" or "zh-CN")) {
+                        string systemLanguage = Program.SystemLanguage?.Split('-', '_')[0];
+                        savedLanguage = string.Equals(systemLanguage, "zh", StringComparison.OrdinalIgnoreCase) ? "zh-CN" : "en-US";
                     }
-                    else {
-                        string systemLanguage = Program.SystemLanguage;
-                        if (string.IsNullOrEmpty(systemLanguage)) {
-                            // 如果不支持系统语言，英语是最佳选择
-                            LanguageControl.Initialize("en-US");
-                            Log.Information("Language is not specified, and system language is not detected, en-US is loaded instead.");
-                        }
-                        else if (LanguageControl.LanguageTypes.Contains(systemLanguage)) {
-                            LanguageControl.Initialize(systemLanguage);
-                            Log.Information($"Language is not specified, system language ({systemLanguage}) is successfully loaded.");
-                        }
-                        else {
-                            bool languageNotLoaded = true;
-                            string[] systemLanguageArray = systemLanguage.Split('-');
-                            switch (systemLanguageArray.Length) {
-                                case 1: {
-                                    foreach (string cultureName in LanguageControl.LanguageTypes) {
-                                        string[] cultureNameArray = cultureName.Split('-');
-                                        if (systemLanguage == cultureNameArray[0]) {
-                                            LanguageControl.Initialize(cultureName);
-                                            Log.Information(
-                                                $"Language is not specified, a language ({cultureName}) closest to system language ({systemLanguage}) is successfully loaded."
-                                            );
-                                            languageNotLoaded = false;
-                                            break;
-                                        }
-                                    }
-                                    break;
-                                }
-                                case >= 2:
-                                    foreach (string cultureName in LanguageControl.LanguageTypes) {
-                                        string[] cultureNameArray = cultureName.Split('-');
-                                        if (systemLanguageArray[0] == cultureNameArray[0]) {
-                                            LanguageControl.Initialize(cultureName);
-                                            Log.Information(
-                                                $"Language is not specified, a language ({cultureName}) closest to system language ({systemLanguage}) is successfully loaded."
-                                            );
-                                            languageNotLoaded = false;
-                                            break;
-                                        }
-                                    }
-                                    break;
-                            }
-                            if (languageNotLoaded) {
-                                LanguageControl.Initialize("en-US");
-                                Log.Information(
-                                    $"Language is not specified, and system language ({systemLanguage}) is not supported yet, en-US is loaded instead."
-                                );
-                            }
-                        }
-                    }
-#else
-                    if (ModsManager.Configs.TryGetValue("Language", out string value)
-                        && LanguageControl.LanguageTypes.ContainsKey(value)) {
-                        LanguageControl.Initialize(value);
-                    }
-                    else {
-                        string systemLanguage = Program.SystemLanguage;
-                        if (string.IsNullOrEmpty(systemLanguage)) {
-                            // 如果不支持系统语言，英语是最佳选择
-                            LanguageControl.Initialize("en-US");
-                            Log.Information("Language is not specified, and system language is not detected, en-US is loaded instead.");
-                        }
-                        else if (LanguageControl.LanguageTypes.ContainsKey(systemLanguage)) {
-                            LanguageControl.Initialize(systemLanguage);
-                            Log.Information($"Language is not specified, system language ({systemLanguage}) is successfully loaded.");
-                        }
-                        else {
-                            bool languageNotLoaded = true;
-                            CultureInfo systemCultureInfoParent = new CultureInfo(systemLanguage).Parent;
-                            foreach ((string cultureName, CultureInfo cultureInfo) in LanguageControl.LanguageTypes) {
-                                bool similar = false;
-                                CultureInfo parentCulture = cultureInfo.Parent;
-                                string parentCultureName = cultureInfo.Name;
-                                if (parentCultureName == systemLanguage
-                                    || parentCultureName == systemCultureInfoParent.Name
-                                    || parentCultureName == systemCultureInfoParent.Parent.Name) {
-                                    similar = true;
-                                }
-                                else {
-                                    string rootCultureName = parentCulture.Parent.Name;
-                                    if (rootCultureName.Length > 0
-                                        && (rootCultureName == systemCultureInfoParent.Name
-                                            || rootCultureName == systemCultureInfoParent.Parent.Name)) {
-                                        similar = true;
-                                    }
-                                }
-                                if (similar) {
-                                    LanguageControl.Initialize(cultureName);
-                                    Log.Information(
-                                        $"Language is not specified, a language ({cultureName}) closest to system language ({systemLanguage}) is successfully loaded."
-                                    );
-                                    languageNotLoaded = false;
-                                }
-                            }
-                            if (languageNotLoaded) {
-                                LanguageControl.Initialize("en-US");
-                                Log.Information(
-                                    $"Language is not specified, and system language ({systemLanguage}) is not supported yet, en-US is loaded instead."
-                                );
-                            }
-                        }
-                    }
-#endif
+                    LanguageControl.Initialize(savedLanguage);
                     ModsManager.ModListAllDo(modEntity => { modEntity.LoadLauguage(); });
                     LanguageControl.SetUsual();
 #if !MOBILE
@@ -674,7 +559,6 @@ namespace Game {
                     OriginalCommunityContentManager.Initialize();
                     FurniturePacksManager.Initialize();
                     LightingManager.Initialize();
-                    MotdManager.Initialize();
                     WorldsManager.Initialize();
                 }
             );
@@ -802,7 +686,6 @@ namespace Game {
             AddLoadAction(delegate { AddScreen("ManageContent", new ManageContentScreen()); });
             AddLoadAction(delegate { AddScreen("ModsManageContent", new ModsManageContentScreen()); });
             AddLoadAction(delegate { AddScreen("ModpacksManageContent", new ModpacksManageContentScreen()); });
-            AddLoadAction(delegate { AddScreen("Releases", new ReleasesScreen()); });
             AddLoadAction(delegate { AddScreen("Players", new PlayersScreen()); });
             AddLoadAction(delegate { AddScreen("Player", new PlayerScreen()); });
             AddLoadAction(delegate { AddScreen("KeyboardMapping", new KeyboardMappingScreen()); });

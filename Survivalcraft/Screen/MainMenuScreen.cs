@@ -5,19 +5,8 @@ using Engine.Input;
 
 namespace Game {
     public class MainMenuScreen : Screen {
-        public string m_versionString = string.Empty;
-
-        public bool m_versionStringTrial;
-        public bool m_disabledModsNotShowed = true;
-
         public ButtonWidget m_disableSafeModeButton;
-        public ButtonWidget m_showBulletinButton;
-        public LabelWidget m_copyrightLabel;
         public ButtonWidget m_languageSwitchButton;
-        public ButtonWidget m_updateCheckButton;
-        public Subtexture m_needToUpdateIcon;
-        public Subtexture m_dontNeedUpdateIcon;
-        public RectangleWidget m_updateButtonIcon;
         public ButtonWidget m_fullscreenButton;
         public ButtonWidget m_dashboardButton;
         public StackPanelWidget m_leftBottomBar;
@@ -31,15 +20,9 @@ namespace Game {
             XElement node = ContentManager.Get<XElement>("Screens/MainMenuScreen");
             LoadContents(this, node);
             m_disableSafeModeButton = Children.Find<ButtonWidget>("DisableSafeModeButton");
-            m_showBulletinButton = Children.Find<ButtonWidget>("BulletinButton", false);
-            m_copyrightLabel = Children.Find<LabelWidget>("CopyrightLabel", false);
             m_languageSwitchButton = Children.Find<ButtonWidget>("LanguageSwitchButton", false);
             m_leftBottomBar = Children.Find<StackPanelWidget>("LeftBottomBar", false);
             m_rightBottomBar = Children.Find<StackPanelWidget>("RightBottomBar", false);
-            m_updateCheckButton = Children.Find<ButtonWidget>("UpdateCheckButton", false);
-            m_updateButtonIcon = Children.Find<RectangleWidget>("UpdateIcon", false);
-            m_needToUpdateIcon = ContentManager.Get<Subtexture>("Textures/Gui/NeedToUpdate");
-            m_dontNeedUpdateIcon = ContentManager.Get<Subtexture>("Textures/Gui/UpdateChecking");
             m_fullscreenButton = Children.Find<ButtonWidget>("FullscreenButton", false);
             m_dashboardButton = Children.Find<ButtonWidget>("DashboardButton", false);
 #if BROWSER
@@ -102,23 +85,15 @@ namespace Game {
 
         public override void Enter(object[] parameters) {
             MusicManager.CurrentMix = MusicManager.Mix.Menu;
-            Children.Find<MotdWidget>().Restart();
             if (SettingsManager.IsolatedStorageMigrationCounter < 3) {
                 SettingsManager.IsolatedStorageMigrationCounter++;
                 VersionConverter126To127.MigrateDataFromIsolatedStorageWithDialog();
-            }
-            if (MotdManager.CanShowBulletin) {
-                MotdManager.ShowBulletin();
             }
             if (SettingsManager.SafeMode) {
                 m_disableSafeModeButton.IsVisible = true;
             }
             m_leftBottomBar.MarginLeft = SettingsManager.AdaptEdgeToEdgeDisplay ? Window.DisplayCutoutInsets.X * ScreensManager.FinalUiScale : 0f;
             m_rightBottomBar.MarginRight = SettingsManager.AdaptEdgeToEdgeDisplay ? Window.DisplayCutoutInsets.Z * ScreensManager.FinalUiScale : 0f;
-            if (m_disabledModsNotShowed) {
-                m_disabledModsNotShowed = false;
-                ModsManager.ShowDisabledModsDialog();
-            }
         }
 
         public override void Leave() {
@@ -127,13 +102,7 @@ namespace Game {
 
         public override void Update() {
             Keyboard.BackButtonQuitsApp = !MarketplaceManager.IsTrialMode;
-            if (string.IsNullOrEmpty(m_versionString)
-                || MarketplaceManager.IsTrialMode != m_versionStringTrial) {
-                m_versionString = $"Version {VersionsManager.Version}{(MarketplaceManager.IsTrialMode ? " (Day One)" : string.Empty)}";
-                m_versionStringTrial = MarketplaceManager.IsTrialMode;
-            }
             Children.Find("Buy").IsVisible = MarketplaceManager.IsTrialMode;
-            Children.Find<LabelWidget>("Version").Text = $"{m_versionString} -  API {ModsManager.APIVersionString}";
             RectangleWidget rectangleWidget = Children.Find<RectangleWidget>("Logo");
             float num = 1f + 0.02f * MathF.Sin(1.5f * (float)MathUtils.Remainder(Time.FrameStartTime, 10000.0));
             rectangleWidget.RenderTransform =
@@ -142,28 +111,6 @@ namespace Game {
                 * Matrix.CreateTranslation(rectangleWidget.ActualSize.X / 2f, rectangleWidget.ActualSize.Y / 2f, 0f);
             if (m_languageSwitchButton?.IsClicked ?? false) {
                 LanguageControl.CreateLanguageSelectionDialog(null);
-            }
-            //更新控制
-            if (!APIUpdateManager.IsNeedUpdate.HasValue) {
-                float angle = (float)Time.RealTime * 2; //获取更新时旋转图标
-                float scale = (angle + MathF.PI / 4) / (MathF.PI / 2);
-                scale -= MathF.Round(scale);
-                scale *= MathF.PI / 2;
-                scale = new Vector2(1, MathF.Tan(scale)).Length() / MathF.Sqrt(2);
-                if (m_updateButtonIcon != null) {
-                    m_updateButtonIcon.LayoutTransform = Matrix.CreateRotationZ(angle) * Matrix.CreateScale(scale);
-                    m_updateButtonIcon.FillColor = Color.White;
-                }
-            }
-            else {
-                if (m_updateButtonIcon != null) {
-                    m_updateButtonIcon.LayoutTransform = Matrix.CreateRotationZ(0) * Matrix.CreateScale(1);
-                    m_updateButtonIcon.Subtexture = APIUpdateManager.IsNeedUpdate.Value ? m_needToUpdateIcon : m_dontNeedUpdateIcon;
-                    m_updateButtonIcon.FillColor = APIUpdateManager.IsNeedUpdate.Value ? Color.Yellow : Color.White;
-                }
-            }
-            if (m_updateCheckButton?.IsClicked ?? false) {
-                ScreensManager.SwitchScreen("Releases", ModsManager.APIReleasesLink_API, "API");
             }
 #if BROWSER
             if (m_fullscreenButton.IsClicked) {
@@ -200,18 +147,6 @@ namespace Game {
                         null
                     )
                 );
-            }
-            if (m_showBulletinButton?.IsClicked ?? false) {
-                if (MotdManager.m_bulletin != null
-                    && !MotdManager.m_bulletin.Title.Equals("null", StringComparison.CurrentCultureIgnoreCase)) {
-                    MotdManager.ShowBulletin();
-                }
-                else {
-                    DialogsManager.ShowDialog(
-                        null,
-                        new MessageDialog(LanguageControl.Get(fName, "1"), LanguageControl.Get(fName, "2"), LanguageControl.Ok, null, null)
-                    );
-                }
             }
             if ((Input.Back || Input.IsKeyDownOnce(Key.Escape)) && !Keyboard.BackButtonQuitsApp) {
                 if (MarketplaceManager.IsTrialMode) {

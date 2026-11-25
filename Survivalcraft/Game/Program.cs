@@ -277,7 +277,6 @@ namespace Game {
                 ExternalContentManager.Initialize();
                 MusicManager.Initialize();
                 ScreensManager.Initialize();
-                APIUpdateManager.Initialize();
                 NetworkManager.Initialize();
 #if WINDOWS
                 VrManager.SetBackend(new Engine.VR.WindowsOpenXrVrBackend());

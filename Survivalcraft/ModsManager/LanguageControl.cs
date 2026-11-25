@@ -41,16 +41,7 @@ namespace Game {
 
         public static string CurrentLanguageName { get; set; } = "en-US";
 
-        public static string CurrentLanguageSimpleEnglishName => CurrentLanguageName switch {
-            "zh-CN" => "Chinese",
-            "ro-RO" => "Romanian",
-            "ru-RU" => "Russian",
-            "es-419" => "Spanish",
-            "vi-VN" => "Vietnamese",
-            "pt-BR" => "Portuguese",
-            "tr-TR" => "Turkish",
-            _ => "English"
-        };
+        public static string CurrentLanguageSimpleEnglishName => CurrentLanguageName == "zh-CN" ? "Chinese" : "English";
 
         public static void Initialize(string languageType) {
 #if BROWSER
@@ -415,13 +406,7 @@ namespace Game {
                         name,
                         name switch {
                             "en-US" => "English (United States)",
-                            "zh-CN" => "中文 (中国）",
-                            "ro-RO" => "română (România)",
-                            "ru-RU" => "русский (Россия)",
-                            "es-419" => "español (Latinoamérica)",
-                            "vi-VN" => "Tiếng Việt (Việt Nam)",
-                            "pt-BR" => "Português (Brasil)",
-                            "tr-TR" => "Türkçe (Türkiye)",
+                            "zh-CN" => "简体中文",
                             _ => $"{name}"
                         }
                     );

@@ -3724,15 +3724,6 @@
       "28": "Season:",
       "29": "Terrain Generator Version:"
     },
-    "ReleasesScreen": {
-      "1": "{0} Version List",
-      "2": "Fetching {0} version...",
-      "3": "Notice",
-      "4": "Published by {0} on {1}",
-      "5": " (Current)",
-      "6": " (Latest)",
-      "20": "Failed to fetch {0} version list. Reason:\n{1}"
-    },
     "ManageClassSubstitutesScreen": {
       "1": "Manage Class Replacement"
     },

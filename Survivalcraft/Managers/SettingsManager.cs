@@ -288,8 +288,6 @@ namespace Game {
 
         public static string MotdUpdateUrl { get; set; }
 
-        public static string MotdUpdateCheckUrl { get; set; }
-
         // 已废置：getter 恒空、写值丢弃，仅为旧代码编译保留。社区认证改由
         // AuthSessionManager + AuthenticationSessionStore（per-URL 加密凭据文件）承载。
 #pragma warning disable CS9266 // 属性 '{1}' 的 '{0}' 访问器应使用 'field'，因为另一个访问器正在使用它。
@@ -302,10 +300,6 @@ namespace Game {
 #pragma warning restore CS9266 // 属性 '{1}' 的 '{0}' 访问器应使用 'field'，因为另一个访问器正在使用它。
 
         public static bool MotdUseBackupUrl { get; set; }
-
-        public static double MotdUpdatePeriodHours { get; set; }
-
-        public static DateTime MotdLastUpdateTime { get; set; }
 
         public static string MotdLastDownloadedData { get; set; }
 
@@ -438,8 +432,6 @@ namespace Game {
         }
 
         public static bool DisplayLog { get; set; }
-
-        public static string BulletinTime { get; set; }
 
         public static bool DragHalfInSplit { get; set; }
 
@@ -702,9 +694,6 @@ namespace Game {
                 DropboxAccessToken = string.Empty;
                 //ScpboxAccessToken = string.Empty;
                 MotdUpdateUrl = $"{CommunityServerManager.CurrentApiBaseUrl}/com/motd?v={0}&l={1}";
-                MotdUpdateCheckUrl = $"{CommunityServerManager.CurrentApiBaseUrl}/com/motd?v={0}&cmd=version_check&platform={1}&apiv={2}&l={3}";
-                MotdUpdatePeriodHours = 12.0;
-                MotdLastUpdateTime = DateTime.MinValue;
                 MotdLastDownloadedData = string.Empty;
                 UserId = string.Empty;
                 LastLaunchedVersion = string.Empty;
@@ -727,7 +716,6 @@ namespace Game {
                     ? ScreenLayout.TripleVertical
                     : ScreenLayout.TripleHorizontal;
                 ScreenLayout4 = ScreenLayout.Quadruple;
-                BulletinTime = string.Empty;
                 HorizontalCreativeFlight = true;
                 CreativeDragMaxStacking = true;
                 LowFPSToTimeDeceleration = 10;
