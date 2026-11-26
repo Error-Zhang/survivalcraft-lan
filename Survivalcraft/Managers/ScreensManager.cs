@@ -1,5 +1,6 @@
 ﻿using Engine;
 using Engine.Graphics;
+using Engine.Input;
 
 namespace Game {
     public static class ScreensManager {
@@ -83,6 +84,7 @@ namespace Game {
                 HistoryStack.Push(CurrentScreen);
             }
             CurrentScreen = screen;
+            RestoreMenuCursors();
             UpdateAnimation();
             if (CurrentScreen != null) {
                 Log.Verbose($"Entered screen \"{GetScreenName(CurrentScreen)}\"");
@@ -212,10 +214,19 @@ namespace Game {
         }
 
         public static void Update() {
+            RestoreMenuCursors();
             if (m_animationData != null) {
                 UpdateAnimation();
             }
             Widget.UpdateWidgetsHierarchy(RootWidget);
+        }
+
+        private static void RestoreMenuCursors() {
+            if (CurrentScreen is not GameScreen) {
+                RootWidget.Input.IsMouseCursorVisible = true;
+                RootWidget.Input.IsPadCursorVisible = true;
+                Mouse.IsMouseVisible = true;
+            }
         }
 
         public static void Draw() {

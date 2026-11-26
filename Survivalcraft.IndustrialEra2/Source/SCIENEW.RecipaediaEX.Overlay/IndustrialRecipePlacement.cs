@@ -24,13 +24,26 @@ internal sealed class IndustrialRecipePlacement(Component component, IRecipePlac
         if (s_installed) {
             return;
         }
-        new Harmony("com.IndustrialEra2.LanRecipePlacement").Patch(
+        Harmony harmony = new("com.IndustrialEra2.LanRecipePlacement");
+        harmony.Patch(
             AccessTools.Method(typeof(RecipaediaCraftingOverlayDialog), "ShowPlacementFeedback"),
             prefix: new HarmonyMethod(AccessTools.Method(typeof(IndustrialRecipePlacement), nameof(ShowImmediateFeedback))));
+        harmony.Patch(
+            AccessTools.Method(typeof(CraftingTablePlacementTarget), nameof(CraftingTablePlacementTarget.TryPlaceRecipe)),
+            prefix: new HarmonyMethod(AccessTools.Method(typeof(IndustrialRecipePlacement), nameof(PlaceCraftingRecipe))));
         s_installed = true;
     }
 
     private static bool ShowImmediateFeedback(PlacementResult result) => !ReferenceEquals(result.Missing, s_waiting);
+
+    private static bool PlaceCraftingRecipe(ComponentCraftingTable ___m_table, IRecipe recipe, PlacementSources sources,
+        PlacementOptions options, bool execute, ref PlacementResult __result) {
+        if (!execute || !IndustrialEraLanAdapter.IsRemote(___m_table.Project)) {
+            return true;
+        }
+        __result = QueuePlacement(___m_table, recipe, sources, options);
+        return false;
+    }
 
     public bool CanAccept(IRecipe recipe) => target.CanAccept(recipe);
 
@@ -39,6 +52,10 @@ internal sealed class IndustrialRecipePlacement(Component component, IRecipePlac
             return target.TryPlaceRecipe(recipe, sources, options, execute);
         }
 
+        return QueuePlacement(component, recipe, sources, options);
+    }
+
+    private static PlacementResult QueuePlacement(Component component, IRecipe recipe, PlacementSources sources, PlacementOptions options) {
         ComponentPlayer player = (sources.PlayerInventory as Component)?.Entity.FindComponent<ComponentPlayer>();
         if (player == null || !ReferenceEquals(player.ComponentMiner.Inventory, sources.PlayerInventory)) {
             return PlacementResult.None([]);
@@ -60,7 +77,7 @@ internal sealed class IndustrialRecipePlacement(Component component, IRecipePlac
         ComponentReactor reactor => new ReactorPlacementTarget(reactor),
         ComponentWireComposer composer => new WireComposerPlacementTarget(composer),
         ComponentIEFurnace furnace => new FurnacePlacementTarget(furnace),
-        ComponentIECraftingTable table => new CraftingTablePlacementTarget(table),
+        ComponentCraftingTable table => new CraftingTablePlacementTarget(table),
         _ => null
     };
 

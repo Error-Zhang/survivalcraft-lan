@@ -633,6 +633,9 @@ internal sealed class IndustrialEraLanAdapter : ICompatNetAdapter {
         });
 
         Component component = GetReachableComponent(player, entityId, componentIndex);
+        if (component == null && entityId == player.Entity.Id && (uint)componentIndex < player.Entity.Components.Count) {
+            component = player.Entity.Components[componentIndex] as ComponentCraftingTable;
+        }
         IInventory inventory = player.ComponentMiner.Inventory;
         IInventory container = containerId == 0 ? null : GetReachableComponent(player, containerId, containerIndex) as IInventory;
         IRecipePlacementTarget target = IndustrialRecipePlacement.ResolveTarget(component);
@@ -660,9 +663,7 @@ internal sealed class IndustrialEraLanAdapter : ICompatNetAdapter {
                     missing = string.Join("；", result.Missing);
                 }
                 InventoryPacketHelpers.QueueInventorySync(inventory, packet.From);
-                if (container != null) {
-                    InventoryPacketHelpers.QueueInventorySync(container);
-                }
+                InventoryPacketHelpers.QueueInventoryTransferSync(component as IInventory, container);
             }
         }
         CompatNetCore.QueueBroadcast(AdapterId, RecipeResult, CompatNetPayload.Write(archive => {

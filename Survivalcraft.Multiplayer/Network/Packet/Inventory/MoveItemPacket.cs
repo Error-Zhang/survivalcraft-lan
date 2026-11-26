@@ -64,9 +64,11 @@ public class MoveItemPacket : Packet {
             }
             if (actualCount > 0) {
                 int removedCount = from.RemoveSlotItems(fromSlotIndex, actualCount);
-                to.AddSlotItems(toSlotIndex, value, removedCount);
+                if (removedCount > 0) {
+                    to.AddSlotItems(toSlotIndex, value, removedCount);
+                }
             }
-            InventoryPacketHelpers.QueueInventorySync(from, to);
+            InventoryPacketHelpers.QueueInventoryTransferSync(from, to);
         }
     }
 }

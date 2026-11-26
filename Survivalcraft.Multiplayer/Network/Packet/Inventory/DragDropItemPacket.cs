@@ -89,7 +89,9 @@ public class DragDropItemPacket : Packet {
             if ((targetSlotCount == 0 || sourceSlotValue == targetSlotValue) && targetSlotCount < targetSlotCapacity) {
                 int num2 = MathUtils.Min(targetSlotCapacity - targetSlotCount, actualDragCount);
                 int count2 = from.RemoveSlotItems(fromSlotIndex, num2);
-                to.AddSlotItems(toSlotIndex, sourceSlotValue, count2);
+                if (count2 > 0) {
+                    to.AddSlotItems(toSlotIndex, sourceSlotValue, count2);
+                }
             }
             else if (to.GetSlotCapacity(toSlotIndex, sourceSlotValue) >= actualDragCount && from.GetSlotCapacity(fromSlotIndex, targetSlotValue) >= targetSlotCount && sourceSlotCount == actualDragCount) {
                 int count3 = to.RemoveSlotItems(toSlotIndex, targetSlotCount);
@@ -98,7 +100,7 @@ public class DragDropItemPacket : Packet {
                 from.AddSlotItems(fromSlotIndex, targetSlotValue, count3);
             }
         }
-        InventoryPacketHelpers.QueueInventorySync(from, to);
+        InventoryPacketHelpers.QueueInventoryTransferSync(from, to);
     }
 }
 

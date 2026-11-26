@@ -363,14 +363,23 @@ namespace Engine.Input {
                 MousePosition = null;
             }
 #if !MOBILE && !BROWSER
+            UpdateDesktopCursorMode();
+#endif
+            MouseWheelMovement = 0;
+        }
+
+#if !MOBILE && !BROWSER
+        internal static void UpdateDesktopCursorMode() {
+            if (m_mouse == null) {
+                return;
+            }
             CursorMode mode = !IsMouseVisible && Window.IsActive ? m_desktopCaptureMode : CursorMode.Normal;
             if (m_mouse.Cursor.CursorMode != mode) {
                 m_mouse.Cursor.CursorMode = mode;
                 m_lastMousePosition = null;
             }
-#endif
-            MouseWheelMovement = 0;
         }
+#endif
 
         public static void ProcessMouseDown(MouseButton mouseButton, Point2 position) {
             if (Window.IsActive

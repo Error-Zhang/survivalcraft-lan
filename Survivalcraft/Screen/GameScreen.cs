@@ -78,7 +78,7 @@ namespace Game {
             }
             ShowHideCursors(
                 GameManager.Project == null
-                || DialogsManager.Dialogs.Any(dialog => dialog.IsChildWidgetOf(this))
+                || DialogsManager.Dialogs.Any(dialog => dialog.IsVisibleGlobal && dialog.IsChildWidgetOf(this))
                 || DialogsManager.HasDialogs(RootWidget)
                 || ScreensManager.CurrentScreen != this
             );

@@ -513,6 +513,9 @@ namespace Game {
         }
 
         public virtual void HandleInput() {
+            if (!m_componentPlayer.PlayerData.IsMainPlayer) {
+                return;
+            }
             WidgetInput input = m_componentPlayer.GameWidget.Input;
             PlayerInput playerInput = m_componentPlayer.ComponentInput.PlayerInput;
             ComponentRider componentRider = m_componentPlayer.ComponentRider;

@@ -579,14 +579,19 @@ namespace Game {
 
             if (notifyNetwork && NetworkManager.IsClientRunning) {
                 ModsManager.HookAction("OnNetworkMoveItem", loader => loader.OnNetworkMoveItem(sourceInventory, sourceSlotIndex, targetInventory, targetSlotIndex, count));
+                if (sourceInventory is ComponentCraftingTable || targetInventory is ComponentCraftingTable) {
+                    return true;
+                }
             }
             if (slotCount2 == 0
                 || slotValue == slotValue2) {
                 int num = MathUtils.Min(targetInventory.GetSlotCapacity(targetSlotIndex, slotValue) - slotCount2, slotCount, count);
                 if (num > 0) {
                     int count2 = sourceInventory.RemoveSlotItems(sourceSlotIndex, num);
-                    targetInventory.AddSlotItems(targetSlotIndex, slotValue, count2);
-                    return true;
+                    if (count2 > 0) {
+                        targetInventory.AddSlotItems(targetSlotIndex, slotValue, count2);
+                        return true;
+                    }
                 }
             }
             return moved_;
@@ -610,6 +615,9 @@ namespace Game {
 
             if (NetworkManager.IsClientRunning) {
                 ModsManager.HookAction("OnNetworkDragDropItem", loader => loader.OnNetworkDragDropItem(sourceInventory, sourceSlotIndex, dragMode, targetInventory, targetSlotIndex, processingOnly, dragCount));
+                if (sourceInventory is ComponentCraftingTable || targetInventory is ComponentCraftingTable) {
+                    return true;
+                }
             }
 
             bool flag = false;

@@ -75,6 +75,21 @@ public static class InventoryPacketHelpers {
         NetworkManager.Queue(packet);
     }
 
+    public static void QueueInventoryTransferSync(IInventory first, IInventory second, ClientSession to = null) {
+        RefreshCraftingResult(first);
+        if (second != first) {
+            RefreshCraftingResult(second);
+        }
+        QueueInventorySync(first, second, to);
+    }
+
+    private static void RefreshCraftingResult(IInventory inventory) {
+        // Update-driven crafting grids can still have an invalidated result when a packet changes an ingredient.
+        if (inventory is ComponentCraftingTable table && table is IUpdateable) {
+            table.UpdateCraftingResult(true);
+        }
+    }
+
     public static void QueueInventorySync(IInventory first, IInventory second, ClientSession to = null) {
         QueueInventorySync(first, to);
         if (second != first) {

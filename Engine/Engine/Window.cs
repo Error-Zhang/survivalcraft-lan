@@ -652,6 +652,9 @@ namespace Engine {
             }
             if (m_state == State.Active) {
                 m_state = State.Inactive;
+#if !MOBILE && !BROWSER
+                Mouse.UpdateDesktopCursorMode();
+#endif
                 Deactivated?.Invoke();
             }
             Keyboard.Clear();
@@ -662,6 +665,9 @@ namespace Engine {
         static void ClosedHandler() {
             if (m_state == State.Active) {
                 m_state = State.Inactive;
+#if !MOBILE && !BROWSER
+                Mouse.UpdateDesktopCursorMode();
+#endif
                 Deactivated?.Invoke();
             }
             if (m_state == State.Inactive) {
