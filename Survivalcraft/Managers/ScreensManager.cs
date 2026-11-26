@@ -97,10 +97,10 @@ namespace Game {
         /// preserve 谓词命中的屏与 Activator 失败的屏原样保留（世界绑定的 GameScreen 经 Activator
         /// 重建=未加载世界的空壳，返回它即黑屏且无输入）。落点=重建前的当前屏（异常兜底
         /// fallbackScreenName）；历史栈倒序回推保持 底→顶 原序（[.. Stack] 展开是 LIFO 快照，
-        /// 按快照原序回推=整栈倒置）。被替换的旧实例统一 Dispose（整表重建不调 Leave，同
-        /// ChangeLanguage 口径）；保留屏不 Dispose。
+        /// 按快照原序回推=整栈倒置）。切换完成后释放被替换的实例，保留屏继续使用。
         /// </summary>
         public static void RebuildAllScreens(Predicate<Screen> preserve = null, string fallbackScreenName = "MainMenu") {
+            EndAnimation();
             List<KeyValuePair<string, Screen>> oldScreens = [.. m_screens];
             Dictionary<string, Screen> newScreens = [];
             Dictionary<Screen, Screen> oldToNew = [];
@@ -129,6 +129,7 @@ namespace Game {
             }
             Screen previousBeforeSwitch = PreviousScreen;
             SwitchScreen(string.IsNullOrEmpty(currentScreenName) ? fallbackScreenName : currentScreenName);
+            EndAnimation();
             Screen newPrevious = previousBeforeSwitch != null
                 && oldToNew.TryGetValue(previousBeforeSwitch, out Screen mappedPrevious)
                     ? mappedPrevious
@@ -274,75 +275,77 @@ namespace Game {
         }
 
         public static void UpdateAnimation() {
-            float num = MathUtils.Min(Time.FrameDuration, 0.1f);
-            float factor = m_animationData.Factor;
-            m_animationData.Factor = MathUtils.Min(m_animationData.Factor + m_animationData.Speed * num, 1f);
-            if (m_animationData.Factor < 0.5f) {
-                if (m_animationData.OldScreen != null) {
-                    float num2 = 2f * (0.5f - m_animationData.Factor);
-                    float scale = 1f;
-                    m_animationData.OldScreen.ColorTransform = new Color(num2, num2, num2, num2);
-                    m_animationData.OldScreen.RenderTransform =
-                        Matrix.CreateTranslation(
-                            (0f - m_animationData.OldScreen.ActualSize.X) / 2f,
-                            (0f - m_animationData.OldScreen.ActualSize.Y) / 2f,
-                            0f
-                        )
-                        * Matrix.CreateScale(scale)
-                        * Matrix.CreateTranslation(m_animationData.OldScreen.ActualSize.X / 2f, m_animationData.OldScreen.ActualSize.Y / 2f, 0f);
+            AnimationData animation = m_animationData;
+            float previousFactor = animation.Factor;
+            float delta = animation.Speed * MathUtils.Min(Time.FrameDuration, 0.1f);
+            animation.Factor = MathUtils.Min(previousFactor + delta, 1f);
+            if (animation.Factor < 0.5f) {
+                if (animation.OldScreen != null) {
+                    float opacity = 1f - 2f * animation.Factor;
+                    animation.OldScreen.ColorTransform = new Color(opacity, opacity, opacity, opacity);
+                    animation.OldScreen.RenderTransform = Matrix.Identity;
                 }
             }
-            else if (factor < 0.5f) {
-                if (m_animationData.OldScreen != null) {
-                    m_animationData.OldScreen.Leave();
-                    ModsManager.HookAction(
-                        "OnScreenLeaved",
-                        loader => {
-                            loader.OnScreenLeaved(m_animationData.OldScreen);
-                            return false;
-                        }
-                    );
-                    CommunityToastManager.DetachFromScreen(m_animationData.OldScreen);
-                    RootWidget.Children.Remove(m_animationData.OldScreen);
-                }
-                if (m_animationData.NewScreen != null) {
-                    RootWidget.Children.Insert(0, m_animationData.NewScreen);
-                    m_animationData.NewScreen.Enter(m_animationData.Parameters);
-                    m_animationData.NewScreen.ColorTransform = Color.Transparent;
-                    ModsManager.HookAction(
-                        "OnScreenEntered",
-                        loader => {
-                            loader.OnScreenEntered(m_animationData.NewScreen, m_animationData.Parameters);
-                            return false;
-                        }
-                    );
-                    RootWidget.IsUpdateEnabled = true;
-                }
+            else if (previousFactor < 0.5f) {
+                SwapScreens(animation);
             }
-            else if (m_animationData.NewScreen != null) {
-                float num3 = 2f * (m_animationData.Factor - 0.5f);
-                float scale2 = 1f;
-                m_animationData.NewScreen.ColorTransform = new Color(num3, num3, num3, num3);
-                m_animationData.NewScreen.RenderTransform =
-                    Matrix.CreateTranslation(
-                        (0f - m_animationData.NewScreen.ActualSize.X) / 2f,
-                        (0f - m_animationData.NewScreen.ActualSize.Y) / 2f,
-                        0f
-                    )
-                    * Matrix.CreateScale(scale2)
-                    * Matrix.CreateTranslation(m_animationData.NewScreen.ActualSize.X / 2f, m_animationData.NewScreen.ActualSize.Y / 2f, 0f);
+            else if (animation.NewScreen != null) {
+                float opacity = 2f * animation.Factor - 1f;
+                animation.NewScreen.ColorTransform = new Color(opacity, opacity, opacity, opacity);
+                animation.NewScreen.RenderTransform = Matrix.Identity;
             }
-            if (m_animationData.Factor >= 1f) {
+            if (m_animationData == animation && animation.Factor >= 1f) {
                 EndAnimation();
             }
         }
 
-        public static void EndAnimation() {
-            if (m_animationData.NewScreen != null) {
-                m_animationData.NewScreen.ColorTransform = Color.White;
-                m_animationData.NewScreen.RenderTransform = Matrix.CreateScale(1f);
+        private static void SwapScreens(AnimationData animation) {
+            if (animation.OldScreen != null) {
+                animation.OldScreen.Leave();
+                ModsManager.HookAction(
+                    "OnScreenLeaved",
+                    loader => {
+                        loader.OnScreenLeaved(animation.OldScreen);
+                        return false;
+                    }
+                );
+                CommunityToastManager.DetachFromScreen(animation.OldScreen);
+                RootWidget.Children.Remove(animation.OldScreen);
             }
-            m_animationData = null;
+            if (animation.NewScreen != null) {
+                RootWidget.Children.Insert(0, animation.NewScreen);
+                animation.NewScreen.ColorTransform = Color.Transparent;
+                animation.NewScreen.Enter(animation.Parameters);
+                ModsManager.HookAction(
+                    "OnScreenEntered",
+                    loader => {
+                        loader.OnScreenEntered(animation.NewScreen, animation.Parameters);
+                        return false;
+                    }
+                );
+            }
+            if (m_animationData == animation) {
+                RootWidget.IsUpdateEnabled = true;
+            }
+        }
+
+        public static void EndAnimation() {
+            AnimationData animation = m_animationData;
+            if (animation == null) {
+                return;
+            }
+            // A second navigation can interrupt the fade before the new screen is attached.
+            if (animation.Factor < 0.5f) {
+                animation.Factor = 0.5f;
+                SwapScreens(animation);
+            }
+            if (m_animationData == animation) {
+                if (animation.NewScreen != null) {
+                    animation.NewScreen.ColorTransform = Color.White;
+                    animation.NewScreen.RenderTransform = Matrix.Identity;
+                }
+                m_animationData = null;
+            }
         }
 
         public static string GetScreenName(Screen screen) {
