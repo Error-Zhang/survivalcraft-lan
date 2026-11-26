@@ -1,0 +1,16 @@
+{
+  "Name": "工业时代2",
+  "Version": "1.0.0.2",
+  "ApiVersion": "1.9.5.1",
+  "Description": "工业时代 2：机器、产线、流体与电网。",
+  "ScVersion": "2.4.0.0",
+  "Link": "https://gitee.com/LX__LX/scie-publish-page/releases/tag/1.0.0.2",
+  "Author": "pew无知的人、LX..、开心果果、rgpro、Maestro shifu、销锋镝铸、陽叁疯 ysf、ylxh、镁生素",
+  "PackageName": "com.IndustrialEra2",
+  "Dependencies": {
+    "com.recipaediaex": "2.0.0.0",
+    "network": "1.0.0",
+    "compatnet": "1.0.0"
+  },
+  "LoadOrder": -10000
+}

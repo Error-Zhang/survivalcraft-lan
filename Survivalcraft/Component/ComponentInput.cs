@@ -25,6 +25,11 @@ namespace Game {
 
         public double m_lastJumpTime;
 
+        private const double SprintDoubleTapTime = 0.3;
+        private double? m_lastForwardTapTime;
+        private bool m_sprintKeyHeld;
+        private bool m_forwardKeyWasHeld;
+
         public Vector2 m_vrSmoothLook;
         public bool m_vrSnapTurning;
         public float m_vrSnapFadeTimer;
@@ -82,6 +87,7 @@ namespace Game {
             if (!m_componentPlayer.PlayerData.IsMainPlayer) return;
             WidgetInput input = m_componentPlayer.GameWidget.Input;
             if (GameplayInputBlocked) {
+                ResetSprintGesture();
                 input.IsMouseCursorVisible = true;
                 return;
             }
@@ -133,10 +139,39 @@ namespace Game {
             if (m_playerInput.CrouchMove.LengthSquared() > 1f) {
                 m_playerInput.CrouchMove = Vector3.Normalize(m_playerInput.CrouchMove);
             }
+            if (Window.IsActive && m_componentPlayer.PlayerData.IsReadyForPlaying && AllowHandleInput
+                && m_componentPlayer.CanSprint
+                && m_componentPlayer.GameWidget.ActiveCamera.IsEntityControlEnabled
+                && !m_componentPlayer.GameWidget.ActiveCamera.UsesMovementControls
+                && m_componentGui.ModalPanelWidget == null && !DialogsManager.HasDialogs(m_componentPlayer.GuiWidget)) {
+                bool forwardHeld = m_playerInput.Move.Z > 0f && input.IsKeyOrMouseDown("MoveFront");
+                m_playerInput.Sprint = UpdateSprintGesture(forwardHeld, forwardHeld && input.IsKeyOrMouseDownOnce("MoveFront"), Time.RealTime);
+            }
+            else {
+                ResetSprintGesture();
+            }
             if (SplitSourceInventory != null
                 && SplitSourceInventory.GetSlotCount(SplitSourceSlotIndex) == 0) {
                 SetSplitSourceInventoryAndSlot(null, -1);
             }
+        }
+
+        internal bool UpdateSprintGesture(bool forwardHeld, bool forwardPressed, double now) {
+            if (!forwardHeld) {
+                m_sprintKeyHeld = false;
+            }
+            else if (forwardPressed && !m_forwardKeyWasHeld) {
+                m_sprintKeyHeld = m_lastForwardTapTime.HasValue && now - m_lastForwardTapTime.Value <= SprintDoubleTapTime;
+                m_lastForwardTapTime = m_sprintKeyHeld ? null : now;
+            }
+            m_forwardKeyWasHeld = forwardHeld;
+            return m_sprintKeyHeld;
+        }
+
+        private void ResetSprintGesture() {
+            m_forwardKeyWasHeld = false;
+            m_lastForwardTapTime = null;
+            m_sprintKeyHeld = false;
         }
 
         public override void Load(ValuesDictionary valuesDictionary, IdToEntityMap idToEntityMap) {

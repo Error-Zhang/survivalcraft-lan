@@ -85,28 +85,21 @@ namespace Game {
 
         public static void LoadModSettings() {
             s_loaded = true;
-            if (!Storage.FileExists(ModsManager.ModsSettingsPath)) {
-                RegisterAllDataDriven(); // 文件不存在：仍注册描述符 + Default
-                return;
-            }
-
-            //读取设置并且加入到ModSettings表内
-            try {
-                using (Stream stream = Storage.OpenFile(ModsManager.ModsSettingsPath, OpenFileMode.Read)) {
+            if (Storage.FileExists(ModsManager.ModsSettingsPath)) {
+                try {
+                    using Stream stream = Storage.OpenFile(ModsManager.ModsSettingsPath, OpenFileMode.Read);
                     XElement element = XElement.Load(stream);
                     foreach (XElement modXElement in element.Elements("Mod")) {
                         string packageName = XmlUtils.GetAttributeValue<string>(modXElement, "PackageName");
                         ModSettingsCache[packageName] = modXElement;
                     }
                 }
-            }
-            catch (Exception e) {
-                if (!LanguageControl.TryGet(out string str, fName, "1")) {
-                    str = "Error serializing mod settings file:";
+                catch (Exception e) {
+                    if (!LanguageControl.TryGet(out string message, fName, "1")) {
+                        message = "Error serializing mod settings file:";
+                    }
+                    Log.Warning($"{message} {e.Message}");
                 }
-                Log.Warning($"{str} {e.Message}");
-                // 不 return：残缺/空文件时仍落入下方 RegisterAllDataDriven，按 ModList 注册描述符 + Default。
-                // 否则 m_dataDrivenPages 为空，下次 SaveModSettings 会把所有 <DataDrivenSettings> 剥掉写盘 → 设置永久丢失。
             }
 
             //遍历每个模组，加载设置项，如果设置项已加载，就从ModSettingsCache中删除

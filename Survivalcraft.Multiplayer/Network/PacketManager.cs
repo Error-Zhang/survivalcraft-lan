@@ -118,7 +118,8 @@ public enum PacketType : byte {
     DisplayMessage,
     PlayerPickBlock,
     ModPacket,
-    PlayerEat
+    PlayerEat,
+    PlayerSprint
 }
 
 public static class PacketManager {
@@ -226,6 +227,7 @@ public static class PacketManager {
         RegisterPacket<PlayerInteractPacket>();
         RegisterPacket<PlayerPickBlockPacket>();
         RegisterPacket<PlayerEatPacket>();
+        RegisterPacket<PlayerSprintPacket>();
         RegisterPacket<PlayerIntoPlayingPacket>();
         RegisterPacket<PlayerKnownPacket>();
         RegisterPacket<PlayerModifyPacket>();

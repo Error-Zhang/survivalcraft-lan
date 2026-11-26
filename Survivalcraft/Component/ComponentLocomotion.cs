@@ -40,6 +40,7 @@ namespace Game {
         public bool m_swimming;
         public bool m_flying;
         public const string fName = "ComponentLocomotion";
+        private const float SprintSpeedMultiplier = 1.5f;
 
         public float AccelerationFactor { get; set; }
 
@@ -449,6 +450,9 @@ namespace Game {
                         value.Y = MathUtils.Max(value.Y, MathUtils.Lerp(0f, m_walkSpeedWhenTurning, MathUtils.Saturate(2f * MathF.Abs(TurnOrder.X))));
                     }
                     float num2 = WalkSpeed;
+                    if (value.Y > 0f && m_componentPlayer?.PlayerData.IsMainPlayer == true && m_componentPlayer.IsSprinting) {
+                        num2 *= SprintSpeedMultiplier;
+                    }
                     if (m_componentCreature.ComponentBody.ImmersionFactor > 0.2f) {
                         num2 *= 0.66f;
                     }

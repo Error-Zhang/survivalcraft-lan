@@ -30,6 +30,8 @@ namespace Game {
 
         public bool Jump;
 
+        public bool Sprint;
+
         public int ScrollInventory;
 
         public bool ToggleInventory;

@@ -48,6 +48,34 @@ namespace Game {
 
         public PlayerData PlayerData { get; set; }
 
+        private bool m_sprintRequested;
+        private double m_networkSprintUntil;
+
+        internal bool CanSprint =>
+            ComponentHealth.Health > 0f
+            && ComponentSleep.SleepFactor <= 0f
+            && ComponentRider.Mount == null
+            && ComponentBody.ParentBody == null
+            && !ComponentBody.IsCrouching
+            && ComponentBody.TargetCrouchFactor <= 0f
+            && ComponentBody.ImmersionFactor <= 0.2f
+            && !ComponentLocomotion.LadderValue.HasValue
+            && !ComponentLocomotion.IsCreativeFlyEnabled
+            && !Game.ComponentLocomotion.IsCreativeFlyEnabledSet
+            && ComponentLocomotion.StunTime <= 0f
+            && !ComponentLocomotion.DisableInputMovement
+            && (ComponentVitalStats.Food > 0f
+                || m_subsystemGameInfo.WorldSettings.GameMode == GameMode.Creative
+                || !m_subsystemGameInfo.WorldSettings.AreAdventureSurvivalMechanicsEnabled);
+
+        public bool IsSprinting =>
+            (PlayerData.IsMainPlayer ? m_sprintRequested : NetworkManager.IsServerRunning && Time.RealTime < m_networkSprintUntil)
+            && CanSprint;
+
+        public void SetNetworkSprint(bool sprinting) {
+            m_networkSprintUntil = sprinting ? Time.RealTime + 1.0 : 0.0;
+        }
+
         public enum InteractEvent {
             None,
             Start
@@ -445,6 +473,7 @@ namespace Game {
                 ModsManager.HookAction("OnNetworkActiveSlotChanged", loader => loader.OnNetworkActiveSlotChanged(this));
             }
             PlayerInput playerInput = ComponentInput.PlayerInput;
+            m_sprintRequested = false;
             if (ComponentInput.IsControlledByTouch
                 && m_aim.HasValue
                 && m_doAimBlockLook) {
@@ -554,6 +583,7 @@ namespace Game {
                     ComponentLocomotion.WalkOrder = ComponentBody.IsCrouching
                         ? 0.66f * new Vector2(playerInput.CrouchMove.X, playerInput.CrouchMove.Z)
                         : new Vector2(playerInput.Move.X, playerInput.Move.Z);
+                    m_sprintRequested = playerInput.Sprint && playerInput.Move.Z > 0f;
                     ComponentLocomotion.FlyOrder = new Vector3(0f, playerInput.Move.Y, 0f);
                     ComponentLocomotion.TurnOrder = playerInput.Look * new Vector2(1f, 0f);
                     ComponentLocomotion.JumpOrder = MathUtils.Max(playerInput.Jump ? 1 : 0, ComponentLocomotion.JumpOrder);

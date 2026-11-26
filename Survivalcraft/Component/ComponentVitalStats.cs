@@ -68,6 +68,8 @@ namespace Game {
 
         public static string fName = "ComponentVitalStats";
 
+        private const float SprintFoodLossPerSecond = 0.008f;
+
         public Action<int> FoodEaten { get; set; }
 
         /// <summary>
@@ -294,6 +296,9 @@ namespace Game {
                 }
                 else {
                     Food -= hungerFactor * gameTimeDelta * num / 2880f;
+                }
+                if (m_componentPlayer.IsSprinting) {
+                    Food -= hungerFactor * gameTimeDelta * SprintFoodLossPerSecond;
                 }
                 Food -= hungerFactor * lastJumpOrder / 1200f;
                 if (m_componentPlayer.ComponentMiner.DigCellFace.HasValue) {
@@ -618,26 +623,20 @@ namespace Game {
                 m_componentPlayer.ComponentScreenOverlays.FloatingMessage = LanguageControl.Get(fName, 37);
                 m_componentPlayer.ComponentScreenOverlays.FloatingMessageFactor = MathUtils.Saturate(10f * (m_temperatureBlackoutFactor - 0.9f));
             }
-            if (m_targetTemperature > 22f) {
-                m_componentPlayer.ComponentGui.TemperatureBarWidget.BarSubtexture = ContentManager.Get<Subtexture>("Textures/Atlas/Temperature6");
-            }
-            else if (m_targetTemperature > 18f) {
-                m_componentPlayer.ComponentGui.TemperatureBarWidget.BarSubtexture = ContentManager.Get<Subtexture>("Textures/Atlas/Temperature5");
-            }
-            else if (m_targetTemperature > 14f) {
-                m_componentPlayer.ComponentGui.TemperatureBarWidget.BarSubtexture = ContentManager.Get<Subtexture>("Textures/Atlas/Temperature4");
-            }
-            else if (m_targetTemperature > 10f) {
-                m_componentPlayer.ComponentGui.TemperatureBarWidget.BarSubtexture = ContentManager.Get<Subtexture>("Textures/Atlas/Temperature3");
-            }
-            else if (m_targetTemperature > 6f) {
-                m_componentPlayer.ComponentGui.TemperatureBarWidget.BarSubtexture = ContentManager.Get<Subtexture>("Textures/Atlas/Temperature2");
-            }
-            else {
-                m_componentPlayer.ComponentGui.TemperatureBarWidget.BarSubtexture = m_targetTemperature > 2f
-                    ? ContentManager.Get<Subtexture>("Textures/Atlas/Temperature1")
-                    : ContentManager.Get<Subtexture>("Textures/Atlas/Temperature0");
-            }
+            UpdateTemperatureBar(m_targetTemperature);
+        }
+
+        protected void UpdateTemperatureBar(float temperature) {
+            string texture = temperature switch {
+                > 22f => "Textures/Atlas/Temperature6",
+                > 18f => "Textures/Atlas/Temperature5",
+                > 14f => "Textures/Atlas/Temperature4",
+                > 10f => "Textures/Atlas/Temperature3",
+                > 6f => "Textures/Atlas/Temperature2",
+                > 2f => "Textures/Atlas/Temperature1",
+                _ => "Textures/Atlas/Temperature0"
+            };
+            m_componentPlayer.ComponentGui.TemperatureBarWidget.BarSubtexture = ContentManager.Get<Subtexture>(texture);
         }
 
         public virtual void UpdateWetness() {

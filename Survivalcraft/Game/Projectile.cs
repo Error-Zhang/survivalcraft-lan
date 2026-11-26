@@ -9,6 +9,10 @@ namespace Game {
 
         public Vector3 AngularVelocity;
 
+        public bool UseModNetworkMotion { get; set; }
+
+        public bool IsNetworkVisualReplica { get; set; }
+
         public bool IsInFluid;
 
         [Obsolete("Use IsInFluid instead.")]
@@ -250,6 +254,14 @@ namespace Game {
         }
 
         public virtual void Update(float dt) {
+            if (IsNetworkVisualReplica) {
+                Position += Velocity * dt;
+                Rotation += AngularVelocity * dt;
+                if (TrailParticleSystem != null) {
+                    UpdateTrailParticleSystem(dt);
+                }
+                return;
+            }
             if (Project != null) {
                 UpdateTimeToRemove();
             }

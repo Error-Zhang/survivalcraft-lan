@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\build\Windows.props" />
+
+  <PropertyGroup>
+    <AssemblyName>SCIENEW</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>14.0</LangVersion>
+    <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
+    <IndustrialPackageDirectory Condition="'$(IndustrialPackageDirectory)' == ''">$(MSBuildProjectDirectory)\Packages</IndustrialPackageDirectory>
+    <OriginalIndustrialPackage>$(IndustrialPackageDirectory)\IndustrialEra2-1.0.0.2.scmod</OriginalIndustrialPackage>
+    <OriginalRecipePackage>$(IndustrialPackageDirectory)\RecipaediaEX-2.0.0.0.scmod</OriginalRecipePackage>
+    <IndustrialInputs>$(MSBuildProjectDirectory)\obj\$(Configuration)\$(RuntimeIdentifier)\Upstream</IndustrialInputs>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Survivalcraft.Windows\Survivalcraft.Windows.csproj"
+      Private="false" AdditionalProperties="SkipNetworkModPackage=true;SkipCompatibilityModPackage=true;SkipContentZip=true" />
+    <ProjectReference Include="..\Survivalcraft.Multiplayer\Survivalcraft.Multiplayer.csproj" Private="false" />
+    <ProjectReference Include="..\Survivalcraft.CompatNet\Survivalcraft.CompatNet.csproj" Private="false" />
+    <Reference Include="RecipaediaEX" HintPath="$(IndustrialInputs)\Recipes\RecipaediaEX.dll" Private="false" />
+    <Reference Include="ZLinq" HintPath="$(IndustrialInputs)\Recipes\ZLinq.dll" Private="false" />
+    <Reference Include="SCIENEW.GEN" HintPath="$(IndustrialInputs)\Industrial\SCIENEW.GEN.dll" Private="false" />
+    <Reference Include="XamariNES" HintPath="$(IndustrialInputs)\Industrial\XamariNES.dll" Private="false" />
+    <Reference Include="Box2D.NET" HintPath="$(IndustrialInputs)\Industrial\Box2D.NET.dll" Private="false" />
+  </ItemGroup>
+
+  <Target Name="ExtractIndustrialInputs" BeforeTargets="ResolveAssemblyReferences" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Error Condition="!Exists('$(OriginalIndustrialPackage)') or !Exists('$(OriginalRecipePackage)')"
+      Text="Industrial Era 2 requires both original .scmod packages in $(IndustrialPackageDirectory). See Survivalcraft.IndustrialEra2/README.md." />
+    <Unzip SourceFiles="$(OriginalIndustrialPackage)" DestinationFolder="$(IndustrialInputs)\Industrial" />
+    <Unzip SourceFiles="$(OriginalRecipePackage)" DestinationFolder="$(IndustrialInputs)\Recipes" />
+  </Target>
+
+  <!-- Industrial Era embeds another NCalc implementation in its own assembly. -->
+  <Target Name="ExcludeHostNCalc" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <ReferencePath Remove="@(ReferencePath)" Condition="$([System.String]::Copy('%(ReferencePath.Filename)').StartsWith('NCalc.'))" />
+      <ReferencePathWithRefAssemblies Remove="@(ReferencePathWithRefAssemblies)" Condition="$([System.String]::Copy('%(ReferencePathWithRefAssemblies.Filename)').StartsWith('NCalc.'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="PackageIndustrialMod" AfterTargets="Build" Condition="'$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <IndustrialPackageOutput>$(TargetDir)scmod\</IndustrialPackageOutput>
+      <IndustrialStaging>$(IntermediateOutputPath)IndustrialMod\</IndustrialStaging>
+    </PropertyGroup>
+    <ItemGroup>
+      <IndustrialAsset Include="$(IndustrialInputs)\Industrial\**\*" Exclude="$(IndustrialInputs)\Industrial\SCIENEW.dll;$(IndustrialInputs)\Industrial\modinfo.json" />
+    </ItemGroup>
+    <MakeDir Directories="$(IndustrialStaging);$(IndustrialPackageOutput)" />
+    <Copy SourceFiles="@(IndustrialAsset)" DestinationFiles="@(IndustrialAsset->'$(IndustrialStaging)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <!-- The 1.0.0.2 Tractor references unpublished art; its inventory item already uses the car assets. -->
+    <XmlPoke XmlInputPath="$(IndustrialStaging)IndustrialMod.xdb"
+      Query="//EntityTemplate[@Name='Tractor']/MemberComponentTemplate[@Name='PropellerModel']/Parameter[@Name='ModelName']/@Value"
+      Value="Models/Car" />
+    <XmlPoke XmlInputPath="$(IndustrialStaging)IndustrialMod.xdb"
+      Query="//EntityTemplate[@Name='Tractor']/MemberComponentTemplate[@Name='PropellerModel']/Parameter[@Name='TextureOverride']/@Value"
+      Value="Textures/Car" />
+    <Copy SourceFiles="$(TargetPath);$(MSBuildProjectDirectory)\modinfo.json" DestinationFolder="$(IndustrialStaging)" />
+    <ZipDirectory SourceDirectory="$(IndustrialStaging)" DestinationFile="$(IndustrialPackageOutput)IndustrialEra2-LAN.scmod" Overwrite="true" />
+    <Copy SourceFiles="$(OriginalRecipePackage)" DestinationFolder="$(IndustrialPackageOutput)" SkipUnchangedFiles="true" />
+    <Copy Condition="'$(InstallModPath)' != ''"
+      SourceFiles="$(IndustrialPackageOutput)IndustrialEra2-LAN.scmod;$(IndustrialPackageOutput)RecipaediaEX-2.0.0.0.scmod" DestinationFolder="$(InstallModPath)" />
+  </Target>
+</Project>

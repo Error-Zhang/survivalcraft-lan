@@ -817,7 +817,9 @@ namespace Survivalcraft.Multiplayer {
     }
 
     public override void OnNetworkProjectileFired(Projectile projectile, bool isFireProjectile) {
-        NetworkManager.Queue(new ProjectilePacket(projectile, isFireProjectile));
+        if (!projectile.UseModNetworkMotion) {
+            NetworkManager.Queue(new ProjectilePacket(projectile, isFireProjectile));
+        }
     }
 
     public override void OnNetworkSignEditRequested(SubsystemSignBlockBehavior subsystem, Point3 point) {
@@ -955,6 +957,8 @@ namespace Survivalcraft.Multiplayer {
             NetworkManager.Queue(new WakeupStatusPacket(sleep));
     }
 
+    private bool m_sentSprint;
+
     public override void OnNetworkPlayerBodyUpdate(ComponentPlayer player, bool isMainPlayer) {
         if (!NetworkManager.IsClientRunning && Time.PeriodicEvent(0.2f, 0.0)) {
             foreach (ClientSession session in NetworkManager.ServerSessions) {
@@ -972,8 +976,14 @@ namespace Survivalcraft.Multiplayer {
         // gun-mod aim updates).
         if (NetworkManager.IsClientRunning
             && isMainPlayer
-            && Time.PeriodicEvent(0.2f, 0.0))
+            && Time.PeriodicEvent(0.2f, 0.0)) {
             NetworkManager.Queue(new PlayerBodyUpdatePacket(player));
+            bool sprinting = player.IsSprinting;
+            if (sprinting || m_sentSprint) {
+                NetworkManager.Queue(new PlayerSprintPacket(player, sprinting));
+                m_sentSprint = sprinting;
+            }
+        }
     }
 
     public override void OnNetworkTerrainPlayerLocationUpdate(TerrainUpdater updater, TerrainUpdater.UpdateLocation location) {
